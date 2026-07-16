@@ -1,6 +1,8 @@
 # Company identifier references in the Federated Catalogue
 
-How the catalogue can act as a **discoverable registry** that links a company's canonical **DID** to other identifiers and attributes (legal name, address, BPN, IBAN, …) in a data space for use as a Contruct-X Registry.
+How the catalogue can act as a **discoverable registry** that links a company's canonical **DID** to other identifiers and attributes (legal name, address, BPN, IBAN, …) in a data space for use as a Construct-X Registry.
+
+For phased delivery (vocab, shapes, strict verification, federation, optional resolve API), see [`construct-x-implementation-plan.md`](./construct-x-implementation-plan.md).
 
 ## Idea
 
