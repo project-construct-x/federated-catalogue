@@ -10,7 +10,7 @@ This plan turns the modelling in [`company-identifier-references.md`](./company-
 |------|-----------------------------|
 | Credentials arrive only via **HTTP REST** (`POST /assets`, `POST /participants`, `POST /verification`) | Registry writes are push ingest, not DCP / OpenID4VP / DIDComm presentation exchange |
 | JWT-VC/VP formats are accepted; LD proofs are rejected | Issue Construct-X credentials as **standard JWT-VC** (or Gaia-X Loire JWT if co-aligned) |
-| “IDSA/DCP trust frameworks” in docs means **payload shape compatibility**, not a DCP wire protocol | Do **not** plan a DCP verifier endpoint in v1 |
+| “IDSA/DCP trust frameworks” in docs means **payload shape compatibility**, not a DCP wire protocol | No DCP verifier in v1; Phase 6 must use [EECC dcp](https://github.com/european-epc-competence-center/dcp) |
 | Verification is real but **toggleable**; docker defaults enable **semantics only** (`vc-signature` / `vp-signature` often `false`) | An authoritative registry profile **must** turn signatures (and ideally schema + trust framework) on |
 | Claims are projected into RDF and discovered via **`POST /query`** / **`POST /query/search`** | Registry lookups are SPARQL (or a thin façade over it), not a new graph store |
 | Auth is Keycloak roles (`ASSET_CREATE`, `QUERY_EXECUTE`, …) | Who may publish mappings is an IAM + issuer-trust question, not “anyone with a VC” |
@@ -29,7 +29,7 @@ This plan turns the modelling in [`company-identifier-references.md`](./company-
 
 Non-goals for v1:
 
-- Implementing DCP / OpenID4VP presentation protocol
+- Implementing DCP / OpenID4VP presentation protocol (deferred to Phase 6; when done, use the EECC DCP library — see below)
 - Replacing Tractus-X BDRS API 1:1 (directory dump + MembershipCredential bearer) unless Construct-X explicitly requires that contract
 - Storing secrets (IBAN) in a publicly queryable graph without an access model
 
@@ -184,13 +184,29 @@ Implementation notes:
 
 Defer if Phase 1 SPARQL kit is enough for Construct-X integrators.
 
-### Phase 6 — Future: presentation protocols (explicit backlog)
+### Phase 6 — Future: DCP presentation (explicit backlog)
 
-If Construct-X later requires wallet-driven presentation (DCP / OpenID4VP):
+If Construct-X later requires wallet-driven presentation via the Eclipse **Decentralized Claims Protocol** (DCP):
 
-- Treat as a **new verifier façade** in front of the same ingest/verify pipeline
-- Out of scope until a concrete protocol + authn story is chosen
+- Treat as a **new verifier façade** in front of the same ingest/verify pipeline (`POST /assets` / internal `verifyCredential`)
 - Do not conflate JWT-VC format support with protocol support
+- **Mandatory dependency:** use the EECC DCP Java package — do not reimplement DCP wire DTOs / presentation query flows from scratch
+
+| Item | Value |
+|------|--------|
+| Repository | [european-epc-competence-center/dcp](https://github.com/european-epc-competence-center/dcp) |
+| Maven (core) | `de.eecc.dcp:dcp` |
+| Maven (Spring Boot) | `de.eecc.dcp:dcp-spring-boot-starter` |
+| Role | Verifier-side (and issuer-side offer flow) for DCP v1.x: Verifiable Presentation Protocol + Credential Issuance Protocol |
+
+Integration sketch:
+
+1. Add `dcp-spring-boot-starter` (or `dcp`) to `fc-service-server` / a dedicated DCP module when Phase 6 starts.
+2. Use library APIs (`DcpPresentation`, `PresentationQueryMessage`, scope / PE query definitions, SI-token validation as the package matures) to talk to holder Credential Services.
+3. On successful presentation, hand extracted VCs/VPs into the catalogue’s existing verification + store path (same strict profile as Phase 2).
+4. Track library maturity (`0.1.x` still incremental for full SI-token / HTTP / VP validation façades); pin a version and follow upstream `implementation-plan.md` before production cutover.
+
+OpenID4VP remains out of scope unless Construct-X explicitly requires it; prefer DCP + EECC package for dataspace alignment.
 
 ---
 
@@ -205,9 +221,10 @@ If Construct-X later requires wallet-driven presentation (DCP / OpenID4VP):
 - [ ] **Coexistence** — regression against Gaia-X / DCS demos
 - [ ] **Federation** — partner search demo + conflict note
 - [ ] **(Optional)** resolve façade API + OpenAPI
+- [ ] **(Phase 6)** DCP verifier façade via [EECC `dcp`](https://github.com/european-epc-competence-center/dcp) (`de.eecc.dcp:dcp` / `dcp-spring-boot-starter`) → existing verify/store
 - [ ] **Docs** — link this plan from operator guide / company-identifier references
 
-No mandatory core changes for Phases 0–4 if existing ingest, verification toggles, schemas, versions, and query federation behave as documented. Core work appears only for Phase 5+ or if gaps are found (e.g. schema not enforced on ingest path).
+No mandatory core changes for Phases 0–4 if existing ingest, verification toggles, schemas, versions, and query federation behave as documented. Core work appears only for Phase 5+ or if gaps are found (e.g. schema not enforced on ingest path). Phase 6 adds a DCP module on top of [EECC dcp](https://github.com/european-epc-competence-center/dcp).
 
 ---
 
@@ -242,7 +259,8 @@ Executable form: extend `examples/` with a Construct-X hurl suite analogous to `
 
 | Risk | Mitigation |
 |------|------------|
-| Expectation of DCP “support” | Docs state JWT format ≠ DCP protocol; Phase 6 backlog only |
+| Expectation of DCP “support” | Docs state JWT format ≠ DCP protocol; Phase 6 uses EECC [dcp](https://github.com/european-epc-competence-center/dcp), not a custom stack |
+| EECC dcp still `0.1.x` | Pin version; gate production on SI-token / VP validation façades being complete |
 | Lab defaults → false sense of security | Strict profile mandatory in Construct-X ops guide |
 | Public graph leaks IBAN | Separate asset / omit / vault; CX-R9 in demo defaults |
 | Cross-node conflicting BPN mappings | Document multi-hit; no automatic overwrite |
@@ -263,4 +281,4 @@ Executable form: extend `examples/` with a Construct-X hurl suite analogous to `
 
 ## Summary
 
-Construct-X can use the Federated Catalogue as **catalogue and registry at once** by standardising identifier VCs on the existing HTTP ingest path, enabling a **strict verification profile** for authoritative mappings, and discovering companies via SPARQL (and federation). No DCP implementation is required for v1; trust comes from JWT verification, shapes, issuer policy, and IAM—not from a separate registry service.
+Construct-X can use the Federated Catalogue as **catalogue and registry at once** by standardising identifier VCs on the existing HTTP ingest path, enabling a **strict verification profile** for authoritative mappings, and discovering companies via SPARQL (and federation). No DCP implementation is required for v1; trust comes from JWT verification, shapes, issuer policy, and IAM—not from a separate registry service. When DCP is needed later, integrate [european-epc-competence-center/dcp](https://github.com/european-epc-competence-center/dcp) (`de.eecc.dcp`) as the protocol layer in front of the same verify/store pipeline.
