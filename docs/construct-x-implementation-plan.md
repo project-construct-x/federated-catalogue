@@ -8,14 +8,23 @@ This plan turns the modelling in [`company-identifier-references.md`](./company-
 
 | Fact | Implication for Construct-X |
 |------|-----------------------------|
-| Credentials arrive only via **HTTP REST** (`POST /assets`, `POST /participants`, `POST /verification`) | Registry writes are push ingest, not DCP / OpenID4VP / DIDComm presentation exchange |
+| Credentials arrive only via **HTTP REST** (`POST /assets`, `POST /participants`, `POST /verification`) | Construct-X write path should evolve to **DCP presentation** (holder proves right-to-publish), then hand off to the same verify/store pipeline |
 | JWT-VC/VP formats are accepted; LD proofs are rejected | Issue Construct-X credentials as **standard JWT-VC** (or Gaia-X Loire JWT if co-aligned) |
-| “IDSA/DCP trust frameworks” in docs means **payload shape compatibility**, not a DCP wire protocol | No DCP verifier in v1; Phase 6 must use [EECC dcp](https://github.com/european-epc-competence-center/dcp) |
+| “IDSA/DCP trust frameworks” in docs means **payload shape compatibility**, not a DCP wire protocol | Add a real DCP verifier via [EECC dcp](https://github.com/european-epc-competence-center/dcp); format support alone is not enough |
 | Verification is real but **toggleable**; docker defaults enable **semantics only** (`vc-signature` / `vp-signature` often `false`) | An authoritative registry profile **must** turn signatures (and ideally schema + trust framework) on |
 | Claims are projected into RDF and discovered via **`POST /query`** / **`POST /query/search`** | Registry lookups are SPARQL (or a thin façade over it), not a new graph store |
-| Auth is Keycloak roles (`ASSET_CREATE`, `QUERY_EXECUTE`, …) | Who may publish mappings is an IAM + issuer-trust question, not “anyone with a VC” |
+| Auth today is Keycloak roles (`ASSET_CREATE`, `QUERY_EXECUTE`, `Ro-*`, …) | **Strip Keycloak to a minimum:** only **application admins** log in with Keycloak; **all data posters** authenticate and authorize via **VCs + DCP**. Drop fine-grained / composite role catalogues from the realm |
 
 **Dual-role principle:** keep one API surface. Catalogue assets and registry reference credentials share ingest, verification, versioning, and query. Differ only by vocabulary, SHACL, and operator policy.
+
+**Auth principle:**
+
+| Actor | AuthN | AuthZ |
+|-------|-------|-------|
+| **Catalogue users** (participants, registry writers, anyone posting data) | DCP presentation of VCs | Credential type / issuer / trust policy — **not** Keycloak roles |
+| **Application admins** only | Keycloak OIDC login (Bearer JWT) | Single admin capability (e.g. `ADMIN_ALL`) for ops IAM, `/admin/**`, break-glass |
+
+No long-lived Keycloak users for writers. No `ASSET_*` / `SCHEMA_*` / `QUERY_*` / `Ro-*` permission matrix for Construct-X.
 
 ---
 
@@ -24,12 +33,14 @@ This plan turns the modelling in [`company-identifier-references.md`](./company-
 1. **Registry:** resolve `BPN → DID`, `legal name → DID`, `address/country → DID`, and (optionally restricted) `IBAN → DID` from signed claims.
 2. **Catalogue:** continue to host Construct-X service offerings / other assets in the same node.
 3. **Authoritative mappings:** operators can run a profile where VC signatures and shapes are enforced before store.
-4. **Operable without new core APIs** for v1; optional convenience endpoints only if SPARQL ergonomics block adoption.
-5. **Federated discovery:** partner catalogues can answer cross-node identifier lookups via existing `query.partners` / `POST /query/search`.
+4. **VC/DCP for all users; Keycloak for admins only:** every data-posting user authenticates and authorizes with **verifiable credentials over DCP**. Keycloak remains only for **application admins** (ops login). **No** complex roles / permission specifications in Keycloak.
+5. **Operable without new core query APIs** for v1; optional convenience resolve endpoints only if SPARQL ergonomics block adoption.
+6. **Federated discovery:** partner catalogues can answer cross-node identifier lookups via existing `query.partners` / `POST /query/search`.
 
 Non-goals for v1:
 
-- Implementing DCP / OpenID4VP presentation protocol (deferred to Phase 6; when done, use the EECC DCP library — see below)
+- Full OpenID4VP (prefer DCP + EECC library for dataspace alignment; OpenID4VP only if Construct-X explicitly requires it)
+- Keeping Keycloak as a general user directory or permission engine for catalogue writers/readers
 - Replacing Tractus-X BDRS API 1:1 (directory dump + MembershipCredential bearer) unless Construct-X explicitly requires that contract
 - Storing secrets (IBAN) in a publicly queryable graph without an access model
 
@@ -46,10 +57,11 @@ Mapped from [`company-identifier-references.md`](./company-identifier-references
 | CX-R3 | Custom vocabulary via `@context` (reuse Catena-X / schema.org / Gaia-X where useful) | Context documented; shapes know the IRIs |
 | CX-R4 | Ingest via `POST /assets` (`application/vc+jwt` or `application/ld+json` where supported) | Hurl demo publishes and discovers |
 | CX-R5 | Split model allowed: Participant VC + lightweight Reference VC | Both patterns in examples |
-| CX-R6 | Publish gated by Keycloak roles | Unauthorized `POST /assets` rejected |
+| CX-R6 | **All users** post data via **VC + DCP**; Keycloak tokens do not authorize catalogue writes | Writer without DCP presentation rejected; writer with trusted presentation succeeds **without** Keycloak |
+| CX-R6a | Keycloak **application-admin only**; no complex role/permission matrix | Realm has a single admin role; `ASSET_*` / `SCHEMA_*` / `QUERY_*` / `Ro-*` composites removed from Construct-X realm; only admins use OIDC login |
 | CX-R7 | Authoritative mode: signatures + trust-framework (+ optional compliance) | Strict profile rejects unsigned / bad issuer |
 | CX-R8 | Updates via versions / provenance; stale mappings supersedable | Version query prefers latest approved |
-| CX-R9 | Sensitive fields (IBAN) not casually public | Separate asset / role / omit from public shapes |
+| CX-R9 | Sensitive fields (IBAN) not casually public | Separate asset / DCP presentation policy / omit from public shapes |
 | CX-R10 | Optional SHACL for BPN/IBAN via `POST /schemas` | Invalid BPN rejected when schema on |
 | CX-R11 | Federation via `federated-catalogue.query.partners` | Cross-node BPN→DID via `POST /query/search` |
 
@@ -68,22 +80,35 @@ Catalogue co-existence (implicit):
 ┌─────────────────────────────────────────────────────────────┐
 │                 Construct-X Federated Catalogue               │
 │                                                               │
-│  Writers (registry operators / participants)                  │
-│       │  JWT-VC  POST /assets | POST /participants            │
+│  Users (all data posters)                                     │
+│       │  DCP Verifiable Presentation Protocol (EECC dcp)      │
+│       │  VCs prove identity + right-to-publish                │
 │       ▼                                                       │
-│  Verification (strict profile)                                │
-│    · JWT signature (issuer DID assertionMethod)               │
-│    · optional Loire / trust-anchor policy                     │
-│    · semantics + Construct-X SHACL                            │
-│       ▼                                                       │
-│  Asset store + RDF graph (Fuseki, RDF-star)                   │
+│  AuthN/AuthZ façade (VC / issuer policy — no Keycloak roles)  │
 │       │                                                       │
-│       ├── Catalogue consumers: offerings, templates, …        │
-│       └── Registry consumers: SPARQL / thin resolve API       │
+│       ▼                                                       │
+│  Verification (strict profile) → store → RDF / Fuseki         │
 │                                                               │
-│  Federation: POST /query/search → partner catalogues          │
+│  Application admins only                                      │
+│       │  Keycloak OIDC (single ADMIN_ALL-class role)          │
+│       ▼                                                       │
+│  /admin/** , ops IAM, break-glass — not data publish          │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Target auth model (hard requirements)
+
+| Who | How they authenticate | What they may do | Keycloak? |
+|-----|----------------------|------------------|-----------|
+| **Catalogue users** (everyone posting or using data APIs) | VCs presented over **DCP** | `POST` assets / participants / related write APIs; authZ from credential type + issuer trust | **No** |
+| **Application admins** | Keycloak login only | `/admin/**`, residual admin ops (stats, trust-framework config, graph rebuild, …) | **Yes — only them** |
+
+Hard rules:
+
+1. **No Keycloak login for users.** Writers never obtain `ASSET_CREATE` (or any fine-grained role) from a realm.
+2. **No complex roles/permissions in Keycloak.** Delete the fine-grained + composite catalogue (`ASSET_*`, `SCHEMA_*`, `QUERY_*`, `Ro-MU-*`, `Ro-AS-A`, `Ro-PA-A`, convenience composites like `asset-creator`, Gaia-X claim remaps). Keep **one** application-admin role (e.g. `ADMIN_ALL`).
+3. **All data posts** go through DCP presentation + VC verification; Keycloak JWT must **not** be accepted as sufficient for Construct-X write paths in the authoritative profile.
+4. Map former “permissions” onto **VC types / issuers / presentation scopes**, not realm role names.
 
 Recommended credential split (CX-R5):
 
@@ -93,6 +118,77 @@ Recommended credential split (CX-R5):
 | **Identifier Reference VC** | Trusted Construct-X registry operator | company DID | `cx:bpn` (and later controlled IBAN / other refs) |
 
 Catalogue assets (service offerings, DCS-style templates, …) remain ordinary assets on the same instance.
+
+---
+
+## Strip Keycloak to a minimum (concrete work)
+
+Today authorization is almost entirely URL ↔ role matching in `SecurityConfig`, JWT `participant_id` scoping in `SessionUtils`, and Keycloak Admin API as the user/participant store. Construct-X must replace the **user** half of that with DCP+VC and leave Keycloak as an **admin-only** IdP.
+
+### Target end state
+
+| Area | Before (today) | After (Construct-X) |
+|------|----------------|---------------------|
+| Who has Keycloak accounts | Admins, participant admins, asset operators, readers, test users | **Application admins only** |
+| How users post data | Bearer JWT + `ASSET_CREATE` / `Ro-*` | **DCP presentation + VCs** |
+| Realm roles | Fine-grained CRUD + composites + Gaia-X remaps | **One admin role** (`ADMIN_ALL` or equivalent); no permission matrix |
+| `/users`, `/roles`, participant user admin via Keycloak | First-class | Deprecate / admin-only residual or remove from Construct-X profile |
+| Demo portal OIDC login for publish | Used by writers | Admin UI only; publish demos use DCP |
+
+### Work package A — Realm & config (remove permission complexity)
+
+1. **Slim realm JSON** (`keycloak/realms/{dev,staging,prod}/fc-realm.json`, Helm `fc-realm.json`):
+   - Remove client roles: `ASSET_*`, `SCHEMA_*`, `QUERY_EXECUTE`, `Ro-MU-CA`, `Ro-MU-A`, `Ro-AS-A`, `Ro-PA-A`, convenience composites (`asset-creator`, `asset-editor`, …).
+   - Keep a single application-admin role (prefer `ADMIN_ALL`; decide whether to rename/alias `Ro-MU-CA` once for migration then delete).
+   - Remove non-admin seed users (`fc-restricted-test`, writer-style users); keep one admin user for ops.
+   - Drop unused protocol mappers / authz settings that only served fine-grained roles (keep what admins still need).
+2. **`CommonConstants`:** stop treating fine-grained role names as the Construct-X auth model; retain admin constant(s) only for Keycloak-gated paths.
+3. **`CustomJwtAuthenticationConverter`:** remove Gaia-X claim → `Ro-*` remapping when Construct-X profile is active (or delete if unused).
+4. **Docs / OpenAPI:** strip “Required permission: `ASSET_CREATE` …” for user write ops; document DCP presentation instead. Operator guide: Keycloak = admin login only.
+
+### Work package B — Spring Security split (admins vs users)
+
+Touch: `fc-service-server/.../config/SecurityConfig.java`.
+
+1. **Keycloak JWT required only** for application-admin surfaces, e.g.:
+   - `/admin/**`
+   - Residual ops that stay admin-owned (trust-framework admin, graph rebuild, schema **management** if operators keep that under admin — decide in Phase 0; default: schema CRUD = admin Keycloak **or** move schema publish to DCP if Construct-X treats shapes as posted data)
+2. **Data APIs must not** `hasRole(ASSET_*)` / `hasRole(QUERY_*)` / `hasAnyRole(Ro-*)` for Construct-X:
+   - Writes: `POST/PUT/DELETE /assets*`, provenance/compliance mutations, `POST /participants` (user-facing registry/catalogue publish)
+   - Reads/query: either **public under operator policy**, or gated by a **separate DCP presentation** if Construct-X requires credential-scoped query — **not** `QUERY_EXECUTE` in Keycloak
+3. Introduce a Construct-X security profile / filter chain order:
+   - DCP auth filter (or façade) establishes a principal from presentation
+   - Admin chain remains OAuth2 resource server as today
+4. Reject Construct-X writes that present only a Keycloak access token without DCP (authoritative profile).
+
+### Work package C — Replace participant/user scoping for posters
+
+1. **`SessionUtils.checkParticipantAccess`:** for DCP-authenticated requests, authorize from **VP/VC subject (DID)** and issuer policy, not JWT `participant_id` / `Ro-MU-CA` bypass.
+2. **`AssetService` / `AssetUploadService` / `ParticipantsService`:** dual-path then cut Keycloak path for users; auditor (`SecurityAuditorAware`) records DID / presentation id, not Keycloak `sub`.
+3. **`UsersService` role-assignment rules** (`doCheckRoleAssignmentRule`): obsolete for Construct-X users — either admin-only stub or remove from Construct-X profile.
+4. Keycloak Admin DAOs (`UserDaoImpl`, `ParticipantDaoImpl`, …): keep only if application admins still manage admin accounts/groups; **do not** model catalogue participants as Keycloak groups for ordinary users.
+
+### Work package D — DCP for all user posts (pairs with Phase 6)
+
+1. Integrate [EECC dcp](https://github.com/european-epc-competence-center/dcp) (`dcp-spring-boot-starter`).
+2. Presentation query = “right to publish” (Membership / Participant / registry-operator VCs from Phase 0).
+3. On success → existing verify + store pipeline (strict profile).
+4. Examples/hurl: replace password-grant / Keycloak Bearer steps with DCP presentation fixtures.
+5. **`fc-demo-portal`:** OAuth2 login only for admin UI; remove publish-via-portal-login as the happy path.
+
+### Work package E — Tests & migration
+
+1. Update `*ControllerTest` / `@WithMockJwtAuth` suites: admin paths keep JWT; write paths assert DCP (or test doubles), not `ASSET_CREATE`.
+2. Migration flag only during cutover (`auth.users=dcp`, Keycloak writers disabled); **no** long-term “both” for Construct-X production.
+3. Lab compose may temporarily keep a fat realm for legacy Gaia-X demos; Construct-X authoritative compose ships the **slim admin-only** realm.
+
+### Exit criteria (Keycloak strip)
+
+- [ ] Construct-X realm JSON has **no** fine-grained / `Ro-*` permission matrix — admin role only
+- [ ] Non-admin users have **no** Keycloak accounts in Construct-X deployments
+- [ ] `POST /assets` (and agreed user write APIs) succeed with DCP+VC and **fail** with Keycloak-only Bearer
+- [ ] Application admin can still log in via Keycloak and use `/admin/**`
+- [ ] Operator docs state: users → DCP/VC; admins → Keycloak; no role cataloguing in Keycloak
 
 ---
 
@@ -106,9 +202,11 @@ Catalogue assets (service offerings, DCS-style templates, …) remain ordinary a
   - Prefer existing IRIs where possible (`schema:`, `gx:`, Catena-X `cx:bpn`, …)
   - Document any Construct-X-specific predicates if Catena-X IRIs are politically unwanted
 - Issuer policy: who may assert `cx:bpn` (self-asserted vs registry-operator-only)
+- **Write-auth credential policy:** which VC types / issuers, presented over DCP, grant user `POST` (Membership / Participant / registry-operator)
+- **Admin boundary:** which ops stay Keycloak-admin-only (default: `/admin/**`, break-glass); confirm schemas/query are DCP, public, or admin
 - Strict vs lab verification matrix (see Phase 2)
 
-**Exit:** signed-off vocab + issuer policy in this repo (extend company-identifier doc or a short `construct-x-vocab.md`).
+**Exit:** signed-off vocab + issuer + write-auth + admin-boundary policy in this repo (extend company-identifier doc or a short `construct-x-vocab.md`).
 
 ### Phase 1 — Modelling kit (examples + shapes, no core code)
 
@@ -138,11 +236,13 @@ Catalogue assets (service offerings, DCS-style templates, …) remain ordinary a
    - `FEDERATED_CATALOGUE_VERIFICATION_SEMANTICS=true`
    - schema validation enabled for Construct-X shapes
    - DID resolution + trust anchors available (as for `docker-compose.strict.yml`)
-2. Keycloak role mapping for Construct-X operators (`ASSET_CREATE` for registry writers; `QUERY_EXECUTE` for resolvers)
+2. **Keycloak strip kickoff** for this profile (full strip in Phase 6 / work packages A–E):
+   - Document admin-only Keycloak boundary vs user DCP path
+   - Do **not** add new Construct-X Keycloak roles; freeze / start deleting fine-grained roles from Construct-X realm drafts
 3. Operator runbook section: how to reject unsigned mappings; optional `POST /assets/{id}/compliance-check` if Gaia-X notarisation is in scope
 4. Negative tests: unsigned JWT, wrong issuer key, malformed BPN → rejected when profile on
 
-**Exit:** same demo fails without signatures and passes with them; ops guide lists the env flags.
+**Exit:** same demo fails without signatures and passes with them; ops guide lists the env flags and the admin-only Keycloak / user-DCP intent.
 
 ### Phase 3 — Catalogue + registry coexistence
 
@@ -153,7 +253,7 @@ Catalogue assets (service offerings, DCS-style templates, …) remain ordinary a
    - Construct-X identifier shapes
    - Existing catalogue query demos still green
 2. Guidance: shared graph means **query filters by type/predicate**; document recommended `FILTER` / type guards so registry lookups do not collide with offering graphs
-3. Sensitive-data policy: IBAN (and similar) either omitted, separate asset with restricted roles, or out-of-band vault — never in the default public fixture set
+3. Sensitive-data policy: IBAN (and similar) either omitted, separate credential presentation policy, or out-of-band vault — never in the default public fixture set; **not** a Keycloak role gate
 
 **Exit:** CX-C1 / CX-C2 satisfied with documented query hygiene.
 
@@ -179,16 +279,17 @@ Add **only if** Construct-X clients cannot reasonably run SPARQL:
 Implementation notes:
 
 - Thin controller over existing query service; no second store
-- Same auth as `QUERY_EXECUTE`
-- Still no DCP — HTTP GET/POST only
+- Auth: **no** `QUERY_EXECUTE` in Keycloak — public under operator policy, or DCP-scoped query if required
+- Read façade stays HTTP GET/POST; DCP is for credential presentation, not for replacing SPARQL
 
 Defer if Phase 1 SPARQL kit is enough for Construct-X integrators.
 
-### Phase 6 — Future: DCP presentation (explicit backlog)
+### Phase 6 — DCP for all users + Keycloak admin-only strip
 
-If Construct-X later requires wallet-driven presentation via the Eclipse **Decentralized Claims Protocol** (DCP):
+**Goal:** every catalogue **user** authenticates and authorizes posts via **VCs over DCP**. Keycloak remains **only** for **application admins**. Remove complex roles and permission specifications from Keycloak (work packages A–E above).
 
-- Treat as a **new verifier façade** in front of the same ingest/verify pipeline (`POST /assets` / internal `verifyCredential`)
+Treat DCP as the **user authN/authZ + verifier façade** in front of the same ingest/verify pipeline (`POST /assets` / internal `verifyCredential`):
+
 - Do not conflate JWT-VC format support with protocol support
 - **Mandatory dependency:** use the EECC DCP Java package — do not reimplement DCP wire DTOs / presentation query flows from scratch
 
@@ -197,14 +298,30 @@ If Construct-X later requires wallet-driven presentation via the Eclipse **Decen
 | Repository | [european-epc-competence-center/dcp](https://github.com/european-epc-competence-center/dcp) |
 | Maven (core) | `de.eecc.dcp:dcp` |
 | Maven (Spring Boot) | `de.eecc.dcp:dcp-spring-boot-starter` |
-| Role | Verifier-side (and issuer-side offer flow) for DCP v1.x: Verifiable Presentation Protocol + Credential Issuance Protocol |
+| Role | Verifier-side DCP v1.x for **all user write auth**; Keycloak no longer grants publish |
 
 Integration sketch:
 
-1. Add `dcp-spring-boot-starter` (or `dcp`) to `fc-service-server` / a dedicated DCP module when Phase 6 starts.
+1. Add `dcp-spring-boot-starter` (or `dcp`) to `fc-service-server` / a dedicated DCP module.
 2. Use library APIs (`DcpPresentation`, `PresentationQueryMessage`, scope / PE query definitions, SI-token validation as the package matures) to talk to holder Credential Services.
-3. On successful presentation, hand extracted VCs/VPs into the catalogue’s existing verification + store path (same strict profile as Phase 2).
-4. Track library maturity (`0.1.x` still incremental for full SI-token / HTTP / VP validation façades); pin a version and follow upstream `implementation-plan.md` before production cutover.
+3. Define Construct-X **presentation queries** for right-to-publish (Phase 0 credential policy).
+4. On successful presentation:
+   - **AuthZ:** presented claims → allow user create/update (replaces all former `ASSET_*` / `Ro-*` write roles).
+   - **Ingest:** hand extracted VCs/VPs into existing verification + store (Phase 2 strict profile).
+5. Execute **Strip Keycloak** work packages A–E:
+   - Slim realm to **admin-only** role; delete fine-grained / composite roles
+   - `SecurityConfig` split: Keycloak JWT → `/admin/**` (and agreed admin ops) only
+   - User writes reject Keycloak-only Bearer in Construct-X authoritative profile
+   - Portal / examples / tests updated
+6. Track EECC library maturity (`0.1.x`); pin version before production cutover.
+
+**Exit:**
+
+- Any user publishes after DCP presentation **without** a Keycloak account or token
+- Keycloak-only write → rejected in Construct-X authoritative profile
+- Application admin logs in with Keycloak; uses `/admin/**`
+- Realm has **no** complex permission/role catalogue — admin role only
+- Negative tests: bad/missing presentation, untrusted issuer, wrong credential type → rejected
 
 OpenID4VP remains out of scope unless Construct-X explicitly requires it; prefer DCP + EECC package for dataspace alignment.
 
@@ -212,19 +329,23 @@ OpenID4VP remains out of scope unless Construct-X explicitly requires it; prefer
 
 ## Work breakdown (engineering checklist)
 
-- [ ] **Vocab & policy** — Phase 0 write-up; fix “Contruct-X” → Construct-X in docs
+- [ ] **Vocab & policy** — Phase 0 write-up; admin boundary; write-auth VC types; fix “Contruct-X” → Construct-X in docs
 - [ ] **Fixtures** — LegalPerson + Reference VC examples; signing notes (fc-tools / external signer)
 - [ ] **SHACL** — BPN (+ optional IBAN) shapes; register via `POST /schemas` in demo
 - [ ] **Discovery hurl** — BPN/name/country queries; latest-version pattern
 - [ ] **Strict profile** — env/compose + negative verification tests
-- [ ] **IAM** — Keycloak roles/docs for registry writers vs queriers
-- [ ] **Coexistence** — regression against Gaia-X / DCS demos
+- [ ] **Keycloak strip A** — slim realm JSON (admin role only; delete `ASSET_*` / `SCHEMA_*` / `QUERY_*` / `Ro-*` / composites)
+- [ ] **Keycloak strip B** — `SecurityConfig` admin-only JWT; user data APIs off role matchers
+- [ ] **Keycloak strip C** — DID/presentation scoping replaces JWT `participant_id` for users
+- [ ] **Keycloak strip D** — DCP façade for all user posts; portal admin-only login
+- [ ] **Keycloak strip E** — tests, OpenAPI, operator docs, Construct-X compose with slim realm
+- [ ] **Coexistence** — regression against Gaia-X / DCS demos (legacy lab realm OK outside Construct-X profile)
 - [ ] **Federation** — partner search demo + conflict note
 - [ ] **(Optional)** resolve façade API + OpenAPI
-- [ ] **(Phase 6)** DCP verifier façade via [EECC `dcp`](https://github.com/european-epc-competence-center/dcp) (`de.eecc.dcp:dcp` / `dcp-spring-boot-starter`) → existing verify/store
+- [ ] **(Phase 6)** EECC [dcp](https://github.com/european-epc-competence-center/dcp) → user authZ + verify/store
 - [ ] **Docs** — link this plan from operator guide / company-identifier references
 
-No mandatory core changes for Phases 0–4 if existing ingest, verification toggles, schemas, versions, and query federation behave as documented. Core work appears only for Phase 5+ or if gaps are found (e.g. schema not enforced on ingest path). Phase 6 adds a DCP module on top of [EECC dcp](https://github.com/european-epc-competence-center/dcp).
+No mandatory core changes for Phases 0–4 if existing ingest, verification toggles, schemas, versions, and query federation behave as documented. **Phase 6 is mandatory core work** for Construct-X: DCP user auth + Keycloak admin-only strip (work packages A–E).
 
 ---
 
@@ -236,7 +357,7 @@ No mandatory core changes for Phases 0–4 if existing ingest, verification togg
 | Staging | on | on | on | Pre-prod registry |
 | Authoritative Construct-X registry | on | on | on (+ TF if required) | Production DID↔BPN authority |
 
-Reminder: without `vc-signature`, anyone with `ASSET_CREATE` can publish arbitrary mappings; role gates alone are not cryptographic trust.
+Reminder: without `vc-signature`, a too-loose DCP policy can still accept bad payloads. Prefer **DCP presentation + signature + issuer policy**. Do **not** reintroduce Keycloak roles as a substitute for cryptographic trust.
 
 ---
 
@@ -249,9 +370,10 @@ Reminder: without `vc-signature`, anyone with `ASSET_CREATE` can publish arbitra
 5. **Versioning:** v2 supersedes v1; discovery prefers approved latest.
 6. **Catalogue coexistence:** upload offering + registry VC; both discoverable with type filters.
 7. **Federation:** partner-only BPN resolved via `POST /query/search`.
-8. **Authz:** missing `ASSET_CREATE` / `QUERY_EXECUTE` → 401/403.
+8. **Authz (users):** DCP presentation with trusted right-to-publish VC → write allowed **without** Keycloak; missing/wrong presentation → rejected; Keycloak-only Bearer → rejected on Construct-X write APIs.
+9. **Authz (admins):** application admin Keycloak login → `/admin/**` OK; non-admin Keycloak user (if any remain in lab) cannot substitute for DCP on user write paths.
 
-Executable form: extend `examples/` with a Construct-X hurl suite analogous to `dcs-template-demo` and `queries/verify-against-fuseki.hurl`.
+Executable form: extend `examples/` with a Construct-X hurl suite analogous to `dcs-template-demo` and `queries/verify-against-fuseki.hurl`; add a Phase 6 DCP presentation scenario (no password-grant for writers).
 
 ---
 
@@ -260,7 +382,10 @@ Executable form: extend `examples/` with a Construct-X hurl suite analogous to `
 | Risk | Mitigation |
 |------|------------|
 | Expectation of DCP “support” | Docs state JWT format ≠ DCP protocol; Phase 6 uses EECC [dcp](https://github.com/european-epc-competence-center/dcp), not a custom stack |
-| EECC dcp still `0.1.x` | Pin version; gate production on SI-token / VP validation façades being complete |
+| EECC dcp still `0.1.x` | Pin version; gate production on SI-token / VP validation façades; short migration window only |
+| Dual auth confusion (Keycloak + DCP) | Construct-X profile: users = DCP only; admins = Keycloak only; reject Keycloak on user writes |
+| Rebuilding a role matrix in Keycloak | Explicit non-goal; single `ADMIN_ALL`; permissions live in VC/issuer policy |
+| Legacy Gaia-X demos need fat realm | Keep fat realm on **lab/legacy** compose only; Construct-X authoritative compose is slim |
 | Lab defaults → false sense of security | Strict profile mandatory in Construct-X ops guide |
 | Public graph leaks IBAN | Separate asset / omit / vault; CX-R9 in demo defaults |
 | Cross-node conflicting BPN mappings | Document multi-hit; no automatic overwrite |
@@ -270,15 +395,17 @@ Executable form: extend `examples/` with a Construct-X hurl suite analogous to `
 
 ## Suggested sequence for first PR series
 
-1. Docs: this plan + vocab/issuer policy + link from company-identifier references  
-2. `examples/construct-x-registry-demo/` fixtures + hurl (semantics-only)  
+1. Docs: this plan + vocab/issuer/admin-boundary + Keycloak strip work packages + link from company-identifier references  
+2. `examples/construct-x-registry-demo/` fixtures + hurl (semantics-only; temporary Keycloak OK until Phase 6)  
 3. SHACL + schema registration in demo  
 4. Strict-profile overlay/docs + negative tests  
 5. Federation scenario  
-6. Optional resolve API only after integrator feedback  
+6. Phase 6: EECC DCP façade + user posts without Keycloak  
+7. Keycloak strip: slim realm (admin only), `SecurityConfig` split, portal/examples/tests  
+8. Optional resolve API only after integrator feedback  
 
 ---
 
 ## Summary
 
-Construct-X can use the Federated Catalogue as **catalogue and registry at once** by standardising identifier VCs on the existing HTTP ingest path, enabling a **strict verification profile** for authoritative mappings, and discovering companies via SPARQL (and federation). No DCP implementation is required for v1; trust comes from JWT verification, shapes, issuer policy, and IAM—not from a separate registry service. When DCP is needed later, integrate [european-epc-competence-center/dcp](https://github.com/european-epc-competence-center/dcp) (`de.eecc.dcp`) as the protocol layer in front of the same verify/store pipeline.
+Construct-X uses the Federated Catalogue as **catalogue and registry at once**: identifier VCs on the ingest path, a **strict verification profile**, SPARQL discovery (and federation). **All users** authenticate and authorize **data posts with VCs over DCP** ([EECC dcp](https://github.com/european-epc-competence-center/dcp) / `de.eecc.dcp`). **Keycloak is stripped to a minimum:** only **application admins** log in; the realm keeps a **single admin role** with **no** complex permission matrix. Former `ASSET_*` / `Ro-*` semantics move to credential types and issuer policy—not Keycloak.
