@@ -115,6 +115,11 @@ See [`examples/queries/verify-against-fuseki.hurl`](../examples/queries/verify-a
 
 The catalogue stores and indexes claims; **trust** comes from who issued the VC and which verification toggles the operator enables.
 
+Construct-X write authorization (Phase 6) is separate from registry claims: callers present a
+**MembershipCredential** over DCP — see
+[`examples/construct-x-registry-demo/`](../examples/construct-x-registry-demo/) and
+[`construct-x-implementation-plan.md`](./construct-x-implementation-plan.md).
+
 ## Operational notes
 
 - **Schema**: register a custom ontology via `POST /schemas` if you want SHACL validation for BPN/IBAN shapes.

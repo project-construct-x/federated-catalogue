@@ -13,6 +13,7 @@ This plan turns the modelling in [`company-identifier-references.md`](./company-
 | “IDSA/DCP trust frameworks” in docs means **payload shape compatibility**, not a DCP wire protocol | Add a real DCP verifier via [EECC dcp](https://github.com/european-epc-competence-center/dcp); format support alone is not enough |
 | Verification is real but **toggleable**; docker defaults enable **semantics only** (`vc-signature` / `vp-signature` often `false`) | An authoritative registry profile **must** turn signatures (and ideally schema + trust framework) on |
 | Claims are projected into RDF and discovered via **`POST /query`** / **`POST /query/search`** | Registry lookups are SPARQL (or a thin façade over it), not a new graph store |
+| Dual store: **Postgres** (signed assets + lifecycle) + **graph** (active claims; Fuseki default / Neo4j optional) | Keep both; Construct-X discovery contract is **Fuseki + SPARQL** — see [Storage and query architecture](#storage-and-query-architecture-findings) |
 | Auth today is Keycloak roles (`ASSET_CREATE`, `QUERY_EXECUTE`, `Ro-*`, …) | **Strip Keycloak to a minimum:** only **application admins** log in with Keycloak; **all data posters** authenticate and authorize via **VCs + DCP**. Drop fine-grained / composite role catalogues from the realm |
 
 **Dual-role principle:** keep one API surface. Catalogue assets and registry reference credentials share ingest, verification, versioning, and query. Differ only by vocabulary, SHACL, and operator policy.
@@ -43,6 +44,8 @@ Non-goals for v1:
 - Keeping Keycloak as a general user directory or permission engine for catalogue writers/readers
 - Replacing Tractus-X BDRS API 1:1 (directory dump + MembershipCredential bearer) unless Construct-X explicitly requires that contract
 - Storing secrets (IBAN) in a publicly queryable graph without an access model
+- Collapsing document storage into the graph (graph-only catalogue) or replacing Postgres with JSONB-as-graph
+- Making openCypher / Neo4j the Construct-X integrator contract (Neo4j remains optional ops backend)
 
 ---
 
@@ -87,12 +90,16 @@ Catalogue co-existence (implicit):
 │  AuthN/AuthZ façade (VC / issuer policy — no Keycloak roles)  │
 │       │                                                       │
 │       ▼                                                       │
-│  Verification (strict profile) → store → RDF / Fuseki         │
+│  Verification (strict profile)                                 │
+│       │                                                       │
+│       ├──► Postgres (signed asset + lifecycle)  [source of truth]
+│       └──► Fuseki (active claims / RDF-star)  [discovery index] │
+│            (Neo4j optional; not Construct-X query contract)    │
 │                                                               │
 │  Application admins only                                      │
 │       │  Keycloak OIDC (single ADMIN_ALL-class role)          │
 │       ▼                                                       │
-│  /admin/** , ops IAM, break-glass — not data publish          │
+│  /admin/** , ops IAM, graph rebuild / backend switch, …       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -112,12 +119,64 @@ Hard rules:
 
 Recommended credential split (CX-R5):
 
-| Credential | Issuer | Subject | Claims |
-|------------|--------|---------|--------|
-| **Participant / LegalPerson VC** | Company or notary | company DID | `schema:name`, `gx:legalAddress`, `gx:legalRegistrationNumber` |
-| **Identifier Reference VC** | Trusted Construct-X registry operator | company DID | `cx:bpn` (and later controlled IBAN / other refs) |
+| Credential | Issuer | Subject | Claims | Role |
+|------------|--------|---------|--------|------|
+| **MembershipCredential** | Construct-X onboarding issuer (e.g. `did:web:issuer.int.construct-x.net:issuer`) | holder / wallet DID | `isConsumer`, `isProvider`; `credentialStatus` (BitstringStatusList) | **Write-auth** — must be present in every DCP presentation that authorizes user `POST`. **Default encoding: VCDM 2.0** (`membership-credential-v2.jsonld`); VCDM 1.1 kept for issuer compatibility |
+| **Participant / LegalPerson VC** | Company or notary | company DID | `schema:name`, `gx:legalAddress`, `gx:legalRegistrationNumber` | Registry / catalogue claims (discovery) |
+| **Identifier Reference VC** | Trusted Construct-X registry operator | company DID | `cx:bpn` (and later controlled IBAN / other refs) | Registry mapping claims (discovery) |
 
-Catalogue assets (service offerings, DCS-style templates, …) remain ordinary assets on the same instance.
+Catalogue assets (service offerings, DCS-style templates, …) remain ordinary assets on the same instance. Membership is **not** a substitute for LegalPerson/Reference payloads; it only proves the caller is an onboarded Construct-X member.
+
+### Storage and query architecture (findings)
+
+Gaia-X / XFSC catalogues use **two stores on purpose**. Construct-X inherits that; do not collapse them for v1.
+
+#### Dual storage (document store vs Self-Description Graph)
+
+| Store | Holds | Tech in this repo | Role |
+|-------|--------|-------------------|------|
+| **Document / Self-Description Storage** | Exact signed asset bytes (JSON-LD / VC-JWT) + **administrative lifecycle metadata** (active / revoked / deprecated / EOL, versions, hashes) | **PostgreSQL** (`AssetStore`) | Source of truth; clients can re-fetch the raw credential and verify proofs |
+| **Self-Description Graph** | **Claims** projected from *active* credentials as a linked graph | **Fuseki** (default) or **Neo4j** | Discovery / registry lookup index; rebuildable from Postgres |
+
+Lifecycle state is **outside** the signed payload (Gaia-X Architecture). Same JSON-LD exchange format does **not** mean one database: the graph is a **derived index**, not a replacement for the document store.
+
+**Do not move the document store into the graph alone.** Reasons: signatures bind byte-exact payloads (graph round-trips are not proof-preserving); revoke/deprecate must drop claims without rewriting the VC; versions stay in storage while only active claims are indexed; `POST /admin/graph/rebuild` needs Postgres as rebuild source; non-RDF assets never become claims.
+
+#### What the graph holds (use case)
+
+Not the VC file. It holds **subject–predicate–object claims** (and typed edges between entities) extracted from `credentialSubject`, tagged so they can be deleted per asset:
+
+- **Fuseki:** RDF-star — each claim triple annotated with `cred:credentialSubject → <asset IRI>`
+- **Neo4j + n10s:** property-graph import; source tracked via `claimsGraphUri`
+
+Concrete Construct-X / catalogue questions this answers:
+
+1. **Registry:** `BPN → DID`, `name → DID`, `country → companies` via SPARQL on predicates such as `cx:bpn`, `schema:name`, `gx:legalAddress`
+2. **Catalogue discovery:** offerings by provider / keyword / `gx:dependsOn` chains across many VCs
+3. **Relationship / policy filters:** e.g. constraints that walk hosting or dependency edges (Gaia-X Self-Description Graph pattern)
+4. **Federation:** same claim patterns on partner nodes via `POST /query/search`
+
+#### Why not PostgreSQL alone for discovery
+
+Postgres is **necessary** for documents and lifecycle; it is **not sufficient** as the only discovery store:
+
+| Need | Graph + SPARQL/Cypher | Postgres alone |
+|------|----------------------|----------------|
+| Multi-hop joins across SDs | Native pattern match | Recursive CTEs / fragile joins |
+| Evolving / federated vocabularies | New triples, no migration | Schema churn or opaque JSONB |
+| Claim + credential provenance together | RDF-star / edge metadata | Extra tables, awkward queries |
+| Interop with JSON-LD / SHACL / VC ecosystem | Native | Constant mapping |
+
+JSON-in-Postgres would reimplement a weaker graph store and lose standard SPARQL clients and Gaia-X alignment.
+
+#### Graph backend preference (Construct-X)
+
+| Backend | Query language | Fit |
+|---------|----------------|-----|
+| **Apache Jena Fuseki** (preferred) | SPARQL / SPARQL-star | Native RDF; matches claim projection, SHACL, and Construct-X registry examples; compose default `GRAPHSTORE_IMPL=fuseki` |
+| **Neo4j + n10s** (keep available) | openCypher | Historic XFSC/GXFS path; Browser / GDS; useful for switch+rebuild demos — not the Construct-X contract |
+
+**Decision:** Construct-X authoritative profile uses **Fuseki + SPARQL** as the discovery contract. Keep Neo4j in the stack for admin switch / rebuild; do not dual-write or require Cypher of Construct-X integrators. Optional `GET /registry/resolve` façades (Phase 5) stay thin SPARQL wrappers.
 
 ---
 
@@ -171,7 +230,7 @@ Touch: `fc-service-server/.../config/SecurityConfig.java`.
 ### Work package D — DCP for all user posts (pairs with Phase 6)
 
 1. Integrate [EECC dcp](https://github.com/european-epc-competence-center/dcp) (`dcp-spring-boot-starter`).
-2. Presentation query = “right to publish” (Membership / Participant / registry-operator VCs from Phase 0).
+2. Presentation query = “right to publish”: **require Construct-X `MembershipCredential`** (trusted issuer; optional `credentialStatus` / role flags; optional later: Participant / registry-operator VCs from Phase 0).
 3. On success → existing verify + store pipeline (strict profile).
 4. Examples/hurl: replace password-grant / Keycloak Bearer steps with DCP presentation fixtures.
 5. **`fc-demo-portal`:** OAuth2 login only for admin UI; remove publish-via-portal-login as the happy path.
@@ -202,7 +261,7 @@ Touch: `fc-service-server/.../config/SecurityConfig.java`.
   - Prefer existing IRIs where possible (`schema:`, `gx:`, Catena-X `cx:bpn`, …)
   - Document any Construct-X-specific predicates if Catena-X IRIs are politically unwanted
 - Issuer policy: who may assert `cx:bpn` (self-asserted vs registry-operator-only)
-- **Write-auth credential policy:** which VC types / issuers, presented over DCP, grant user `POST` (Membership / Participant / registry-operator)
+- **Write-auth credential policy:** which VC types / issuers, presented over DCP, grant user `POST` — **default: Construct-X `MembershipCredential` (VCDM 2.0)** (see Phase 1 fixtures; VCDM 1.1 JWT shape for issuer compatibility); Participant / registry-operator may be added later as additional presentation options
 - **Admin boundary:** which ops stay Keycloak-admin-only (default: `/admin/**`, break-glass); confirm schemas/query are DCP, public, or admin
 - Strict vs lab verification matrix (see Phase 2)
 
@@ -212,19 +271,24 @@ Touch: `fc-service-server/.../config/SecurityConfig.java`.
 
 **Deliverables**
 
-1. Example JWT-VC (or signed fixture pipeline) for:
+1. **MembershipCredential (first / write-auth)** — fixture that later must appear in every DCP presentation authorizing `POST`:
+   - Type `MembershipCredential`; subject = holder/wallet DID; issuer = Construct-X onboarding issuer
+   - Subject claims: `isConsumer`, `isProvider` (as issued today); `credentialStatus` = `BitstringStatusListEntry`
+   - **Default: VCDM 2.0** — `examples/construct-x-registry-demo/membership-credential-v2.jsonld`
+   - Compatibility: VCDM 1.1 JSON-LD + real int JWT (`membership-credential-v1.jsonld`, `membership-credential-v1.example.vc.jwt`)
+2. Example JWT-VC (or signed fixture pipeline) for registry discovery:
    - LegalPerson with name + address
    - Reference VC with `cx:bpn`
    - Optional restricted IBAN VC (separate file; not used in public query demo)
-2. SHACL shapes (`POST /schemas`) for BPN pattern, required `credentialSubject.id`, optional uniqueness guidance
-3. SPARQL library (hurl), mirroring company-identifier examples:
+3. SHACL shapes (`POST /schemas`) for BPN pattern, required `credentialSubject.id`, optional uniqueness guidance; optional membership-shape for issuer / status-list checks
+4. SPARQL library (hurl), mirroring company-identifier examples:
    - BPN → DID
    - name → DID
    - country → companies
    - “latest approved” pattern (reuse DCS provenance/version approach)
-4. README under e.g. `examples/construct-x-registry-demo/` (same style as `examples/dcs-template-demo/`)
+5. README under `examples/construct-x-registry-demo/` (same style as `examples/dcs-template-demo/`), documenting membership-as-authZ (v2 default) before registry queries
 
-**Exit:** `hurl --test` against local stack publishes fixtures and resolves BPN→DID with semantics-only verification.
+**Exit:** membership v2 fixture reviewed as the DCP write-auth credential; `hurl --test` against local stack publishes registry fixtures and resolves BPN→DID with semantics-only verification.
 
 ### Phase 2 — Authoritative registry profile (ops + config)
 
@@ -330,7 +394,9 @@ OpenID4VP remains out of scope unless Construct-X explicitly requires it; prefer
 ## Work breakdown (engineering checklist)
 
 - [ ] **Vocab & policy** — Phase 0 write-up; admin boundary; write-auth VC types; fix “Contruct-X” → Construct-X in docs
-- [ ] **Fixtures** — LegalPerson + Reference VC examples; signing notes (fc-tools / external signer)
+- [ ] **Storage/query profile** — Construct-X compose/docs pin Fuseki + SPARQL; Neo4j optional for ops switch only (see storage findings)
+- [x] **Fixtures (membership)** — `MembershipCredential` VCDM 2.0 default + VCDM 1.1 / real JWT (`examples/construct-x-registry-demo/membership-credential-v{1,2}.*`)
+- [ ] **Fixtures (registry)** — LegalPerson + Reference VC examples; signing notes (fc-tools / external signer)
 - [ ] **SHACL** — BPN (+ optional IBAN) shapes; register via `POST /schemas` in demo
 - [ ] **Discovery hurl** — BPN/name/country queries; latest-version pattern
 - [ ] **Strict profile** — env/compose + negative verification tests
@@ -396,7 +462,7 @@ Executable form: extend `examples/` with a Construct-X hurl suite analogous to `
 ## Suggested sequence for first PR series
 
 1. Docs: this plan + vocab/issuer/admin-boundary + Keycloak strip work packages + link from company-identifier references  
-2. `examples/construct-x-registry-demo/` fixtures + hurl (semantics-only; temporary Keycloak OK until Phase 6)  
+2. `examples/construct-x-registry-demo/` — start with **MembershipCredential** (DCP write-auth), then LegalPerson / BPN fixtures + hurl (semantics-only; temporary Keycloak OK until Phase 6)  
 3. SHACL + schema registration in demo  
 4. Strict-profile overlay/docs + negative tests  
 5. Federation scenario  
@@ -408,4 +474,4 @@ Executable form: extend `examples/` with a Construct-X hurl suite analogous to `
 
 ## Summary
 
-Construct-X uses the Federated Catalogue as **catalogue and registry at once**: identifier VCs on the ingest path, a **strict verification profile**, SPARQL discovery (and federation). **All users** authenticate and authorize **data posts with VCs over DCP** ([EECC dcp](https://github.com/european-epc-competence-center/dcp) / `de.eecc.dcp`). **Keycloak is stripped to a minimum:** only **application admins** log in; the realm keeps a **single admin role** with **no** complex permission matrix. Former `ASSET_*` / `Ro-*` semantics move to credential types and issuer policy—not Keycloak.
+Construct-X uses the Federated Catalogue as **catalogue and registry at once**: identifier VCs on the ingest path, a **strict verification profile**, and **SPARQL discovery** (and federation) over the claim graph. Storage stays dual: **Postgres** for signed documents and lifecycle, **Fuseki** for the Self-Description Graph (Neo4j optional, not the integrator contract). **All users** authenticate and authorize **data posts with VCs over DCP** ([EECC dcp](https://github.com/european-epc-competence-center/dcp) / `de.eecc.dcp`). **Keycloak is stripped to a minimum:** only **application admins** log in; the realm keeps a **single admin role** with **no** complex permission matrix. Former `ASSET_*` / `Ro-*` semantics move to credential types and issuer policy—not Keycloak.
