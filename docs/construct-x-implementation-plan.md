@@ -176,7 +176,7 @@ JSON-in-Postgres would reimplement a weaker graph store and lose standard SPARQL
 | **Apache Jena Fuseki** (preferred) | SPARQL / SPARQL-star | Native RDF; matches claim projection, SHACL, and Construct-X registry examples; compose default `GRAPHSTORE_IMPL=fuseki` |
 | **Neo4j + n10s** (keep available) | openCypher | Historic XFSC/GXFS path; Browser / GDS; useful for switch+rebuild demos — not the Construct-X contract |
 
-**Decision:** Construct-X authoritative profile uses **Fuseki + SPARQL** as the discovery contract. Keep Neo4j in the stack for admin switch / rebuild; do not dual-write or require Cypher of Construct-X integrators. Optional `GET /registry/resolve` façades (Phase 5) stay thin SPARQL wrappers.
+**Decision:** Construct-X authoritative profile uses **Fuseki + SPARQL** as the discovery contract. Keep Neo4j in the stack for admin switch / rebuild; do not dual-write or require Cypher of Construct-X integrators. Optional `GET /registry/resolve` façades (Phase 6) stay thin SPARQL wrappers.
 
 ---
 
@@ -250,6 +250,23 @@ Touch: `fc-service-server/.../config/SecurityConfig.java`.
 - [ ] Operator docs state: users → DCP/VC; admins → Keycloak; no role cataloguing in Keycloak
 
 ---
+
+## Implementation plan (short)
+
+**North star:** users publish with **VCs presented over DCP**; Keycloak stays **admin-only**. Registry + catalogue share one catalogue node (SPARQL discovery, strict verification profile).
+
+| Priority | What | Outcome |
+|----------|------|---------|
+| **1. DCP + write-auth credentials** | EECC `dcp` / `dcp-spring-boot-starter`; presentation of Construct-X **`MembershipCredential`** (VCDM 2.0 default) grants `POST`; Keycloak Bearer no longer authorizes user writes | CX-R6 / R6a; Phase 6 is the cutover, but policy + fixtures start in Phase 0–1 |
+| **2. Modelling kit** | Membership + LegalPerson / BPN reference fixtures, SHACL, SPARQL (BPN→DID, name, country, latest approved) | Phase 1 demo runnable with semantics-only |
+| **3. Strict registry profile** | Signatures + semantics + shapes on; negative tests for unsigned / bad issuer / bad BPN | Phase 2 authoritative ops |
+| **4. Coexistence + federation** | Shared graph query hygiene; partner `query.search` for remote BPN | Phases 3–4; CX-C1/C2, CX-R11 |
+| **5. Optional resolve API** | Thin `GET /registry/resolve` only if SPARQL is a blocker | Phase 5 — defer if kit is enough |
+| **6. Keycloak strip** | Slim admin-only realm; `/admin/**` via Keycloak; user path = DCP only | Phase 6 work packages A–E |
+
+**Sequence in one line:** agree DCP write-auth policy → ship membership credential fixtures → turn on strict verify → keep catalogue/registry queries clean → federate → (optional façade) → **cut over all users to DCP and strip Keycloak roles**.
+
+Detail below.
 
 ## Phased delivery
 
