@@ -135,6 +135,10 @@
             <groupId>com.google.crypto.tink</groupId>
             <artifactId>tink</artifactId>
         </dependency>
+        <dependency>
+            <groupId>de.eecc.dcp</groupId>
+            <artifactId>dcp</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

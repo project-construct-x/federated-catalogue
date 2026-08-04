@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
+
+    <changeSet author="cursor" id="2026-07-30-dcp-tables">
+        <comment>
+            DCP presentation access whitelist (PresentationAccessPolicy rules) and
+            presentation request definitions (PresentationQueryDefinition) persisted in Postgres.
+        </comment>
+
+        <createTable tableName="dcp_access_rules">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="effect" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="verifiers" type="text[]">
+                <constraints nullable="false"/>
+            </column>
+            <column name="credential_types" type="text[]">
+                <constraints nullable="false"/>
+            </column>
+            <column name="enabled" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sort_order" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="varchar(512)"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+
+        <createTable tableName="dcp_presentation_request_definitions">
+            <column name="id" type="varchar(128)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="purpose" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="query_kind" type="varchar(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scopes" type="JSONB"/>
+            <column name="presentation_definition" type="JSONB"/>
+            <column name="required_issuers" type="text[]"/>
+            <column name="required_subject_ids" type="text[]"/>
+            <column name="enabled" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="varchar(1024)"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+
+        <createIndex tableName="dcp_access_rules" indexName="idx_dcp_access_rules_enabled_order">
+            <column name="enabled"/>
+            <column name="sort_order"/>
+        </createIndex>
+
+        <createIndex tableName="dcp_presentation_request_definitions" indexName="idx_dcp_presentation_req_purpose">
+            <column name="purpose"/>
+            <column name="enabled"/>
+        </createIndex>
+
+        <!-- Dev/default: allow any presenter / credential type until operators tighten the whitelist. -->
+        <insert tableName="dcp_access_rules">
+            <column name="effect" value="ALLOW"/>
+            <column name="verifiers" value="{*}"/>
+            <column name="credential_types" value="{*}"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="0"/>
+            <column name="description" value="Default allow-all DCP presentation access rule"/>
+        </insert>
+
+        <!-- Default Construct-X membership query for POST /assets DCP presentations. -->
+        <insert tableName="dcp_presentation_request_definitions">
+            <column name="id" value="asset-write"/>
+            <column name="name" value="Asset write (MembershipCredential)"/>
+            <column name="purpose" value="POST_ASSETS"/>
+            <column name="query_kind" value="MEMBERSHIP"/>
+            <column name="scopes" value='["org.eclipse.dspace.dcp.vc.type:MembershipCredential"]'/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="description"
+                    value="Accepts DCP PresentationResponseMessage for POST /assets requiring MembershipCredential"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

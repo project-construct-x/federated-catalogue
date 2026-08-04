@@ -2,6 +2,7 @@ package eu.xfsc.fc.server.handler;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.GATEWAY_TIMEOUT;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -10,11 +11,14 @@ import static org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE;
 import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
 import static org.springframework.http.HttpStatus.UNSUPPORTED_MEDIA_TYPE;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import de.eecc.dcp.exception.DcpException;
+import de.eecc.dcp.exception.PresentationAccessDenied;
 import eu.xfsc.fc.api.generated.model.Error;
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.ConflictException;
@@ -44,8 +48,30 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    */
   @ExceptionHandler({ClientException.class})
   protected ResponseEntity<Error> handleBadRequestException(ClientException exception) {
+    if (exception.getCause() instanceof DcpException dcpEx
+        && dcpEx.error() instanceof PresentationAccessDenied) {
+      log.info("handleBadRequestException; DCP access denied: {}", exception.getMessage());
+      return new ResponseEntity<>(new Error("dcp_access_denied", exception.getMessage()), FORBIDDEN);
+    }
     log.info("handleBadRequestException; Bad Request error: {}", exception.getMessage());
     return new ResponseEntity<>(new Error("client_error", exception.getMessage()), BAD_REQUEST);
+  }
+
+  /**
+   * Maps EECC DCP library errors when they escape the façade (most ingest paths wrap them as
+   * {@link ClientException}).
+   */
+  @ExceptionHandler({DcpException.class})
+  protected ResponseEntity<Error> handleDcpException(DcpException exception) {
+    log.info("handleDcpException; DCP error: {}", exception.getMessage());
+    HttpStatus status = HttpStatus.resolve(exception.error().suggestedHttpStatus());
+    if (status == null) {
+      status = BAD_REQUEST;
+    }
+    if (exception.error() instanceof PresentationAccessDenied) {
+      status = FORBIDDEN;
+    }
+    return new ResponseEntity<>(new Error("dcp_error", exception.getMessage()), status);
   }
 
   /**

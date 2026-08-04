@@ -116,6 +116,8 @@
         <!-- commons-io: pinned so neosemantics' bundled-and-older copy doesn't break Zonky's
              tarball extraction (IOUtils.skip(InputStream, long, Supplier) missing in older). -->
         <commons-io.version>2.21.0</commons-io.version>
+        <!-- EECC DCP (Eclipse Decentralized Claims Protocol); local ../dcp installs 1.0.1-SNAPSHOT -->
+        <dcp.version>1.0.1-SNAPSHOT</dcp.version>
         <!-- plugins -->
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
         <plugin.jacoco.version>0.8.14</plugin.jacoco.version>
@@ -176,6 +178,12 @@
                 <groupId>eu.xfsc.cat</groupId>
                 <artifactId>fc-graphdb-fuseki</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.eecc.dcp</groupId>
+                <artifactId>dcp</artifactId>
+                <version>${dcp.version}</version>
             </dependency>
 
             <dependency>

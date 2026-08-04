@@ -45,22 +45,30 @@ import eu.xfsc.fc.core.service.assetstore.AssetStore;
 import eu.xfsc.fc.core.service.verification.ProtectedNamespaceFilter;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 import eu.xfsc.fc.core.service.verification.VerificationConstants;
+import eu.xfsc.fc.core.service.dcp.DcpPresentationFacade;
+import eu.xfsc.fc.core.service.dcp.DcpPurposes;
+import eu.xfsc.fc.core.service.dcp.ValidatedDcpPresentation;
 import eu.xfsc.fc.core.service.graphdb.GraphStore;
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.GraphStoreDisabledException;
 import eu.xfsc.fc.core.pojo.GraphBackendType;
+import de.eecc.dcp.message.PresentationResponseMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Service layer for asset uploads. "Asset" is the umbrella term for anything
- * stored in the catalogue. Two paths exist:
+ * stored in the catalogue. Three paths exist:
  * <ul>
+ *   <li><b>DCP presentation</b> — {@code PresentationResponseMessage} validated via EECC DCP
+ *       against Postgres-backed request definitions / access whitelist, then each
+ *       {@code presentation[]} entry is ingested as a credential.</li>
  *   <li><b>RDF-Data - currently only credential data</b> (RDF) — verified via {@link VerificationService}, indexed in the graph store.</li>
  *   <li><b>Non-RDF Asset</b> ("unstructured" data) — stored as-is in the file store, no verification.</li>
  * </ul>
  *
  * @see eu.xfsc.fc.core.service.assetstore.RdfDetector
+ * @see eu.xfsc.fc.core.service.dcp.DcpPresentationFacade
  */
 @Slf4j
 @Service
@@ -75,6 +83,7 @@ public class AssetUploadService {
     private final GraphStore graphStore;
     private final ObjectMapper objectMapper;
     private final ObjectProvider<DocumentBuilderFactory> secureDocumentBuilderFactoryProvider;
+    private final DcpPresentationFacade dcpPresentationFacade;
 
     public UploadResult processUpload(byte[] content, String contentType, String originalFilename) {
         return processUpload(content, contentType, originalFilename, null);
@@ -93,6 +102,12 @@ public class AssetUploadService {
 
         String normalizedContentType = normalizeContentType(contentType);
 
+        // DCP PresentationResponseMessage shares POST /assets with ordinary VC/VP/RDF uploads.
+        var dcpResponse = dcpPresentationFacade.tryParsePresentationResponse(content, normalizedContentType);
+        if (dcpResponse.isPresent()) {
+            return handleDcpPresentation(dcpResponse.get());
+        }
+
         if (!rdfDetector.isRdf(normalizedContentType, content)) {
             return new UploadResult.AssetCreated(
                 handleNonRdfAsset(content, normalizedContentType, originalFilename, existingId));
@@ -110,6 +125,27 @@ public class AssetUploadService {
 
         // Not an enrichment case; process as new RDF asset
         return new UploadResult.AssetCreated(handleCredential(content, normalizedContentType));
+    }
+
+    /**
+     * Validates a DCP {@link PresentationResponseMessage} against the Postgres-backed request
+     * definition and access whitelist for {@link DcpPurposes#POST_ASSETS}, then ingests each
+     * {@code presentation[]} entry through the existing credential pipeline.
+     */
+    private UploadResult handleDcpPresentation(PresentationResponseMessage response) {
+        log.debug("handleDcpPresentation; validating DCP PresentationResponseMessage for POST_ASSETS");
+        ValidatedDcpPresentation validated =
+            dcpPresentationFacade.validateForPurpose(response, DcpPurposes.POST_ASSETS);
+
+        AssetMetadata last = null;
+        for (ValidatedDcpPresentation.PresentationPayload payload : validated.presentations()) {
+            last = handleCredential(payload.content(), payload.contentType());
+            log.debug("handleDcpPresentation; stored presentation asset hash={}", last.getAssetHash());
+        }
+        if (last == null) {
+            throw new ClientException("DCP PresentationResponseMessage produced no assets");
+        }
+        return new UploadResult.AssetCreated(last);
     }
 
     /**
