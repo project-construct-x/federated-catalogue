@@ -274,8 +274,9 @@ Touch: `fc-service-server/.../config/SecurityConfig.java`.
 1. **MembershipCredential (first / write-auth)** — fixture that later must appear in every DCP presentation authorizing `POST`:
    - Type `MembershipCredential`; subject = holder/wallet DID; issuer = Construct-X onboarding issuer
    - Subject claims: `isConsumer`, `isProvider` (as issued today); `credentialStatus` = `BitstringStatusListEntry`
-   - **Default: VCDM 2.0** — `examples/construct-x-registry-demo/membership-credential-v2.jsonld`
+   - **Default: VCDM 2.0** — `examples/construct-x-registry-demo/membership-credential-v2.jsonld` (**issuer shape:** remote `@context` URLs only — `credentials/v2` + `status/v1`; no inline term map as the source of truth)
    - Compatibility: VCDM 1.1 JSON-LD + real int JWT (`membership-credential-v1.jsonld`, `membership-credential-v1.example.vc.jwt`)
+   - **Blocked by [CX-BUG-1](#known-bugs--issues-claim-extraction--json-ld-contexts)** until claim extraction projects `isConsumer` / `isProvider` for that shape
 2. Example JWT-VC (or signed fixture pipeline) for registry discovery:
    - LegalPerson with name + address
    - Reference VC with `cx:bpn`
@@ -395,7 +396,8 @@ OpenID4VP remains out of scope unless Construct-X explicitly requires it; prefer
 
 - [ ] **Vocab & policy** — Phase 0 write-up; admin boundary; write-auth VC types; fix “Contruct-X” → Construct-X in docs
 - [ ] **Storage/query profile** — Construct-X compose/docs pin Fuseki + SPARQL; Neo4j optional for ops switch only (see storage findings)
-- [x] **Fixtures (membership)** — `MembershipCredential` VCDM 2.0 default + VCDM 1.1 / real JWT (`examples/construct-x-registry-demo/membership-credential-v{1,2}.*`)
+- [x] **Fixtures (membership)** — `MembershipCredential` VCDM 2.0 default + VCDM 1.1 / real JWT (`examples/construct-x-registry-demo/membership-credential-v{1,2}.*`) — **issuer-shaped remote `@context` URLs** (see CX-BUG-1)
+- [ ] **CX-BUG-1** — claim extraction for remote-only JSON-LD contexts (`credentials/v2` + `status/v1`); MembershipCredential must project `isConsumer` / `isProvider` into Fuseki
 - [ ] **Fixtures (registry)** — LegalPerson + Reference VC examples; signing notes (fc-tools / external signer)
 - [ ] **SHACL** — BPN (+ optional IBAN) shapes; register via `POST /schemas` in demo
 - [ ] **Discovery hurl** — BPN/name/country queries; latest-version pattern
@@ -411,7 +413,55 @@ OpenID4VP remains out of scope unless Construct-X explicitly requires it; prefer
 - [ ] **(Phase 6)** EECC [dcp](https://github.com/european-epc-competence-center/dcp) → user authZ + verify/store
 - [ ] **Docs** — link this plan from operator guide / company-identifier references
 
-No mandatory core changes for Phases 0–4 if existing ingest, verification toggles, schemas, versions, and query federation behave as documented. **Phase 6 is mandatory core work** for Construct-X: DCP user auth + Keycloak admin-only strip (work packages A–E).
+No mandatory core changes for Phases 0–4 if existing ingest, verification toggles, schemas, versions, and query federation behave as documented — **except** [CX-BUG-1](#known-bugs--issues-claim-extraction--json-ld-contexts) (claim extraction for issuer-shaped MembershipCredential). **Phase 6 is mandatory core work** for Construct-X: DCP user auth + Keycloak admin-only strip (work packages A–E).
+
+---
+
+## Known bugs / issues (claim extraction & JSON-LD contexts)
+
+Lab finding while publishing `examples/construct-x-registry-demo/membership-credential-v2.jsonld` into a Fuseki-backed local stack (`POST /assets` → empty RDF-star claim graph).
+
+### CX-BUG-1 — Issuer-shaped MembershipCredential yields `graphClaims=0`
+
+**Symptom:** `POST /assets` returns **201**; Postgres stores the asset (`rdfAssetCount ≥ 1`, `rebuildNeeded=true`); Fuseki stays empty (`claimCount=0`). Server log: `CredentialVerificationResult [… graphClaims=0 …]` then `SparqlGraphStore.addClaims.enter; got claims: []`.
+
+**Canonical input (must work):** Construct-X issuer shape — `@context` is **remote URL list only**, contexts resolved at expand/extract time (no inline term map):
+
+```json
+"@context": [
+  "https://www.w3.org/ns/credentials/v2",
+  "https://www.w3.org/ns/credentials/status/v1"
+]
+```
+
+plus `credentialSubject.isConsumer` / `isProvider` and `credentialStatus` (`BitstringStatusListEntry`) as in the int issuer JWT / `membership-credential-v2.jsonld`.
+
+**Root causes (reproduced with Titanium `JsonLd.expand`):**
+
+| # | Failure | Detail |
+|---|---------|--------|
+| A | **`PROTECTED_TERM_REDEFINITION`** | Composing remote `credentials/v2` + `credentials/status/v1` makes Titanium fail expand. `CredentialSubjectClaimExtractor` uses bare `JsonLd.expand` (no catalogue `DocumentLoader`). Exception is swallowed in `ClaimExtractionService` → empty list. |
+| B | **Unscoped subject terms drop out** | With `credentials/v2` alone, expand succeeds but `credentialSubject` collapses to `{ "@id": "<wallet DID>" }` — `isConsumer` / `isProvider` **do not** become RDF triples. `toRdf` → `tripleCount=0`. |
+| C | **Extractor ↔ verification loader split** | Verification / Danube paths can use Spring `DocumentLoader` (cache, `additional-context`, `enable-http`). Claim extractors instantiate Titanium/Danube **without** that loader, so catalogue context policy does not apply to graph projection. |
+| D | **Fallback silent** | Both credential extractors failing or returning empty is treated as success with zero claims — asset is still stored as RDF. |
+
+**Requirement (acceptance):** The catalogue **must** ingest and project claims from MembershipCredentials (and later registry VCs) when `@context` is **only resolvable URL(s)** — the form issuers actually mint. Inline Construct-X term maps are a **lab workaround only**, not the production contract.
+
+**Acceptance checks:**
+
+1. `POST /assets` of remote-context-only `membership-credential-v2.jsonld` → `graphClaims ≥ 1` (at least `isConsumer` / `isProvider`, preferably `rdf:type` for membership if typed on subject).
+2. Fuseki RDF-star query by wallet DID / `cred:credentialSubject` returns those triples without a manual rebuild.
+3. Remote context fetch uses the same trustable loader policy as verification (HTTP allowed in lab; cache / override in prod); expand must tolerate `credentials/v2` + `credentials/status/v1` (or an equivalent documented loader strategy).
+4. Empty claim extraction after a successful credential ingest is a **hard failure** (or loud warning + metrics), not a silent 201 with empty graph.
+
+**Likely fix direction (core, not examples-only):**
+
+- Wire `DocumentLoader` (or Titanium loader options) into `CredentialSubjectClaimExtractor` / Danube path.
+- Resolve protected-term clash for status/v1 (upstream Titanium options, ordered context load, or pre-cached merged context).
+- Ensure boolean / `@vocab` issuer-dependent terms from VC 2.0 survive subject `toRdf`.
+- Optionally fail ingest when credential payload is VC-shaped but claim list is empty.
+
+**Work item:** checklist below — do **not** paper over with forever-inline demo contexts as the Construct-X source of truth.
 
 ---
 
@@ -447,6 +497,7 @@ Executable form: extend `examples/` with a Construct-X hurl suite analogous to `
 
 | Risk | Mitigation |
 |------|------------|
+| CX-BUG-1: issuer MembershipCredential stores with empty claim graph | Fix claim extractors + DocumentLoader; treat empty claims as ingest error; keep fixture remote-URL-shaped |
 | Expectation of DCP “support” | Docs state JWT format ≠ DCP protocol; Phase 6 uses EECC [dcp](https://github.com/european-epc-competence-center/dcp), not a custom stack |
 | EECC dcp still `0.1.x` | Pin version; gate production on SI-token / VP validation façades; short migration window only |
 | Dual auth confusion (Keycloak + DCP) | Construct-X profile: users = DCP only; admins = Keycloak only; reject Keycloak on user writes |
@@ -462,13 +513,14 @@ Executable form: extend `examples/` with a Construct-X hurl suite analogous to `
 ## Suggested sequence for first PR series
 
 1. Docs: this plan + vocab/issuer/admin-boundary + Keycloak strip work packages + link from company-identifier references  
-2. `examples/construct-x-registry-demo/` — start with **MembershipCredential** (DCP write-auth), then LegalPerson / BPN fixtures + hurl (semantics-only; temporary Keycloak OK until Phase 6)  
-3. SHACL + schema registration in demo  
-4. Strict-profile overlay/docs + negative tests  
-5. Federation scenario  
-6. Phase 6: EECC DCP façade + user posts without Keycloak  
-7. Keycloak strip: slim realm (admin only), `SecurityConfig` split, portal/examples/tests  
-8. Optional resolve API only after integrator feedback  
+2. **CX-BUG-1** — claim extraction / DocumentLoader for remote-only MembershipCredential contexts (required before graph demos are meaningful)  
+3. `examples/construct-x-registry-demo/` — start with **MembershipCredential** (DCP write-auth), then LegalPerson / BPN fixtures + hurl (semantics-only; temporary Keycloak OK until Phase 6)  
+4. SHACL + schema registration in demo  
+5. Strict-profile overlay/docs + negative tests  
+6. Federation scenario  
+7. Phase 6: EECC DCP façade + user posts without Keycloak  
+8. Keycloak strip: slim realm (admin only), `SecurityConfig` split, portal/examples/tests  
+9. Optional resolve API only after integrator feedback  
 
 ---
 

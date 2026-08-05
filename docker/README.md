@@ -17,6 +17,9 @@ Go to `/docker` folder. Use docker compose to start the stack needed to use the 
 docker-compose up
 ```
 
+The local stack uses **Fuseki** as the graph store (Neo4j is not started). Graph backend
+switching to Neo4j requires running Neo4j separately and is not covered by this compose file.
+
 Development option that starts the stack with locally build jar files:
 - to build the jars first run `mvn clean install` in the root folder of this repository
 - then start it with `dev.env` profile from `/docker` folder:

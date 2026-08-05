@@ -22,6 +22,7 @@ registry** and (from Phase 6) as the **DCP write-auth** gate. See
 | `membership-credential-v2.jsonld` | **Default write-auth VC** — VCDM 2.0 (`validFrom` / `validUntil`) encoding of the Construct-X membership data model. Use this in demos and Phase 6 DCP presentations. |
 | `membership-credential-v1.jsonld` | VCDM 1.1 JSON-LD mirror of what Construct-X issuers currently mint (`issuanceDate` / `expirationDate`). Compatibility / reference only. |
 | `membership-credential-v1.example.vc.jwt` | Real signed JWT-VC from `did:web:issuer.int.construct-x.net:issuer` (Ed25519). Source for the v1 claim shape. |
+| `publish-membership-and-show-triples.sh` | One-shot against a running dev stack: `POST` the v2 membership asset, print Fuseki RDF-star triples. |
 
 Further Phase 1 fixtures (LegalPerson, BPN Reference VC, SHACL, SPARQL hurl) will land in this
 folder next.
@@ -46,7 +47,7 @@ issuer-specific extras and keep the stable membership claims above.
 
 | | v1 | v2 (default) |
 |--|----|--------------|
-| `@context` | `https://www.w3.org/2018/credentials/v1` | `https://www.w3.org/ns/credentials/v2` (+ status/v1) |
+| `@context` | `https://www.w3.org/2018/credentials/v1` | `https://www.w3.org/ns/credentials/v2` + `https://www.w3.org/ns/credentials/status/v1` (**remote URLs only** — issuer shape; see [CX-BUG-1](../../docs/construct-x-implementation-plan.md#known-bugs--issues-claim-extraction--json-ld-contexts)) |
 | Validity | `issuanceDate` / `expirationDate` | `validFrom` / `validUntil` |
 | Subject claims | same (`id`, `isConsumer`, `isProvider`) | same |
 | Status | `BitstringStatusListEntry` | same |
@@ -79,7 +80,18 @@ Missing or wrong membership → write rejected even if a Keycloak Bearer is pres
 ## Using the fixtures (lab)
 
 Until DCP is wired, treat **v2** as the canonical membership payload to sign and later attach
-to presentations:
+to presentations.
+
+### One-shot: publish + show Fuseki triples
+
+Assumes the local dev stack is already running. Posts `membership-credential-v2.jsonld`
+as an asset, then prints the RDF-star claim triples from Fuseki:
+
+```bash
+./publish-membership-and-show-triples.sh
+```
+
+Requires `127.0.0.1 key-server` in `/etc/hosts`, `curl`, and `jq`.
 
 ```bash
 # Inspect default (VCDM 2.0)
