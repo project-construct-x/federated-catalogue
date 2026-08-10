@@ -27,7 +27,7 @@ usage() {
 Usage: ./dev.sh <command> [options]
 
 COMMANDS:
-  up          Start infrastructure only (postgres, neo4j, keycloak, nats)
+  up          Start infrastructure only (postgres, fuseki, keycloak, nats, …)
               Use this to run fc-server locally with Maven
               Example: ./dev.sh up
 
@@ -54,7 +54,7 @@ COMMANDS:
   down        Stop and remove all containers
               Example: ./dev.sh down
 
-  clean       Stop containers and remove all volumes (wipes PostgreSQL, Neo4j data)
+  clean       Stop containers and remove all volumes (wipes PostgreSQL data)
               Use this to get a truly fresh start (e.g. after schema/data changes)
               Example: ./dev.sh clean
 
@@ -109,7 +109,7 @@ EOF
 case "${1:-}" in
   up)
     # Start infrastructure only by scaling server and portal to 0
-    echo "Start infrastructure only (postgres, neo4j, keycloak, nats) for use with manual strat of Spring Boot devtools"
+    echo "Start infrastructure only (postgres, fuseki, keycloak, nats, …) for use with manual start of Spring Boot devtools"
     $COMPOSE_DEV up --scale server=0 --scale portal=0 "${@:2}"
     ;;
   run)
@@ -117,7 +117,11 @@ case "${1:-}" in
     echo "Hot-reload is enabled - changes will be picked up automatically"
     echo "Press Ctrl+C to stop"
     echo ""
-    (cd .. && mvn spring-boot:run -pl fc-service-server -Dspring-boot.run.profiles=dev "${@:2}")
+    # Install reactor deps first (-am), then run spring-boot only on the server
+    # module. A single `spring-boot:run -pl … -am` also invokes the goal on the
+    # parent aggregator (packaging pom), which has no main class.
+    (cd .. && mvn -pl fc-service-server -am install -DskipTests -Dcheckstyle.skip -q && \
+      mvn -pl fc-service-server spring-boot:run -Dspring-boot.run.profiles=dev "${@:2}")
     ;;
   watch)
     echo "Starting full stack with hot-reload enabled (containerized server)..."

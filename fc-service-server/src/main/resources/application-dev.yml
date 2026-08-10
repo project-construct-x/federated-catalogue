@@ -1,6 +1,13 @@
 # Development profile overrides.
 # Activated via: -Dspring-boot.run.profiles=dev
 
+# Local compose publishes Fuseki on host port 3330 (container 3030).
+graphstore:
+  impl: fuseki
+  fuseki:
+    uri: http://localhost:3330/ds
+  uri: http://localhost:3330/ds
+
 federated-catalogue:
   verification:
     doc-loader:

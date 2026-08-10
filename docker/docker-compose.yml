@@ -27,33 +27,6 @@ services:
       resources:
         limits:
           memory: 256M
-          
-  neo4j:
-    container_name: "neo4j"
-    image: neo4j:5.18.0
-    environment:
-      NEO4J_AUTH: "${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-neo12345}"
-      NEO4J_server_http_listen__address: :7474
-      NEO4J_server_bolt_listen__address: :7687
-      NEO4J_PLUGINS: '["apoc", "graph-data-science", "n10s"]'
-      NEO4J_dbms_security_procedures_unrestricted: gds.*,apoc.*,n10s.*,semantics.*
-      NEO4J_dbms_security_procedures_allowlist: gds.*,apoc.*,n10s.*,semantics.*
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    networks:
-      - "gaia-x"
-    restart: always
-    command: neo4j
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-#    volumes:
-#      - '$HOME/neo4j/data:/data'
-#      - '$HOME/neo4j/conf/:/conf/'
 
   keycloak:
     container_name: "key-server"
@@ -101,9 +74,7 @@ services:
       - "gaia-x"
 
 
-  # Fuseki SPARQL-star backend. Always present so the admin "Switch Backend" action
-  # can pre-flight either backend regardless of which one is currently active. Cost:
-  # ~1 GB JVM heap idle.
+  # Fuseki SPARQL-star backend — the sole graph store in the local compose stack.
   fuseki:
     container_name: "fuseki"
     build:
@@ -170,21 +141,7 @@ services:
       # admin_config[graphstore.preferred.backend] takes precedence — this env
       # var only seeds the first boot before any persisted preference exists.
       GRAPHSTORE_IMPL: "${GRAPH_STORE_IMPL:-fuseki}"
-      # Per-backend URIs — both are read at runtime so the pre-flight probe in
-      # GraphDatabaseAdminService can verify the target before the operator persists
-      # a switch. The Neo4j URI also seeds Spring Data Neo4j autoconfig below.
-      GRAPHSTORE_NEO4J_URI: "${NEO4J_URI:-bolt://neo4j:7687}"
       GRAPHSTORE_FUSEKI_URI: "${GRAPH_STORE_FUSEKI_URI:-http://fuseki:3030/ds}"
-      # Neo4j credentials — single source of truth, also read by the neo4j service
-      # above for NEO4J_AUTH. The fc-graphdb-neo4j adapter reads these via the
-      # graphstore.user / graphstore.password properties.
-      GRAPHSTORE_USER: "${NEO4J_USER:-neo4j}"
-      GRAPHSTORE_PASSWORD: "${NEO4J_PASSWORD:-neo12345}"
-      # Spring Data Neo4j autoconfiguration — independent of which graph backend is
-      # active so Neo4j-specific autoconfig stays consistent.
-      SPRING_NEO4J_URI: "${NEO4J_URI:-bolt://neo4j:7687}"
-      SPRING_NEO4J_AUTHENTICATION_USERNAME: "${NEO4J_USER:-neo4j}"
-      SPRING_NEO4J_AUTHENTICATION_PASSWORD: "${NEO4J_PASSWORD:-neo12345}"
       PUBLISHER_IMPL: nats
       PUBLISHER_URL: ${NATS_URL}
       SUBSCRIBER_IMPL: none
@@ -228,10 +185,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      # Graph backends are started in parallel but not gated — fc-server tolerates a
-      # temporarily-unavailable graph store at boot (logs a warning and starts). The
-      # pre-flight probe in GraphDatabaseAdminService is the real gate, before the
-      # operator persists a switch.
+      # Fuseki is started in parallel but not gated — fc-server tolerates a
+      # temporarily-unavailable graph store at boot (logs a warning and starts).
+      fuseki:
+        condition: service_started
       nats:
         condition: service_healthy
       did-server:

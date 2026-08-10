@@ -6,6 +6,11 @@ keycloak:
 
 federated-catalogue:
   scope: test
+  dcp:
+    verifier-did: "did:web:catalogue.test"
+    audience: "https://catalogue.test"
+    verifier-token-ttl: 5m
+    jti-ttl: 10m
   verification:
     # Signature verification disabled — test fixtures are JSON-LD without proofs.
     # Tests requiring signature verification must mock JwtSignatureVerifier.

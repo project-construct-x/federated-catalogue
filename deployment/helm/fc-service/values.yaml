@@ -15,7 +15,7 @@ name: fc-service
 replicaCount: 1
 
 image:
-  repository: ghcr.io/eclipse-xfsc/federated-catalogue/fc-service-server
+  repository: ghcr.io/project-construct-x/federated-catalogue/fc-service-server
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -319,7 +319,7 @@ portal:
   fullnameOverride: fc-demo-portal
   replicaCount: 1
   image:
-    repository: ghcr.io/eclipse-xfsc/federated-catalogue/fc-demo-portal
+    repository: ghcr.io/project-construct-x/federated-catalogue/fc-demo-portal
     tag: ""
     pullPolicy: IfNotPresent
   # keycloakIssuerUri is constructed from hosts.keycloak in portal-deployment.yaml
@@ -393,7 +393,7 @@ did:
 fuseki:
   fullnameOverride: fc-fuseki
   image:
-    repository: ghcr.io/eclipse-xfsc/federated-catalogue/fc-fuseki
+    repository: ghcr.io/project-construct-x/federated-catalogue/fc-fuseki
     tag: "5.5.0"
   dataset: ds
   javaOptions: "-Xmx1g"

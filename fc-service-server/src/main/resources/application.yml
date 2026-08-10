@@ -220,6 +220,19 @@ federated-catalogue:
     protected-namespace:
       namespace: "https://projects.eclipse.org/projects/technology.xfsc/federated-catalogue/meta#"
       prefix: "fcmeta"
+  # DCP verifier pull (POST /dcp/presentations). Presentation request definitions stay in Postgres.
+  dcp:
+    verifier-did: "${FEDERATED_CATALOGUE_DCP_VERIFIER_DID:}"
+    audience: "${FEDERATED_CATALOGUE_DCP_AUDIENCE:}"
+    # Private JWK JSON used to mint verifier Self-Issued ID Tokens for Credential Service calls
+    verifier-signing-key: "${FEDERATED_CATALOGUE_DCP_VERIFIER_SIGNING_KEY:}"
+    verifier-token-ttl: 10m
+    jti-ttl: 1h
+    http-timeout: 10s
+    # Constraints for POST_ASSETS presentations. Empty values omit the corresponding check.
+    post-assets:
+      required-issuer: "${FEDERATED_CATALOGUE_DCP_POST_ASSETS_REQUIRED_ISSUER:}"
+      required-credential-type: "${FEDERATED_CATALOGUE_DCP_POST_ASSETS_REQUIRED_CREDENTIAL_TYPE:}"
 
 logging:
   level:
