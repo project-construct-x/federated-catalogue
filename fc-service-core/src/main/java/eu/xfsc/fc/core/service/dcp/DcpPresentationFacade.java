@@ -6,8 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.eecc.dcp.Constants;
 import de.eecc.dcp.api.DcpOptions;
 import de.eecc.dcp.api.DcpPresentation;
-import de.eecc.dcp.api.access.PresentationAccessPolicy;
-import de.eecc.dcp.api.access.PresentationAccessRequest;
 import de.eecc.dcp.claims.PresentationClaims;
 import de.eecc.dcp.exception.DcpException;
 import de.eecc.dcp.message.PresentationResponseMessage;
@@ -17,25 +15,22 @@ import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.service.verification.VerificationConstants;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Catalogue façade over the EECC {@link DcpPresentation} API: detects inbound
- * {@link PresentationResponseMessage} bodies, validates them against Postgres-backed request
- * definitions and access whitelist, and extracts presentation payloads for asset ingest.
+ * Catalogue façade over EECC {@link DcpPresentation}: detects inbound
+ * {@link PresentationResponseMessage} bodies, validates them with the package against a stored
+ * presentation request definition, and materialises presentation payloads for asset ingest.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class DcpPresentationFacade {
 
-  private final DcpAccessPolicyService accessPolicyService;
   private final DcpPresentationRequestService requestService;
   private final ObjectMapper objectMapper;
 
@@ -72,19 +67,17 @@ public class DcpPresentationFacade {
   }
 
   /**
-   * Validates {@code response} against the enabled request definition for {@code purpose} and the
-   * current access whitelist, then materialises each presentation entry for credential ingest.
+   * Validates {@code response} against the enabled request definition for {@code purpose} using
+   * EECC {@link DcpPresentation#verifyAndExtractClaims}, then materialises presentation entries
+   * for credential ingest.
    */
   public ValidatedDcpPresentation validateForPurpose(PresentationResponseMessage response, String purpose) {
     PresentationQueryDefinition definition = requestService.requireQueryDefinition(purpose);
-    PresentationAccessPolicy policy = accessPolicyService.loadPolicy();
-    DcpPresentation dcp = DcpPresentation.create(DcpOptions.builder().presentationAccess(policy).build());
+    DcpPresentation dcp = DcpPresentation.create(DcpOptions.builder().build());
 
     try {
       PresentationClaims claims = dcp.verifyAndExtractClaims(definition, response);
       log.debug("validateForPurpose; purpose={}, claimsPresent={}", purpose, claims != null);
-
-      assertPresentationsAllowed(dcp, response);
 
       List<ValidatedDcpPresentation.PresentationPayload> payloads = materialisePresentations(response);
       if (payloads.isEmpty()) {
@@ -93,76 +86,6 @@ public class DcpPresentationFacade {
       return new ValidatedDcpPresentation(response, payloads);
     } catch (DcpException ex) {
       throw new ClientException("DCP presentation rejected: " + ex.getMessage(), ex);
-    }
-  }
-
-  /**
-   * Applies the Postgres-backed access whitelist to each presentation subject DID / credential type.
-   * Skipped when the loaded policy is the default allow-all rule.
-   */
-  private void assertPresentationsAllowed(DcpPresentation dcp, PresentationResponseMessage response) {
-    PresentationAccessPolicy policy = dcp.getOptions().getPresentationAccess();
-    if (policy.isDenyAll()) {
-      throw new ClientException("DCP presentation access denied: access whitelist is empty (deny-all)");
-    }
-    if (PresentationAccessPolicy.allowAll().equals(policy)) {
-      return;
-    }
-
-    List<JsonNode> presentations = response.presentation();
-    if (presentations == null) {
-      return;
-    }
-    for (JsonNode presentation : presentations) {
-      String subjectId = PresentationParser.extractSubjectId(presentation);
-      if (subjectId == null || subjectId.isBlank()) {
-        throw new ClientException(
-            "DCP presentation subject id is required when a restrictive access whitelist is configured");
-      }
-      Set<String> types = extractCredentialTypes(presentation);
-      dcp.assertPresentationAllowed(PresentationAccessRequest.of(subjectId, types));
-    }
-  }
-
-  private Set<String> extractCredentialTypes(JsonNode presentation) {
-    Set<String> types = new LinkedHashSet<>();
-    String membership = PresentationParser.extractCredentialType(
-        presentation, MembershipCredentialTypes.TYPES);
-    if (membership != null) {
-      types.add(membership);
-    }
-    JsonNode root = PresentationParser.presentationRoot(presentation);
-    collectTypes(root, types);
-    if (root != null) {
-      collectTypes(root.get("vp"), types);
-      JsonNode vcs = root.get("verifiableCredential");
-      if (vcs != null && vcs.isArray()) {
-        for (JsonNode vc : vcs) {
-          collectTypes(vc, types);
-        }
-      } else if (vcs != null) {
-        collectTypes(vcs, types);
-      }
-    }
-    return types;
-  }
-
-  private static void collectTypes(JsonNode node, Set<String> types) {
-    if (node == null || !node.isObject()) {
-      return;
-    }
-    JsonNode typeNode = node.get("type");
-    if (typeNode == null) {
-      return;
-    }
-    if (typeNode.isTextual()) {
-      types.add(typeNode.asText());
-    } else if (typeNode.isArray()) {
-      for (JsonNode entry : typeNode) {
-        if (entry != null && entry.isTextual()) {
-          types.add(entry.asText());
-        }
-      }
     }
   }
 
@@ -199,14 +122,6 @@ public class DcpPresentationFacade {
     byte[] bytes = objectMapper.writeValueAsBytes(presentation);
     return new ValidatedDcpPresentation.PresentationPayload(
         bytes, VerificationConstants.MEDIA_TYPE_VP_LD_JSON, presentation);
-  }
-
-  /** Types recognised by the Construct-X membership template. */
-  private static final class MembershipCredentialTypes {
-    static final List<String> TYPES = List.of(
-        de.eecc.dcp.query.template.constructx.MembershipQueryDefinition.TYPE_MEMBERSHIP);
-
-    private MembershipCredentialTypes() {}
   }
 
   /** Exposed for diagnostics / tests. */

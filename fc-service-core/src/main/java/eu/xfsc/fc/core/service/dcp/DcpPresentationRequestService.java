@@ -3,11 +3,17 @@ package eu.xfsc.fc.core.service.dcp;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.eecc.dcp.exception.DcpException;
+import de.eecc.dcp.exception.InvalidPresentationResponse;
+import de.eecc.dcp.message.PresentationQueryMessage;
+import de.eecc.dcp.message.PresentationResponseMessage;
 import de.eecc.dcp.query.DcpScope;
 import de.eecc.dcp.query.PresentationExchangeQueryDefinition;
 import de.eecc.dcp.query.PresentationQueryDefinition;
 import de.eecc.dcp.query.ScopeQueryDefinition;
 import de.eecc.dcp.query.template.constructx.MembershipQueryDefinition;
+import de.eecc.dcp.vp.PresentationParser;
+import eu.xfsc.fc.core.config.DcpProperties;
 import eu.xfsc.fc.core.dao.dcp.DcpPresentationRequestDefinition;
 import eu.xfsc.fc.core.dao.dcp.DcpPresentationRequestDefinitionRepository;
 import eu.xfsc.fc.core.dao.dcp.DcpQueryKind;
@@ -23,7 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Loads stored presentation request definitions and maps them to EECC
- * {@link PresentationQueryDefinition} instances.
+ * {@link PresentationQueryDefinition} instances. For {@link DcpPurposes#POST_ASSETS}, overlays
+ * optional issuer / credential-type constraints from {@link DcpProperties#getPostAssets()}.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,6 +38,7 @@ public class DcpPresentationRequestService {
 
   private final DcpPresentationRequestDefinitionRepository definitionRepository;
   private final ObjectMapper objectMapper;
+  private final DcpProperties dcpProperties;
 
   @Transactional(readOnly = true)
   public Optional<DcpPresentationRequestDefinition> findEnabledByPurpose(String purpose) {
@@ -42,7 +50,7 @@ public class DcpPresentationRequestService {
     DcpPresentationRequestDefinition entity = findEnabledByPurpose(purpose)
         .orElseThrow(() -> new ClientException(
             "No enabled DCP presentation request definition for purpose: " + purpose));
-    return toQueryDefinition(entity);
+    return applyPostAssetsPropertyConstraints(purpose, toQueryDefinition(entity));
   }
 
   public PresentationQueryDefinition toQueryDefinition(DcpPresentationRequestDefinition entity) {
@@ -61,6 +69,41 @@ public class DcpPresentationRequestService {
       root = root.requiresSubjectIds(subjects);
     }
     return root;
+  }
+
+  /**
+   * Applies {@code federated-catalogue.dcp.post-assets.*} when purpose is {@link DcpPurposes#POST_ASSETS}.
+   * Blank issuer / credential-type properties skip the corresponding constraint.
+   */
+  PresentationQueryDefinition applyPostAssetsPropertyConstraints(
+      String purpose, PresentationQueryDefinition definition) {
+    if (!DcpPurposes.POST_ASSETS.equals(purpose) || definition == null) {
+      return definition;
+    }
+    DcpProperties.PostAssets cfg = dcpProperties.getPostAssets();
+    String requiredType = blankToNull(cfg.getRequiredCredentialType());
+    String requiredIssuer = blankToNull(cfg.getRequiredIssuer());
+    if (requiredType == null && requiredIssuer == null) {
+      return definition;
+    }
+
+    PresentationQueryDefinition result = definition;
+    if (requiredType != null) {
+      List<String> issuers = result.requiredIssuers();
+      List<String> subjects = result.requiredSubjectIds();
+      result = new RequiredCredentialTypeQueryDefinition(
+          ScopeQueryDefinition.of(DcpScope.vcType(requiredType)), requiredType);
+      if (!issuers.isEmpty()) {
+        result = result.requiresIssuers(issuers);
+      }
+      if (!subjects.isEmpty()) {
+        result = result.requiresSubjectIds(subjects);
+      }
+    }
+    if (requiredIssuer != null) {
+      result = result.requiresIssuer(requiredIssuer);
+    }
+    return result;
   }
 
   private PresentationQueryDefinition buildScopeDefinition(DcpPresentationRequestDefinition entity) {
@@ -117,5 +160,53 @@ public class DcpPresentationRequestService {
         .map(String::trim)
         .distinct()
         .toList();
+  }
+
+  private static String blankToNull(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    return value.strip();
+  }
+
+  /**
+   * Scope query for a configured VC type that also asserts the type is present in the response.
+   */
+  private static final class RequiredCredentialTypeQueryDefinition implements PresentationQueryDefinition {
+
+    private final ScopeQueryDefinition scopeQuery;
+    private final String requiredType;
+
+    private RequiredCredentialTypeQueryDefinition(ScopeQueryDefinition scopeQuery, String requiredType) {
+      this.scopeQuery = scopeQuery;
+      this.requiredType = requiredType;
+    }
+
+    @Override
+    public PresentationQueryMessage toQueryMessage() {
+      return scopeQuery.toQueryMessage();
+    }
+
+    @Override
+    public void assertResponseStructure(PresentationResponseMessage response) {
+      scopeQuery.assertResponseStructure(response);
+    }
+
+    @Override
+    public void assertQueryConstraints(PresentationResponseMessage response) {
+      PresentationQueryDefinition.super.assertQueryConstraints(response);
+      List<JsonNode> presentations = response.presentation();
+      if (presentations == null) {
+        return;
+      }
+      List<String> accepted = List.of(requiredType);
+      for (JsonNode presentation : presentations) {
+        String found = PresentationParser.extractCredentialType(presentation, accepted);
+        if (found == null || !requiredType.equals(found)) {
+          throw new DcpException(new InvalidPresentationResponse(
+              "required credential type '" + requiredType + "' not present in presentation"));
+        }
+      }
+    }
   }
 }

@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.eecc.dcp.api.access.PresentationAccessPolicy;
 import de.eecc.dcp.message.PresentationResponseMessage;
 import de.eecc.dcp.query.template.constructx.MembershipQueryDefinition;
+import eu.xfsc.fc.core.config.DcpProperties;
 import eu.xfsc.fc.core.dao.dcp.DcpPresentationRequestDefinition;
 import eu.xfsc.fc.core.dao.dcp.DcpQueryKind;
 import java.nio.charset.StandardCharsets;
@@ -23,9 +23,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class DcpPresentationFacadeTest {
 
   @Mock
-  private DcpAccessPolicyService accessPolicyService;
-
-  @Mock
   private DcpPresentationRequestService requestService;
 
   private final ObjectMapper objectMapper = new ObjectMapper();
@@ -34,7 +31,7 @@ class DcpPresentationFacadeTest {
 
   @BeforeEach
   void setUp() {
-    facade = new DcpPresentationFacade(accessPolicyService, requestService, objectMapper);
+    facade = new DcpPresentationFacade(requestService, objectMapper);
   }
 
   @Test
@@ -70,10 +67,9 @@ class DcpPresentationFacadeTest {
   }
 
   @Test
-  void validateForPurpose_acceptsMembershipPresentationWithAllowAll() {
+  void validateForPurpose_acceptsMembershipPresentation() {
     when(requestService.requireQueryDefinition(DcpPurposes.POST_ASSETS))
         .thenReturn(MembershipQueryDefinition.INSTANCE);
-    when(accessPolicyService.loadPolicy()).thenReturn(PresentationAccessPolicy.allowAll());
 
     String body = """
         {
@@ -103,8 +99,9 @@ class DcpPresentationFacadeTest {
 
   @Test
   void toQueryDefinition_membershipEntity() {
+    DcpProperties props = new DcpProperties();
     DcpPresentationRequestService svc =
-        new DcpPresentationRequestService(null, objectMapper);
+        new DcpPresentationRequestService(null, objectMapper, props);
     DcpPresentationRequestDefinition entity = DcpPresentationRequestDefinition.builder()
         .id("asset-write")
         .name("Asset write")

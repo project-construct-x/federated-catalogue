@@ -31,6 +31,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 
@@ -79,6 +81,9 @@ public class SecurityConfig {
 
           // Verification APIs
           .requestMatchers("/verification").permitAll()
+
+          // DCP verifier pull — auth is the client Self-Issued ID Token (not Keycloak)
+          .requestMatchers(HttpMethod.POST, "/dcp/presentations").permitAll()
           
           // Asset APIs
           .requestMatchers(HttpMethod.PUT, "/assets/*").hasAnyRole(ASSET_UPDATE, ADMIN_ALL)
@@ -161,9 +166,28 @@ public class SecurityConfig {
           .anyRequest().authenticated()
         )
         .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()))
-        .oauth2ResourceServer(c -> c.jwt(jc -> jc.jwtAuthenticationConverter(new CustomJwtAuthenticationConverter(resourceId))));
+        // Skip OAuth2 JWT decoding on DCP paths so clients can send Self-Issued ID Tokens
+        // in Authorization: Bearer without Keycloak JwtDecoder rejecting them.
+        .oauth2ResourceServer(c -> c
+            .bearerTokenResolver(dcpAwareBearerTokenResolver())
+            .jwt(jc -> jc.jwtAuthenticationConverter(new CustomJwtAuthenticationConverter(resourceId))));
 
     return http.build();
+  }
+
+  /**
+   * Do not treat {@code Authorization: Bearer} on {@code /dcp/**} as a Keycloak access token.
+   * Those endpoints validate DCP Self-Issued ID Tokens inside the handler.
+   */
+  private static BearerTokenResolver dcpAwareBearerTokenResolver() {
+    DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
+    return request -> {
+      String uri = request.getRequestURI();
+      if (uri != null && uri.startsWith("/dcp/")) {
+        return null;
+      }
+      return delegate.resolve(request);
+    };
   }
 
   /**

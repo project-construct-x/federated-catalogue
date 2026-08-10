@@ -269,6 +269,29 @@ components:
       required:
         - code
         - message
+    PresentationResponseMessage:
+      type: object
+      description: >-
+        Eclipse DCP PresentationResponseMessage returned after a successful
+        verifier pull from the holder's Credential Service.
+      required:
+        - type
+        - presentation
+      properties:
+        '@context':
+          type: array
+          items: {}
+        type:
+          type: string
+          example: PresentationResponseMessage
+        presentation:
+          type: array
+          description: Verifiable Presentation entries (compact JWT strings or JSON-LD objects)
+          items: {}
+        presentationSubmission:
+          type: object
+          additionalProperties: true
+          description: Required when the query used a presentationDefinition
     GraphDatabaseStatus:
       type: object
       properties:
@@ -1128,6 +1151,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+    BadGateway:
+      description: Upstream Credential Service call failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     Forbidden:
       description: >-
         Forbidden. The user does not have the permission to execute this
@@ -1220,6 +1249,11 @@ tags:
       (JSON Schema, XML Schema).
   - name: Verification
     description: The Catalogue provides a verification service for e.g. checking the syntax
+  - name: Dcp
+    description: >-
+      Eclipse Decentralized Claims Protocol (DCP) verifier endpoints. Clients
+      present a Self-Issued ID Token; the catalogue pulls Verifiable Presentations
+      from the holder's Credential Service.
   - name: Participants
     description: Participant Management operations
   - name: Users
@@ -4033,3 +4067,57 @@ paths:
           description: The current session was closed
         '500':
           $ref: '#/components/responses/ServerError'
+
+  /dcp/presentations:
+    post:
+      tags:
+        - Dcp
+      summary: Pull a DCP presentation from the holder's Credential Service
+      description: >-
+        Verifier pull flow with holder binding. The client authenticates with a
+        Self-Issued ID Token (`Authorization: Bearer`). The catalogue validates
+        the token (`iss`=`sub`, `capabilityInvocation` signature, `aud`/`exp`/`jti`),
+        resolves the holder's Credential Service from their DID document, builds a
+        PresentationQueryMessage from the stored definition for `purpose`, pulls
+        presentations from the Credential Service, and returns the validated
+        PresentationResponseMessage. Credential subject IDs must match the SI
+        token `sub` (holder binding).
+      operationId: pullDcpPresentations
+      security:
+        - jwt: [ ]
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: >-
+            Bearer client Self-Issued ID Token (DCP SI token). Must not be a
+            Keycloak access token.
+          schema:
+            type: string
+            example: Bearer eyJhbGciOiJFZERTQSJ9...
+        - name: purpose
+          in: query
+          required: false
+          description: >-
+            Catalogue purpose key selecting a stored presentation request
+            definition (default POST_ASSETS).
+          schema:
+            type: string
+            default: POST_ASSETS
+      responses:
+        '200':
+          description: Validated PresentationResponseMessage from the holder's Credential Service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresentationResponseMessage'
+        '400':
+          $ref: '#/components/responses/ClientError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
