@@ -1,35 +1,162 @@
-name: Docker and Helm
+name: Publish Docker and Helm
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Image/chart tag (defaults to release tag or git ref)
+        required: false
+        type: string
 
 permissions:
   contents: read
-  actions: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  dockerbuild-service:
-    uses: eclipse-xfsc/dev-ops/.github/workflows/docker-maven.yml@main
-    secrets: inherit
-    with:
-      repo_name: fc-service-server
-      java_version: '21'
-      deploy_mode: 'jib'
-    
-  dockerbuild-portal:
-    uses: eclipse-xfsc/dev-ops/.github/workflows/docker-maven.yml@main
-    secrets: inherit
-    with:
-      repo_name: fc-demo-portal
-      java_version: '21'
-      deploy_mode: 'jib'
-      folder: ./fc-demo-portal
-      harbor_config: ../harbor.config
+  docker:
+    name: Build ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: FC Service Server
+            context: .
+            dockerfile: Dockerfile
+            target: fc-service-server
+            image_suffix: fc-service-server
+          - name: FC Demo Portal
+            context: .
+            dockerfile: Dockerfile
+            target: fc-demo-portal
+            image_suffix: fc-demo-portal
+          - name: Fuseki SPARQL Store
+            context: docker/fuseki
+            dockerfile: Dockerfile
+            target: ""
+            image_suffix: fc-fuseki
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          set -euo pipefail
+          if [[ -n "${{ inputs.tag }}" ]]; then
+            TAG="${{ inputs.tag }}"
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          TAG="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image_suffix }}
+          tags: |
+            type=raw,value=${{ steps.tag.outputs.tag }}
+            type=semver,pattern={{version}},value=v${{ steps.tag.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.tag.outputs.tag }}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
+            type=sha,prefix=sha-
+
+      - name: Build and push ${{ matrix.name }} image
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ github.workflow }}-${{ matrix.image_suffix }}
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-${{ matrix.image_suffix }}
 
   helm:
-    uses: eclipse-xfsc/dev-ops/.github/workflows/helm.yml@main
-    secrets: inherit
-    with:
-      buildContext:  "deployment/helm/fc-service"
+    name: Publish Helm chart
+    runs-on: ubuntu-latest
+    needs: docker
+    # Chart versions must be SemVer; skip free-form branch dispatch without an explicit tag.
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Resolve chart version
+        id: version
+        run: |
+          set -euo pipefail
+          if [[ -n "${{ inputs.tag }}" ]]; then
+            RAW="${{ inputs.tag }}"
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            RAW="${{ github.event.release.tag_name }}"
+          else
+            RAW="${{ github.ref_name }}"
+          fi
+          VERSION="${RAW#v}"
+
+          SEMVER_REGEX='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$'
+          if [[ ! "$VERSION" =~ $SEMVER_REGEX ]]; then
+            echo "::error::Tag '$RAW' is not a valid SemVer version (got '$VERSION')."
+            exit 1
+          fi
+
+          echo "app_version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "chart_version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package and push chart
+        working-directory: deployment/helm/fc-service
+        env:
+          CHART_VERSION: ${{ steps.version.outputs.chart_version }}
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+        run: |
+          set -euo pipefail
+
+          sed -i -E "s|^version:[[:space:]]*.*$|version: ${CHART_VERSION}|" Chart.yaml
+          sed -i -E "s|^appVersion:[[:space:]]*.*$|appVersion: \"${APP_VERSION}\"|" Chart.yaml
+
+          helm dependency build
+          helm lint .
+          helm package .
+
+          CHART_NAME="$(sed -nE 's/^name:[[:space:]]*["'\'']?([^"'\'']+)["'\'']?.*/\1/p' Chart.yaml)"
+          PACKAGE_FILE="${CHART_NAME}-${CHART_VERSION}.tgz"
+
+          helm push "$PACKAGE_FILE" "oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
