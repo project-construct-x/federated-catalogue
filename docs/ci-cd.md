@@ -8,7 +8,7 @@ https://github.com/project-construct-x/federated-catalogue/actions
 | Workflow     | File                                 | Purpose                                                                 |
 |--------------|--------------------------------------|-------------------------------------------------------------------------|
 | Maven build  | `.github/workflows/maven.yml`        | Compile and run unit tests on push / PR                                 |
-| Docker build | `.github/workflows/docker-build.yml` | Build and publish container images to GHCR on `dev` push / tag / PR    |
+| Docker build | `.github/workflows/docker-build.yml` | Build/push GHCR images on `dev`; deploy to Construct-X staging on push |
 | SBOM         | `.github/workflows/sbom.yml`         | Generate Software Bill of Materials                                     |
 | Eclipse Dash | `.github/workflows/eclipse-dash.yml` | License compliance check (Eclipse Dash)                                 |
 | Publish      | `.github/workflows/publish.yml`      | Release: publish Docker images + Helm chart to GHCR                     |
@@ -22,12 +22,28 @@ Images are published to GitHub Container Registry under this repository:
 - `ghcr.io/project-construct-x/federated-catalogue/fc-fuseki`
 
 Branch builds use `docker-build.yml` on **`dev`** (`GITHUB_TOKEN`, `packages: write`);
-`latest` is published from `dev` only. `main` is reserved for upstream merges and does not
-build or push images. Releases and manual `workflow_dispatch` runs use `publish.yml`, which
-also pushes the Helm chart as an OCI artifact:
+`latest` and branch tag `dev` are published from `dev`. After a successful image push,
+the same workflow deploys Helm release `fc-service` to kube context `construct-x-dev`
+(namespace `user-grp-03`) using
+[`deployment/helm/extra-stages/construct-x-dev.yaml`](../deployment/helm/extra-stages/construct-x-dev.yaml).
+
+`main` is reserved for upstream merges and does not build or push images. Releases and
+manual `workflow_dispatch` runs use `publish.yml`, which also pushes the Helm chart as
+an OCI artifact:
 
 ```bash
 helm install fc oci://ghcr.io/project-construct-x/federated-catalogue/fc-service --version <semver>
 ```
+
+### Deploy secrets / environment
+
+GitHub Environment **`construct-x-dev`** (or repository secrets):
+
+| Secret | Purpose |
+|--------|---------|
+| `KUBE_CONFIG` | Base64-encoded **minimal** kubeconfig (only `construct-x-dev`) |
+| `FC_KEYCLOAK_CLIENT_SECRET` | Keycloak `federated-catalogue` client secret — CI patches `fc-realm.json` at deploy time and applies the matching K8s secret (value is **not** committed) |
+
+Manual one-liner: see the header of `construct-x-dev.yaml` or the Helm README §Construct-X staging.
 
 Workflow runs, logs, and status badges are the source of truth — this file is a pointer.

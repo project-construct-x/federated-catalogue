@@ -279,6 +279,23 @@ Set `did.enabled: false` (the default) and re-run `helm upgrade --install`. The 
 
 ---
 
+## Construct-X staging (extra stage)
+
+Deploy the `dev` GHCR images to the Construct-X STACKIT cluster with the stage overlay
+under [`../extra-stages/construct-x-dev.yaml`](../extra-stages/construct-x-dev.yaml):
+
+```bash
+helm dependency build deployment/helm/fc-service
+helm upgrade --install fc-service deployment/helm/fc-service \
+  --kube-context construct-x-dev \
+  --namespace user-grp-03 --create-namespace \
+  -f deployment/helm/fc-service/values.yaml \
+  -f deployment/helm/extra-stages/construct-x-dev.yaml \
+  --server-side=true --force-conflicts
+```
+
+CI runs the same deploy on every push to `dev` (see `.github/workflows/docker-build.yml`).
+
 ## Upgrading an existing release
 
 ```bash

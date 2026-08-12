@@ -15,6 +15,11 @@ env:
   REGISTRY: ghcr.io
   # e.g. ghcr.io/project-construct-x/federated-catalogue/<image>
   IMAGE_NAME: ${{ github.repository }}
+  KUBE_CONTEXT: construct-x-dev
+  KUBE_NAMESPACE: user-grp-03
+  HELM_RELEASE: fc-service
+  HELM_CHART: deployment/helm/fc-service
+  HELM_STAGE_VALUES: deployment/helm/extra-stages/construct-x-dev.yaml
 
 jobs:
   build:
@@ -86,3 +91,91 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ github.workflow }}-${{ matrix.image_suffix }}
           cache-to: type=gha,mode=max,scope=${{ github.workflow }}-${{ matrix.image_suffix }}
+
+  deploy:
+    name: Deploy to Construct-X staging
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: construct-x-dev
+      url: https://fc.int.construct-x.net
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure Kubernetes
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${KUBE_CONFIG}" ]]; then
+            echo "::error::Repository secret KUBE_CONFIG is required (base64-encoded kubeconfig for construct-x-dev)."
+            exit 1
+          fi
+          mkdir -p "$HOME/.kube"
+          echo "$KUBE_CONFIG" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl config use-context "${KUBE_CONTEXT}"
+          kubectl config get-contexts
+          kubectl -n "${KUBE_NAMESPACE}" get ns "${KUBE_NAMESPACE}" >/dev/null
+
+      - name: Apply Keycloak client secret
+        env:
+          FC_KEYCLOAK_CLIENT_SECRET: ${{ secrets.FC_KEYCLOAK_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${FC_KEYCLOAK_CLIENT_SECRET:-}" ]]; then
+            echo "::error::Secret FC_KEYCLOAK_CLIENT_SECRET is required."
+            exit 1
+          fi
+          # Keep realm import and app secret in sync without committing the value.
+          python3 - <<'PY'
+          import json, os, pathlib
+          path = pathlib.Path("deployment/helm/fc-service/fc-realm.json")
+          secret = os.environ["FC_KEYCLOAK_CLIENT_SECRET"]
+          data = json.loads(path.read_text())
+          found = False
+          for client in data.get("clients", []):
+              if client.get("clientId") == "federated-catalogue":
+                  client["secret"] = secret
+                  found = True
+                  break
+          if not found:
+              raise SystemExit("federated-catalogue client not found in fc-realm.json")
+          path.write_text(json.dumps(data, indent=2) + "\n")
+          print("patched federated-catalogue client secret into fc-realm.json for this deploy")
+          PY
+          kubectl -n "${KUBE_NAMESPACE}" create secret generic fc-keycloak-client-secret \
+            --from-literal=keycloak_client_secret="${FC_KEYCLOAK_CLIENT_SECRET}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Build chart dependencies
+        run: helm dependency build "${HELM_CHART}"
+
+      - name: Helm upgrade --install
+        run: |
+          set -euo pipefail
+          helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART}" \
+            --kube-context "${KUBE_CONTEXT}" \
+            --namespace "${KUBE_NAMESPACE}" --create-namespace \
+            -f "${HELM_CHART}/values.yaml" \
+            -f "${HELM_STAGE_VALUES}" \
+            --wait --timeout 10m
+
+      - name: Status
+        if: always()
+        run: |
+          kubectl --context "${KUBE_CONTEXT}" -n "${KUBE_NAMESPACE}" get pods,ingress,svc

@@ -1,0 +1,61 @@
+# Construct-X staging (STACKIT SKE: construct-x-dev)
+#
+# Deploys GHCR `dev` images from project-construct-x into namespace user-grp-03.
+# Inherits chart defaults from ../fc-service/values.yaml; this file only overrides
+# hosts, image tags, and pull policy.
+#
+# One-liner (from repo root):
+#   helm dependency build deployment/helm/fc-service
+#   helm upgrade --install fc-service deployment/helm/fc-service \
+#     --kube-context construct-x-dev \
+#     --namespace user-grp-03 --create-namespace \
+#     -f deployment/helm/fc-service/values.yaml \
+#     -f deployment/helm/extra-stages/construct-x-dev.yaml \
+#     --server-side=true --force-conflicts
+#
+# Prerequisite: GitHub secrets KUBE_CONFIG + FC_KEYCLOAK_CLIENT_SECRET (see docs/ci-cd.md).
+# CI patches fc-realm.json at deploy time so the Keycloak client secret is not committed.
+
+hosts:
+  fcService: "fc.int.construct-x.net"
+  keycloak: "key.fc.int.construct-x.net"
+  portal: "portal.fc.int.construct-x.net"
+  did: "did.fc.int.construct-x.net"
+
+image:
+  pullPolicy: Always
+  tag: "dev"
+
+ingress:
+  hosts:
+    - host: "fc.int.construct-x.net"
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: fc-server-tls
+      hosts:
+        - "fc.int.construct-x.net"
+
+keycloak:
+  hostname:
+    hostname: "key.fc.int.construct-x.net"
+    strict: false
+    strictBackchannel: false
+  ingress:
+    rules:
+      - host: "key.fc.int.construct-x.net"
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - hosts:
+          - "key.fc.int.construct-x.net"
+        secretName: keycloak-tls
+
+portal:
+  image:
+    pullPolicy: Always
+    tag: "dev"
+  tls:
+    secretName: fc-demo-portal-tls
