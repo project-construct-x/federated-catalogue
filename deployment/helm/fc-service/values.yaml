@@ -316,6 +316,7 @@ keycloak:
     httpPort: 8080
 
 portal:
+  enabled: true
   fullnameOverride: fc-demo-portal
   replicaCount: 1
   image:

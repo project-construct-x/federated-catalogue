@@ -100,7 +100,7 @@ jobs:
     timeout-minutes: 20
     environment:
       name: construct-x-dev
-      url: https://fc.int.construct-x.net
+      url: https://federated-catalogue.staging.construct-x.net
     permissions:
       contents: read
 

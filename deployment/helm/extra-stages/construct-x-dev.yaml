@@ -1,8 +1,11 @@
 # Construct-X staging (STACKIT SKE: construct-x-dev)
 #
-# Deploys GHCR `dev` images from project-construct-x into namespace user-grp-03.
-# Inherits chart defaults from ../fc-service/values.yaml; this file only overrides
-# hosts, image tags, and pull policy.
+# Base stack only: fc-service + Keycloak + Postgres + Fuseki.
+# No demo portal (frontend). Neo4j is not part of this chart.
+#
+# Public URL: https://federated-catalogue.staging.construct-x.net/
+#   - catalogue API at /
+#   - Keycloak at /auth (same host)
 #
 # One-liner (from repo root):
 #   helm dependency build deployment/helm/fc-service
@@ -17,10 +20,11 @@
 # CI patches fc-realm.json at deploy time so the Keycloak client secret is not committed.
 
 hosts:
-  fcService: "fc.int.construct-x.net"
-  keycloak: "key.fc.int.construct-x.net"
-  portal: "portal.fc.int.construct-x.net"
-  did: "did.fc.int.construct-x.net"
+  fcService: "federated-catalogue.staging.construct-x.net"
+  keycloak: "federated-catalogue.staging.construct-x.net"
+  # unused while portal.enabled=false / did.enabled=false
+  portal: "federated-catalogue.staging.construct-x.net"
+  did: "federated-catalogue.staging.construct-x.net"
 
 image:
   pullPolicy: Always
@@ -28,34 +32,61 @@ image:
 
 ingress:
   hosts:
-    - host: "fc.int.construct-x.net"
+    - host: "federated-catalogue.staging.construct-x.net"
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: fc-server-tls
+    - secretName: federated-catalogue-tls
       hosts:
-        - "fc.int.construct-x.net"
+        - "federated-catalogue.staging.construct-x.net"
 
 keycloak:
   hostname:
-    hostname: "key.fc.int.construct-x.net"
+    hostname: "federated-catalogue.staging.construct-x.net"
     strict: false
     strictBackchannel: false
   ingress:
     rules:
-      - host: "key.fc.int.construct-x.net"
+      - host: "federated-catalogue.staging.construct-x.net"
         paths:
-          - path: /
+          - path: /auth
             pathType: Prefix
     tls:
       - hosts:
-          - "key.fc.int.construct-x.net"
-        secretName: keycloak-tls
+          - "federated-catalogue.staging.construct-x.net"
+        secretName: federated-catalogue-tls
 
 portal:
-  image:
-    pullPolicy: Always
-    tag: "dev"
-  tls:
-    secretName: fc-demo-portal-tls
+  enabled: false
+
+did:
+  enabled: false
+
+# Full env list (Helm replaces arrays). Fuseki only — no Neo4j. Keycloak DNS
+# uses the short service name so it works in any namespace (user-grp-03).
+env:
+  - name: DATASTORE_FILE_PATH
+    value: /var/lib/fc-service/filestore
+  - name: FEDERATED_CATALOGUE_VERIFICATION_SIGNATURES
+    value: "true"
+  - name: GRAPHSTORE_IMPL
+    value: fuseki
+  - name: GRAPHSTORE_FUSEKI_URI
+    value: http://fc-fuseki:3030/ds
+  - name: KEYCLOAK_AUTH_SERVER_URL
+    value: http://fc-keycloak-headless:8080/auth
+  - name: KEYCLOAK_CREDENTIALS_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: fc-keycloak-client-secret
+        key: keycloak_client_secret
+  - name: SPRING_DATASOURCE_URL
+    value: jdbc:postgresql://fc-postgres:5432/postgres
+  - name: SPRING_DATASOURCE_USERNAME
+    value: keycloak
+  - name: SPRING_DATASOURCE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: fc-postgres
+        key: password
