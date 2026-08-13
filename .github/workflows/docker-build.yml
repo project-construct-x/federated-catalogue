@@ -38,11 +38,6 @@ jobs:
             dockerfile: Dockerfile
             target: fc-service-server
             image_suffix: fc-service-server
-          - name: FC Demo Portal
-            context: .
-            dockerfile: Dockerfile
-            target: fc-demo-portal
-            image_suffix: fc-demo-portal
           - name: Fuseki SPARQL Store
             context: docker/fuseki
             dockerfile: Dockerfile

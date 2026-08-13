@@ -1227,6 +1227,35 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  examples:
+    LinkedDataJsonVc:
+      summary: Linked Data JSON Verifiable Credential (VC 2.0)
+      description: >-
+        Unsigned illustrative VCDM 2.0 credential in Linked Data JSON form.
+        Send with Content-Type application/vc+ld+json, application/ld+json, or
+        application/json.
+      value:
+        '@context':
+          - https://www.w3.org/ns/credentials/v2
+        id: urn:uuid:ad644042-2654-4d3f-8d9b-b755bc8bdc9f
+        type:
+          - VerifiableCredential
+          - MembershipCredential
+        issuer: did:web:issuer.example.com
+        validFrom: '2026-07-14T11:50:43Z'
+        validUntil: '2027-01-10T11:50:43Z'
+        credentialSubject:
+          id: did:web:participant.example.com
+          isConsumer: false
+          isProvider: true
+    JwtVc:
+      summary: Compact JWT Verifiable Credential (VC-JWT)
+      description: >-
+        Compact-serialized VC-JWT (three base64url segments). Send with
+        Content-Type application/vc+jwt (IANA-registered) or the ICAM 24.07
+        alias application/vc+ld+json+jwt.
+      value: >-
+        eyJraWQiOiJkaWQ6d2ViOmlzc3Vlci5pbnQuY29uc3RydWN0LXgubmV0Omlzc3VlciNrZXktMSIsImFsZyI6IkVkMjU1MTkifQ.eyJzdWIiOiJkaWQ6d2ViOndhbGxldC5lZGMxLmNvbnN0cnVjdC14LnByb2QtazhzLmVlY2MuZGU6ZWRjMSIsIm5iZiI6MTc4NDAyOTg0MywiaXNzIjoiZGlkOndlYjppc3N1ZXIuaW50LmNvbnN0cnVjdC14Lm5ldDppc3N1ZXIiLCJleHAiOjE3OTk1ODE4NDMsImlhdCI6MTc4NDAyOTg0MywidmMiOnsiY3JlZGVudGlhbFN1YmplY3QiOnsiaXNDb25zdW1lciI6ZmFsc2UsImlzUHJvdmlkZXIiOmZhbHNlLCJmb28iOnsiYmFyIjowfSwiaWQiOiJkaWQ6d2ViOndhbGxldC5lZGMxLmNvbnN0cnVjdC14LnByb2QtazhzLmVlY2MuZGU6ZWRjMSJ9LCJpc3N1YW5jZURhdGUiOiIyMDI2LTA3LTE0VDExOjUwOjQzLjU3MjkxMTQ2MVoiLCJpZCI6ImFkNjQ0MDQyLTI2NTQtNGQzZi04ZDliLWI3NTViYzhiZGM5ZiIsInR5cGUiOlsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiLCJNZW1iZXJzaGlwQ3JlZGVudGlhbCJdLCJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSJdLCJpc3N1ZXIiOiJkaWQ6d2ViOmlzc3Vlci5pbnQuY29uc3RydWN0LXgubmV0Omlzc3VlciIsImV4cGlyYXRpb25EYXRlIjoiMjAyNy0wMS0xMFQxMTo1MDo0My41NzI5MTE3OTFaIiwiY3JlZGVudGlhbFN0YXR1cyI6eyJzdGF0dXNQdXJwb3NlIjoicmV2b2NhdGlvbiIsInN0YXR1c0xpc3RJbmRleCI6MTksImlkIjoiNmQ1ZjEzYjMtOWRkYy00ODg5LTk2NDAtYTNhZGFkZWFmZjJiIiwidHlwZSI6IkJpdHN0cmluZ1N0YXR1c0xpc3RFbnRyeSIsInN0YXR1c0xpc3RDcmVkZW50aWFsIjoiaHR0cHM6Ly9pc3N1ZXIuaW50LmNvbnN0cnVjdC14Lm5ldC9zdGF0dXNsaXN0L2I4MmRmYTIyLWIwMmQtNGNkNS04NGNjLTRkN2FjYjIxOTU0MiJ9fSwianRpIjoiMzUwODA2YjEtYjczZi00NDBiLWI2OWItN2M5MWFkNWE4MGMwIn0.YDDEClERpK3JeLTd9y9MXwJnlApHibtgwD7IU7SHgWCdLcdyUOsmwJ1L3c8NLzhcuHr3_S5aLsJn0e39zTt8AQ
 tags:
   - name: Assets
     description: >-
@@ -1895,24 +1924,39 @@ paths:
           application/json:
             schema:
               type: string
+            examples:
+              linkedDataJsonVc:
+                $ref: '#/components/examples/LinkedDataJsonVc'
           application/ld+json:
             schema:
               type: string
+            examples:
+              linkedDataJsonVc:
+                $ref: '#/components/examples/LinkedDataJsonVc'
           application/vc+ld+json:
             schema:
               type: string
+            examples:
+              linkedDataJsonVc:
+                $ref: '#/components/examples/LinkedDataJsonVc'
           application/vp+ld+json:
             schema:
               type: string
           application/vc+jwt:
             schema:
               type: string
+            examples:
+              jwtVc:
+                $ref: '#/components/examples/JwtVc'
           application/vp+jwt:
             schema:
               type: string
           application/vc+ld+json+jwt:
             schema:
               type: string
+            examples:
+              jwtVc:
+                $ref: '#/components/examples/JwtVc'
           application/vp+ld+json+jwt:
             schema:
               type: string

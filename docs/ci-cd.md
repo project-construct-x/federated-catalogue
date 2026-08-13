@@ -15,8 +15,9 @@ https://github.com/project-construct-x/federated-catalogue/actions
 Images are published to GitHub Container Registry under this repository:
 
 - `ghcr.io/project-construct-x/federated-catalogue/fc-service-server`
-- `ghcr.io/project-construct-x/federated-catalogue/fc-demo-portal`
 - `ghcr.io/project-construct-x/federated-catalogue/fc-fuseki`
+
+`fc-demo-portal` is local-testing only (Docker Compose / `Dockerfile` target); it is not built or published to GHCR.
 
 Branch builds use `docker-build.yml` on **`dev`** (`GITHUB_TOKEN`, `packages: write`);
 `latest` and branch tag `dev` are published from `dev`. After a successful image push,
