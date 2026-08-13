@@ -60,9 +60,9 @@
         <revision>2.1.0-SNAPSHOT</revision>
         <tag.version>latest</tag.version>
         <!-- java -->
-        <java.version>21</java.version>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <java.version>25</java.version>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
         <!-- charset -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -506,7 +506,7 @@
                             <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
                         </container>
                         <from>
-                            <image>bellsoft/liberica-openjdk-alpine:21</image>
+                            <image>bellsoft/liberica-openjdk-alpine:25</image>
                         </from>
                         <!-- Turn it off for all the modules, but
                             turn it on in server module only -->
