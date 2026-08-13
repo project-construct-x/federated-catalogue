@@ -7,10 +7,7 @@ https://github.com/project-construct-x/federated-catalogue/actions
 
 | Workflow     | File                                 | Purpose                                                                 |
 |--------------|--------------------------------------|-------------------------------------------------------------------------|
-| Maven build  | `.github/workflows/maven.yml`        | Compile and run unit tests on push / PR                                 |
 | Docker build | `.github/workflows/docker-build.yml` | Build/push GHCR images on `dev`; deploy to Construct-X staging on push |
-| SBOM         | `.github/workflows/sbom.yml`         | Generate Software Bill of Materials                                     |
-| Eclipse Dash | `.github/workflows/eclipse-dash.yml` | License compliance check (Eclipse Dash)                                 |
 | Publish      | `.github/workflows/publish.yml`      | Release: publish Docker images + Helm chart to GHCR                     |
 
 ## Container images
