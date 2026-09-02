@@ -466,12 +466,12 @@ Lab finding while publishing `examples/construct-x-registry-demo/membership-cred
 
 **Canonical input (must work):** Construct-X issuer shape — `@context` is **remote URL list only**, contexts resolved at expand/extract time (no inline term map):
 
-```json
-"@context": [
-  "https://www.w3.org/ns/credentials/v2",
-  "https://www.w3.org/ns/credentials/status/v1"
-]
-```
++{
++  "@context": [
++    "https://www.w3.org/ns/credentials/v2",
++    "https://www.w3.org/ns/credentials/status/v1"
++  ]
++}
 
 plus `credentialSubject.isConsumer` / `isProvider` and `credentialStatus` (`BitstringStatusListEntry`) as in the int issuer JWT / `membership-credential-v2.jsonld`.
 
