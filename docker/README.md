@@ -68,7 +68,8 @@ When all components started you should setup Keycloak which is used as Identity 
 127.0.0.1	key-server
 ```
 
-Open keycloak admin console at `http://key-server:8080/admin` with `admin/admin` credentials, select `gaia-x` realm.
+Open the Keycloak admin console at `http://key-server:8080/admin` with `admin/admin` credentials, then
+select the `federated-catalogue-realm` realm.
 
 #### Client secret
 
@@ -79,26 +80,33 @@ docker compose --env-file dev.env build server
 docker compose --env-file dev.env up -d server
 ```
 
-#### Create a user
+#### Create an application administrator
 
-Go to Users, create a new user with username and attributes, save. Then go to Credentials tab, set a password, disable Temporary, save.
+The development realm includes one local application administrator. To create another administrator,
+go to Users, create the account, and save it. In the Credentials tab, set a password and disable Temporary.
+Do not create ordinary catalogue users or connector accounts in Keycloak.
 
 #### Assign roles
 
-Go to the user's Role Mappings tab, click `Assign role`, filter by client `federated-catalogue`, and assign a composite role:
-For development and running integration tests, assign `Ro-MU-CA` or `ADMIN_ALL`.
+Go to the administrator's Role Mappings tab, click `Assign role`, filter by client
+`federated-catalogue`, and assign the single application role `ADMIN_ALL`.
+
+Keycloak authenticates application administrators only. Machine catalogue and registry operations use
+DCP membership credentials; their permissions must not be modelled with Keycloak roles.
 
 #### Re-importing the realm (existing stack)
 
-If you need to update the realm (e.g., after adding new roles), use Keycloak's partial import:
+If you need to update an existing realm, use Keycloak's partial import:
 
 1. Go to Realm Settings → Action → Partial import
 2. Upload `keycloak/realms/<env>/fc-realm.json` (where `<env>` matches your `KC_REALM_ENV`)
 3. Select **Skip** for existing resources (preserves client secret and user accounts)
 
-New roles will be created; existing ones are preserved. To update composite role mappings on existing roles, manually edit them in the Keycloak UI or do a full teardown (`./dev.sh clean`) and restart.
+Partial import with **Skip** does not delete legacy roles or users. To verify the admin-only realm from a
+fresh import, use a separate local database or do a full teardown (`./dev.sh clean`) and restart.
 
-Now you can test FC Service with Demo Portal web app. Go to `http://localhost:8088` in your browser and press Login button. You should be redirected to Keycloak Login page. Use  user credentials you created above..
+You can test administrator login through the Demo Portal at `http://localhost:8088`. Press Login and use
+an account assigned `ADMIN_ALL`.
 
 
 ## Run tests
@@ -122,11 +130,10 @@ docker build --target fc-demo-portal -t fc-demo-portal .
 Note: initial build may take up to 5 minutes to download all required libraries. Subsequent builds take much less time. 
 
 ### Maven based build
-For a build without docker you can use the [Maven Jib plugin](https://github.com/GoogleContainerTools/jib) to build container for the catalogs components. 
+For a build without docker you can use the [Maven Jib plugin](https://github.com/GoogleContainerTools/jib) to build container for the catalogs components.
 
 1. Set the Environment variables `CI_REGISTRY`, `CI_REGISTRY_USERNAME` and `CI_REGISTRY_PASSWORD`.
 2. Run following command in the root folder of this repository:
     ```sh
     mvn compile jib:build
     ```
-    
