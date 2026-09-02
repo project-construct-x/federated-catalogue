@@ -61,4 +61,3 @@ GitHub [contributor graph](https://github.com/eclipse-xfsc/federated-catalogue/g
 ## License
 
 Apache License 2.0 — see [LICENSE](https://github.com/eclipse-xfsc/federated-catalogue/blob/main/LICENSE).
-
