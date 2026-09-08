@@ -42,17 +42,17 @@ The metadata uses three vocabularies:
 
 - Federated Catalogue stack running: `cd ../../docker && docker compose --env-file dev.env up -d` (Fuseki backend, see [
   `../README.md`](../README.md)).
-- A Keycloak user `alice` with a role permitted to manage assets (e.g. `Ro-MU-CA` or `ADMIN_ALL`). See [
-  `../../docker/README.md`](../../docker/README.md) §Keycloak setup.
-- For step 7 onward, a second user `bob` with the same role (or reuse `alice`; in this demo Alice and Bob represent two
-  roles, not strictly two users).
+- Authentication migration is pending: this legacy scenario still requests a Keycloak password-grant token for data
+  operations, which is intentionally unsupported by the reduced admin-only realm. The scenario must use DCP before it
+  is a runnable Construct-X integration test. Do not create non-admin Keycloak users or catalogue roles for it.
 - `curl`, `jq`, `sha256sum`, and [`hurl`](https://hurl.dev) (≥ 4.x).
 
 ## How to run
 
-The whole scenario is one executable [hurl](https://hurl.dev) file —
+After its DCP authentication migration, the scenario will again be an executable [hurl](https://hurl.dev) file —
 [`dcs-template-demo.hurl`](./dcs-template-demo.hurl) — that captures responses, asserts what should come back, and
-chains the steps together. It is both the demo *and* the integration test.
+chains the steps together. Its current inline Keycloak authentication step is retained only as legacy work to be
+replaced and is not compatible with the admin-only realm.
 
 ```bash
 cd examples/dcs-template-demo

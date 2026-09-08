@@ -21,8 +21,8 @@ Prefer a GUI? Import [`../openapi/fc_openapi.yaml`](../openapi/fc_openapi.yaml) 
 
 - The catalogue stack running locally: `cd ../docker && docker compose --env-file dev.env up -d` (Fuseki backend,
   signature checks off by default — see [`../docker/README.md`](../docker/README.md) for strict mode).
-- Keycloak bootstrapped with at least one user that has the `Ro-MU-CA` or `ADMIN_ALL` role (the dev realm bundled
-  at `../keycloak/realms/dev/fc-realm.json` provides this — user `fc-ca-test`).
+- The dev realm bundled at `../keycloak/realms/dev/fc-realm.json` contains the local application administrator
+  `fc-ca-test` with the single application role `ADMIN_ALL`. Keycloak accounts are for administration only.
 - [`hurl`](https://hurl.dev) ≥ 4.x for the executable demos. `curl`, `jq`, `sha256sum`, `python3` also expected in your
   `$PATH` for ad-hoc poking and the signing helpers.
 - `127.0.0.1 key-server` in `/etc/hosts` (per [`../docker/README.md`](../docker/README.md#keycloak-setup)) so the
