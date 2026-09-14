@@ -44,6 +44,18 @@ public class SecurityConfig {
    * Define security constraints for the application resources.
    */
   @Bean
+  @Order(0)
+  public SecurityFilterChain optionsFilterChain(HttpSecurity http) throws Exception {
+    http
+      .securityMatcher(request ->
+            HttpMethod.OPTIONS.matches(request.getMethod()))
+        .authorizeHttpRequests(auth ->
+            auth.anyRequest().permitAll())
+      .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()));
+      return http.build();
+  }
+
+  @Bean
   @Order(1)
   public SecurityFilterChain oid4vpFilterChain(HttpSecurity http) throws Exception {
     http
@@ -73,7 +85,6 @@ public class SecurityConfig {
         "/participants/**"
       )
       .authorizeHttpRequests(authorization -> authorization
-        // .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
         // .requestMatchers(HttpMethod.GET, "/api/**").permitAll()
         // .requestMatchers(HttpMethod.GET, "/swagger-ui/**").permitAll()
         // .requestMatchers(HttpMethod.GET, "/actuator", "/actuator/**").permitAll()
