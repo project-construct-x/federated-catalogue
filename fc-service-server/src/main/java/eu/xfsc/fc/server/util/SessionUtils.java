@@ -29,8 +29,6 @@ public class SessionUtils {
     if (principal instanceof Jwt) {
       participantId = ((Jwt) principal).getClaim("participant_id");
     }
-    log.debug("getSessionParticipantId.exit; got participant id {} from principal: {}", participantId, principal);
-    //log.debug("getSessionParticipantId.exit; got roles: {}", ((Jwt) principal).getClaimAsStringList("roles"));
     return participantId;
   }
 
@@ -45,7 +43,6 @@ public class SessionUtils {
     if (principal instanceof Jwt) {
       userId = ((Jwt) principal).getSubject();
     }
-    log.debug("getSessionUserId.exit; got user id {} from principal: {}", userId, principal);
     return userId;
   }
 

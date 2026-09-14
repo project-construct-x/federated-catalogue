@@ -43,7 +43,6 @@ public class CustomJwtAuthenticationConverter implements Converter<Jwt, Abstract
    */
   @Override
   public AbstractAuthenticationToken convert(final Jwt source) {
-	log.info("convert.enter; got JWT: {}", source);
     Collection<GrantedAuthority> authorities = jwtGrantedAuthoritiesConverter.convert(source);
 	Collection<GrantedAuthority> roles = extractResourceRoles(source);
     roles.addAll(authorities);
