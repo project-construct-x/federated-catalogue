@@ -27,7 +27,7 @@ usage() {
 Usage: ./dev.sh <command> [options]
 
 COMMANDS:
-  up          Start infrastructure only (postgres, fuseki, keycloak, nats, …)
+  up          Start infrastructure only (postgres, fuseki, keycloak, nats, â€¦)
               Use this to run fc-server locally with Maven
               Example: ./dev.sh up
 
@@ -74,16 +74,16 @@ COMMANDS:
   help        Show this help message
 
 WORKFLOWS:
-  Development Workflow 1 — Run fc-server locally with Spring Boot devtools:
+  Development Workflow 1 â€” Run fc-server locally with Spring Boot devtools:
     1. ./dev.sh up       (in terminal 1)
     2. ./dev.sh run      (in terminal 2 - with automatic hot-reload)
 
-  Development Workflow 2 — Containerized server with hot-reload:
+  Development Workflow 2 â€” Containerized server with hot-reload:
     1. ./dev.sh build && ./dev.sh watch
     2. Edit code
     3. ./dev.sh build  (server restarts automatically)
 
-  Development Workflow 3 — Full stack without hot-reload:
+  Development Workflow 3 â€” Full stack without hot-reload:
     1. ./dev.sh build && ./dev.sh full
 
   Development Workflow 4 - Full stack with original 2.0.0 image (with overrides):
@@ -109,7 +109,7 @@ EOF
 case "${1:-}" in
   up)
     # Start infrastructure only by scaling server and portal to 0
-    echo "Start infrastructure only (postgres, fuseki, keycloak, nats, …) for use with manual start of Spring Boot devtools"
+    echo "Start infrastructure only (postgres, fuseki, keycloak, nats, â€¦) for use with manual start of Spring Boot devtools"
     $COMPOSE_DEV up --scale server=0 --scale portal=0 "${@:2}"
     ;;
   run)
@@ -118,7 +118,7 @@ case "${1:-}" in
     echo "Press Ctrl+C to stop"
     echo ""
     # Install reactor deps first (-am), then run spring-boot only on the server
-    # module. A single `spring-boot:run -pl … -am` also invokes the goal on the
+    # module. A single `spring-boot:run -pl â€¦ -am` also invokes the goal on the
     # parent aggregator (packaging pom), which has no main class.
     (cd .. && mvn -pl fc-service-server -am install -DskipTests -Dcheckstyle.skip -q && \
       mvn -pl fc-service-server spring-boot:run -Dspring-boot.run.profiles=dev "${@:2}")

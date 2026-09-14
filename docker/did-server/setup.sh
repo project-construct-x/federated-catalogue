@@ -2,10 +2,10 @@
 # Generates a self-contained did:web trust environment for BDD testing.
 #
 # Creates:
-#   certs/ca.key, ca.crt          — local CA
-#   certs/server.key, server.crt  — TLS cert for did-server (signed by CA)
-#   certs/custom-cacerts           — JVM truststore (default CAs + our CA)
-#   www/.well-known/did.json      — DID document with RSA public key
+#   certs/ca.key, ca.crt          â€” local CA
+#   certs/server.key, server.crt  â€” TLS cert for did-server (signed by CA)
+#   certs/custom-cacerts           â€” JVM truststore (default CAs + our CA)
+#   www/.well-known/did.json      â€” DID document with RSA public key
 #
 # Usage: ./setup.sh [path-to-rsa2048.sign.pem]
 
