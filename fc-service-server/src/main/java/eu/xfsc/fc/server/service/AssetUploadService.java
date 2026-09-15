@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -38,7 +39,6 @@ import org.apache.jena.rdf.model.StmtIterator;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RiotException;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -100,7 +100,6 @@ public class AssetUploadService {
     private final ProtectedNamespaceFilter protectedNamespaceFilter;
     private final GraphStore graphStore;
     private final ObjectMapper objectMapper;
-    private final ObjectProvider<DocumentBuilderFactory> secureDocumentBuilderFactoryProvider;
     private final DcpPresentationFacade dcpPresentationFacade;
 
     public UploadResult processUpload(byte[] content, String contentType, String originalFilename) {
@@ -361,12 +360,23 @@ public class AssetUploadService {
         return sequence.toArray(new Lang[0]);
     }
 
+    /**
+     * Rejects RDF/XML that uses a DOCTYPE or external entities before Jena parses it.
+     * Features are applied on the factory in this method so static analyzers can see
+     * the XXE guard on this user-controlled sink (CodeQL cannot follow Spring beans).
+     */
     private void assertSecureRdfXml(String rdfPayload, Lang lang) {
         if (lang != Lang.RDFXML) {
             return;
         }
         try {
-            DocumentBuilderFactory dbf = secureDocumentBuilderFactoryProvider.getObject();
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setNamespaceAware(true);
+            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            dbf.setExpandEntityReferences(false);
             dbf.newDocumentBuilder().parse(new InputSource(new StringReader(rdfPayload)));
         } catch (SAXException | ParserConfigurationException | IOException ex) {
             throw new RiotException("RDF/XML failed XXE-hardened pre-validation: " + ex.getMessage(), ex);
