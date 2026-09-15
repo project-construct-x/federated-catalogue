@@ -1,7 +1,25 @@
 package eu.xfsc.fc.core.service.trustframework.compliance;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.ConflictException;
+import eu.xfsc.fc.core.exception.ServiceErrorException;
 import eu.xfsc.fc.core.exception.ServiceUnavailableException;
 import eu.xfsc.fc.core.exception.TimeoutException;
 import eu.xfsc.fc.core.pojo.ContentAccessorDirect;
@@ -20,7 +38,8 @@ import org.springframework.stereotype.Service;
  *
  * <p>Unknown profile IDs throw {@link ClientException}. Disabled families throw
  * {@link ConflictException}. Network timeouts bubble as {@link TimeoutException} (→ 504);
- * other I/O failures bubble as {@link ServiceUnavailableException} (→ 503).
+ * connection-level failures bubble as {@link ServiceUnavailableException}, and a reached-but-erroring
+ * service bubbles as its {@link ServiceErrorException} subtype (both → 503).
  * {@link UnverifiableAttestation} is a first-class outcome produced by the client when the
  * service returned a credential that could not be locally verified — it is not an error.
  */
@@ -54,7 +73,9 @@ public class ComplianceCheckOrchestrator {
    *                                      or the resolved client type is unknown
    * @throws ConflictException            when the profile's family is disabled
    * @throws TimeoutException             when the compliance service did not respond in time
-   * @throws ServiceUnavailableException  when the compliance service could not be reached
+   * @throws ServiceUnavailableException  when the compliance service could not be reached, or
+   *                                      (via its {@link ServiceErrorException} subtype) was
+   *                                      reached but responded with an error
    */
   public ComplianceCheckOutcome check(String assetId, String frameworkProfileId, String assetPayload) {
     if (frameworkProfileId == null) {

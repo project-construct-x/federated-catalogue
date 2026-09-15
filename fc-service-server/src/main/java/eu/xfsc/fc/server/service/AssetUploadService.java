@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.service;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.core.util.HashUtils.calculateSha256AsHex;
 import static eu.xfsc.fc.server.util.SessionUtils.checkParticipantAccess;
 import static eu.xfsc.fc.server.util.SessionUtils.getSessionParticipantId;
@@ -11,6 +28,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -21,7 +39,6 @@ import org.apache.jena.rdf.model.StmtIterator;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RiotException;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -30,6 +47,7 @@ import org.xml.sax.SAXException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import eu.xfsc.fc.api.FcMediaTypes;
 import eu.xfsc.fc.api.generated.model.AssetEnrichmentResponse;
 import eu.xfsc.fc.api.generated.model.AssetStatus;
 import eu.xfsc.fc.core.pojo.ContentAccessorBinary;
@@ -82,7 +100,6 @@ public class AssetUploadService {
     private final ProtectedNamespaceFilter protectedNamespaceFilter;
     private final GraphStore graphStore;
     private final ObjectMapper objectMapper;
-    private final ObjectProvider<DocumentBuilderFactory> secureDocumentBuilderFactoryProvider;
     private final DcpPresentationFacade dcpPresentationFacade;
 
     public UploadResult processUpload(byte[] content, String contentType, String originalFilename) {
@@ -343,12 +360,23 @@ public class AssetUploadService {
         return sequence.toArray(new Lang[0]);
     }
 
+    /**
+     * Rejects RDF/XML that uses a DOCTYPE or external entities before Jena parses it.
+     * Features are applied on the factory in this method so static analyzers can see
+     * the XXE guard on this user-controlled sink (CodeQL cannot follow Spring beans).
+     */
     private void assertSecureRdfXml(String rdfPayload, Lang lang) {
         if (lang != Lang.RDFXML) {
             return;
         }
         try {
-            DocumentBuilderFactory dbf = secureDocumentBuilderFactoryProvider.getObject();
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setNamespaceAware(true);
+            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            dbf.setExpandEntityReferences(false);
             dbf.newDocumentBuilder().parse(new InputSource(new StringReader(rdfPayload)));
         } catch (SAXException | ParserConfigurationException | IOException ex) {
             throw new RiotException("RDF/XML failed XXE-hardened pre-validation: " + ex.getMessage(), ex);
@@ -363,9 +391,9 @@ public class AssetUploadService {
             return Lang.JSONLD;
         }
         return switch (contentType.strip().toLowerCase()) {
-            case VerificationConstants.MEDIA_TYPE_TURTLE -> Lang.TURTLE;
-            case VerificationConstants.MEDIA_TYPE_NTRIPLES -> Lang.NTRIPLES;
-            case VerificationConstants.MEDIA_TYPE_RDF_XML -> Lang.RDFXML;
+            case FcMediaTypes.TURTLE_VALUE -> Lang.TURTLE;
+            case FcMediaTypes.NTRIPLES_VALUE -> Lang.NTRIPLES;
+            case FcMediaTypes.RDF_XML_VALUE -> Lang.RDFXML;
             default -> Lang.JSONLD;
         };
     }
