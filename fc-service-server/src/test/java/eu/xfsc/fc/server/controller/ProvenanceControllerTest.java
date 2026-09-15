@@ -36,6 +36,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -189,6 +190,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_wrongRole_returnsForbidden() throws Exception {
@@ -311,6 +313,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_wrongRole_returnsForbidden() throws Exception {

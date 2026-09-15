@@ -47,8 +47,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
 import static eu.xfsc.fc.server.util.CommonConstants.ASSET_READ;
-import static eu.xfsc.fc.server.util.CommonConstants.QUERY_EXECUTE;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -60,7 +60,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @AutoConfigureEmbeddedDatabase(provider = DatabaseProvider.EMBEDDED)
 @Import(EmbeddedNeo4JConfig.class)
-@WithMockUser(roles = {QUERY_EXECUTE})
+@WithMockUser(roles = {ADMIN_ALL})
 public class QueryControllerTest {
 
   private final static String DEFAULT_SERVICE_CREDENTIAL_FILE_NAME = "default-credential-service-offering.json";

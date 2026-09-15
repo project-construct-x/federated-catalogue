@@ -1,5 +1,6 @@
 package eu.xfsc.fc.server.controller;
 
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.when;
@@ -81,7 +82,7 @@ public class RolesControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = ADMIN_ALL)
     public void getRolesShouldReturnExpectedNumber() throws Exception {
         setupKeycloak();
 

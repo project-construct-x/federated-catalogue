@@ -23,7 +23,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.util.List;
 
-import static eu.xfsc.fc.server.util.CommonConstants.QUERY_EXECUTE;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,7 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureEmbeddedDatabase(provider = DatabaseProvider.EMBEDDED)
 @TestPropertySource(properties = {"graphstore.impl=fuseki",
     "test.fuseki.isolate=QueryControllerSparqlResultsJsonTest"})
-@WithMockUser(roles = {QUERY_EXECUTE})
+@WithMockUser(roles = {ADMIN_ALL})
 public class QueryControllerSparqlResultsJsonTest {
 
   private static final String SPARQL_CONTENT_TYPE = "application/sparql-query";

@@ -9,10 +9,10 @@ import static eu.xfsc.fc.core.dao.impl.UserDaoImpl.toUserRepo;
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
 import static eu.xfsc.fc.server.helper.UserServiceHelper.getAllRoles;
 import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE;
-import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE;
 import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_USER_ADMIN_ROLE;
 import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.CommonConstants.ASSET_ADMIN_ROLE;
 import static eu.xfsc.fc.server.util.TestCommonConstants.DEFAULT_PARTICIPANT_ID;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_ADMIN_ROLE_WITH_PREFIX;
@@ -178,7 +178,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void addUserShouldReturnCreatedResponse() throws Exception {
         User user = getTestUser("name1", "surname2");
         String userId = UUID.randomUUID().toString();
@@ -224,7 +224,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void addDuplicateAssetReturnConflictWithKeycloak() throws Exception {
         User user = getTestUser("name2", "surname2");
         setupKeycloak(HttpStatus.SC_CREATED, user, UUID.randomUUID().toString());
@@ -249,7 +249,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void getUserShouldReturnSuccessResponse() throws Exception {
         User user = getTestUser("name3", "surname3");
         String userId = UUID.randomUUID().toString();
@@ -274,7 +274,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void wrongUserShouldReturnNotFoundResponse() throws Exception {
         setupKeycloak(HttpStatus.SC_NOT_FOUND, null, "123");
 
@@ -290,7 +290,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void getUsersShouldReturnCorrectNumber() throws Exception {
         User user = getTestUser("name4", "surname4");
         setupKeycloak(HttpStatus.SC_OK, user, null);
@@ -318,7 +318,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void deleteUserShouldReturnSuccessResponse() throws Exception {
         User user = getTestUser("name5", "surname5");
         String userId = UUID.randomUUID().toString();
@@ -345,7 +345,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void updateNonexistentUserShouldReturnNotFoundResponse() throws Exception {
         setupKeycloak(HttpStatus.SC_NOT_FOUND, null, "123");
 
@@ -385,7 +385,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void updateUserShouldReturnSuccessResponse() throws Exception {
         User user = getTestUser("name6", "surname6");
         String userId = UUID.randomUUID().toString();
@@ -412,7 +412,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void updateUserRolesShouldReturnSuccessResponse() throws Exception {
         User user = getTestUser("name7", "surname7");
         String userId = UUID.randomUUID().toString();
@@ -467,7 +467,7 @@ public class UsersControllerTest {
         assertEquals("User does not have permission to execute this request.", error.getMessage());
     }
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void updateNonexistentUserRolesShouldReturnNotFoundResponse() throws Exception {
         setupKeycloak(HttpStatus.SC_NOT_FOUND, null, "123");
 
@@ -485,7 +485,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void updateDuplicatedUserRoleShouldReturnSuccessResponse() throws Exception {
         User user = getTestUser("name8", "surname8").addRoleIdsItem(PARTICIPANT_ADMIN_ROLE);
         String userId = UUID.randomUUID().toString();
@@ -507,7 +507,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void revokeUserRoleShouldNotContainThisRoleInSubsequentRequest() throws Exception {
         User user = getTestUser("test_name", "test_surname");
         String userId = UUID.randomUUID().toString();
@@ -532,7 +532,7 @@ public class UsersControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+    @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
     public void changeUserPermissionShouldReturnSuccessResponse() throws Exception {
         User user = getTestUser("new_user", "new_user");
         String userId = UUID.randomUUID().toString();
