@@ -28,8 +28,8 @@ import de.eecc.dcp.exception.DcpException;
 import de.eecc.dcp.message.PresentationResponseMessage;
 import de.eecc.dcp.query.PresentationQueryDefinition;
 import de.eecc.dcp.vp.PresentationParser;
+import eu.xfsc.fc.api.FcMediaTypes;
 import eu.xfsc.fc.core.exception.ClientException;
-import eu.xfsc.fc.core.service.verification.VerificationConstants;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -131,14 +131,14 @@ public class DcpPresentationFacade {
     if (presentation.isTextual()) {
       String text = presentation.asText();
       String mediaType = PresentationParser.isCompactJwt(text)
-          ? VerificationConstants.MEDIA_TYPE_VP_JWT
-          : VerificationConstants.MEDIA_TYPE_VP_LD_JSON;
+          ? FcMediaTypes.VP_JWT_VALUE
+          : FcMediaTypes.VP_LD_JSON_VALUE;
       return new ValidatedDcpPresentation.PresentationPayload(
           text.getBytes(StandardCharsets.UTF_8), mediaType, presentation);
     }
     byte[] bytes = objectMapper.writeValueAsBytes(presentation);
     return new ValidatedDcpPresentation.PresentationPayload(
-        bytes, VerificationConstants.MEDIA_TYPE_VP_LD_JSON, presentation);
+        bytes, FcMediaTypes.VP_LD_JSON_VALUE, presentation);
   }
 
   /** Exposed for diagnostics / tests. */
