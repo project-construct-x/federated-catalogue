@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.config;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import eu.xfsc.fc.api.generated.model.Error;
@@ -65,10 +82,24 @@ public class SecurityConfig {
       //.csrf().disable()
       .authorizeHttpRequests(authorization -> authorization
           .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-          .requestMatchers(HttpMethod.GET, "/api/**").permitAll()
           .requestMatchers(HttpMethod.GET, "/swagger-ui/**").permitAll()
-          .requestMatchers(HttpMethod.GET, "/actuator", "/actuator/**").permitAll()
           .requestMatchers(HttpMethod.GET, "/js/**", "/css/**").permitAll()
+          // Container/orchestrator healthcheck and the BDD suite's "server is up" precondition both
+          // poll GET /actuator/health anonymously and expect 200. management.endpoint.health.show-details
+          // is set to when_authorized, so anonymous callers only ever see the UP/DOWN summary, never
+          // component details — safe to leave public. Must be declared BEFORE the broader /actuator/**
+          // matcher below, since Spring Security uses first-match-wins ordering.
+          .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
+          // GET-only: management.endpoints.web.exposure.include=health,info,graph-rebuild exposes no
+          // other GET-style actuator endpoint today, and POST /actuator/graph-rebuild is separately
+          // role-gated below (line ~169). If a future exposed endpoint accepts a non-GET verb, it would
+          // fall through to anyRequest().authenticated() (login-only, no role check) — add an explicit
+          // method-agnostic matcher here if that ever happens.
+          .requestMatchers(HttpMethod.GET, "/actuator", "/actuator/**").authenticated()
+          // The generated OpenAPI document backs the deliberately-public Swagger UI; without it the
+          // UI has nothing to render. Everything else under /api/** (nothing else is mounted there
+          // today) falls through to anyRequest().authenticated() below.
+          .requestMatchers(HttpMethod.GET, "/api/docs", "/api/docs.yaml", "/api/docs/**").permitAll()
 
           // Schema APIs
           .requestMatchers(HttpMethod.POST, "/schemas").hasAnyRole(SCHEMA_CREATE, ADMIN_ALL)
@@ -85,6 +116,11 @@ public class SecurityConfig {
           // DCP verifier pull — auth is the client Self-Issued ID Token (not Keycloak)
           .requestMatchers(HttpMethod.POST, "/dcp/presentations").permitAll()
           
+          // Triggers signature verification work and is a DoS surface when left open to anonymous callers.
+          // GET /verification (the HTML query page) is unmatched here and falls through to
+          // anyRequest().authenticated() below, so it stays authenticated too.
+          .requestMatchers(HttpMethod.POST, "/verification").authenticated()
+
           // Asset APIs
           .requestMatchers(HttpMethod.PUT, "/assets/*").hasAnyRole(ASSET_UPDATE, ADMIN_ALL)
           .requestMatchers(HttpMethod.POST, "/assets/*/versions/*/revoke").hasAnyRole(ASSET_UPDATE, ADMIN_ALL)

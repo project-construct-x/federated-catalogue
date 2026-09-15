@@ -1,8 +1,25 @@
 package eu.xfsc.fc.server.controller;
 
-import static eu.xfsc.fc.core.service.verification.VerificationConstants.MEDIA_TYPE_NTRIPLES;
-import static eu.xfsc.fc.core.service.verification.VerificationConstants.MEDIA_TYPE_RDF_XML;
-import static eu.xfsc.fc.core.service.verification.VerificationConstants.MEDIA_TYPE_TURTLE;
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
+import static eu.xfsc.fc.api.FcMediaTypes.NTRIPLES_VALUE;
+import static eu.xfsc.fc.api.FcMediaTypes.RDF_XML_VALUE;
+import static eu.xfsc.fc.api.FcMediaTypes.TURTLE_VALUE;
 import static eu.xfsc.fc.server.util.CommonConstants.QUERY_EXECUTE;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.PREFIX;
@@ -173,7 +190,7 @@ public class NonCredentialRdfGraphExtractionTest {
           @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void uploadNonCredentialTurtle_singleTriple_isExtractedToGraph() throws Exception {
     byte[] content = SINGLE_TRIPLE_TURTLE.getBytes(StandardCharsets.UTF_8);
-    MockMultipartFile file = new MockMultipartFile("file", "item.ttl", MEDIA_TYPE_TURTLE, content);
+    MockMultipartFile file = new MockMultipartFile("file", "item.ttl", TURTLE_VALUE, content);
 
     // Arrange: verify no prior asset uses this subject IRI as its asset ID
     String queryBefore = sparqlForAsset(TEST_ASSET_SUBJECT_TURTLE);
@@ -217,7 +234,7 @@ public class NonCredentialRdfGraphExtractionTest {
           @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void uploadNonCredentialNTriples_singleTriple_isExtractedToGraph() throws Exception {
     byte[] content = SINGLE_TRIPLE_NTRIPLES.getBytes(StandardCharsets.UTF_8);
-    MockMultipartFile file = new MockMultipartFile("file", "item.nt", MEDIA_TYPE_NTRIPLES, content);
+    MockMultipartFile file = new MockMultipartFile("file", "item.nt", NTRIPLES_VALUE, content);
 
     // Arrange: verify no prior asset uses this subject IRI as its asset ID
     String queryBefore = sparqlForAsset(TEST_ASSET_SUBJECT_NTRIPLES);
@@ -261,7 +278,7 @@ public class NonCredentialRdfGraphExtractionTest {
           @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void uploadNonCredentialRdfXml_singleTriple_isExtractedToGraph() throws Exception {
     byte[] content = SINGLE_TRIPLE_RDFXML.getBytes(StandardCharsets.UTF_8);
-    MockMultipartFile file = new MockMultipartFile("file", "item.rdf", MEDIA_TYPE_RDF_XML, content);
+    MockMultipartFile file = new MockMultipartFile("file", "item.rdf", RDF_XML_VALUE, content);
 
     // Arrange: verify no prior asset uses this subject IRI as its asset ID
     String queryBefore = sparqlForAsset(TEST_ASSET_SUBJECT_RDFXML);

@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.service;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.core.util.HashUtils.calculateSha256AsHex;
 import static eu.xfsc.fc.server.util.SessionUtils.checkParticipantAccess;
 import static eu.xfsc.fc.server.util.SessionUtils.getSessionParticipantId;
@@ -30,6 +47,7 @@ import org.xml.sax.SAXException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import eu.xfsc.fc.api.FcMediaTypes;
 import eu.xfsc.fc.api.generated.model.AssetEnrichmentResponse;
 import eu.xfsc.fc.api.generated.model.AssetStatus;
 import eu.xfsc.fc.core.pojo.ContentAccessorBinary;
@@ -363,9 +381,9 @@ public class AssetUploadService {
             return Lang.JSONLD;
         }
         return switch (contentType.strip().toLowerCase()) {
-            case VerificationConstants.MEDIA_TYPE_TURTLE -> Lang.TURTLE;
-            case VerificationConstants.MEDIA_TYPE_NTRIPLES -> Lang.NTRIPLES;
-            case VerificationConstants.MEDIA_TYPE_RDF_XML -> Lang.RDFXML;
+            case FcMediaTypes.TURTLE_VALUE -> Lang.TURTLE;
+            case FcMediaTypes.NTRIPLES_VALUE -> Lang.NTRIPLES;
+            case FcMediaTypes.RDF_XML_VALUE -> Lang.RDFXML;
             default -> Lang.JSONLD;
         };
     }

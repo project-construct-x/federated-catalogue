@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.validation.strategy;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.api.generated.model.ValidationReport;
 import eu.xfsc.fc.core.dao.validation.ValidatorType;
 import eu.xfsc.fc.core.exception.ClientException;
@@ -9,6 +26,7 @@ import eu.xfsc.fc.core.pojo.ContentAccessor;
 import eu.xfsc.fc.core.service.filestore.FileStore;
 import eu.xfsc.fc.core.service.schemastore.SchemaRecord;
 import eu.xfsc.fc.core.service.schemastore.SchemaStore.SchemaType;
+import eu.xfsc.fc.core.service.validation.rdf.RdfAssetParser;
 import eu.xfsc.fc.core.service.validation.report.ValidationReportFactory;
 import eu.xfsc.fc.core.service.verification.SchemaModuleType;
 import java.io.IOException;
@@ -63,18 +81,20 @@ public class XmlSchemaValidationStrategy implements ValidationStrategy {
   }
 
   /**
-   * Returns {@code true} for non-RDF XML assets only.
-   * RDF assets (including RDF/XML) should use SHACL validation.
+   * Returns {@code true} for non-RDF XML assets, and for RDF assets serialised as RDF/XML
+   * (SRS 3.1.6, symmetric with the JSON Schema / JSON-LD rule). Other RDF serialisations
+   * (Turtle, JSON-LD, ...) remain SHACL-only.
    */
   @Override
   public boolean appliesTo(AssetMetadata asset) {
     ContentAccessor content = asset.getContentAccessor();
 
     // A non-null ContentAccessor marks an RDF asset (the content is held as a pre-parsed object).
-    // RDF assets - including RDF/XML - must be validated via SHACL, not XML Schema.
+    // Per SRS 3.1.6, an XML Schema is applicable to an RDF asset serialised in RDF/XML;
+    // every other RDF serialisation stays SHACL-only.
     // Non-RDF XML assets have no ContentAccessor; their type is identified by content-type below.
     if (content != null) {
-      return false;
+      return RdfAssetParser.isRdfXml(asset);
     }
     String ct = asset.getContentType();
     return ct != null

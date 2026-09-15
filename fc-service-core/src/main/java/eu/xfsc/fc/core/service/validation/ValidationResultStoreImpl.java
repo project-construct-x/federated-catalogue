@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.validation;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.core.dao.validation.GraphSyncStatus;
 import eu.xfsc.fc.core.dao.validation.OutdatedReason;
 import eu.xfsc.fc.core.dao.validation.ValidationResult;
@@ -23,6 +40,11 @@ import org.springframework.transaction.annotation.Transactional;
  * successful graph write, graph triples will exist without a corresponding DB row.
  * If the graph write itself fails, the row is marked
  * {@code FAILED} and no retry is attempted. The relational DB is the system of record.</p>
+ *
+ * <p>{@link #storeWithoutGraphSync} shares the same relational persistence but never attempts a
+ * graph write, for records that are not themselves asset-level claims. Such rows commit with
+ * {@code graphSyncStatus=EXCLUDED} and are skipped by graph rebuild — see
+ * {@link eu.xfsc.fc.core.dao.validation.GraphSyncStatus#EXCLUDED}.</p>
  */
 @Slf4j
 @Service
@@ -44,16 +66,31 @@ public class ValidationResultStoreImpl implements ValidationResultStore {
   @Override
   @Transactional
   public Long store(ValidationResultRecord record) {
-    ValidationResult entity = buildEntity(record);
-    entity.setContentHash(hasher.hash(entity));
-    ValidationResult saved = repository.save(entity);
-    log.debug("store; saved ValidationResult id={}, conforms={}", saved.getId(), saved.isConforms());
+    ValidationResult saved = persist(record, null);
 
     // Note: the graph write happens while the @Transactional method is still open.
     // The DB transaction commits when store() returns. Best-effort: graph write failure marks row FAILED; no retry.
     tryWriteToGraph(saved);
 
     return saved.getId();
+  }
+
+  @Override
+  @Transactional
+  public Long storeWithoutGraphSync(ValidationResultRecord record) {
+    // EXCLUDED is set on the initial insert (not via a second write like SYNCED/FAILED below)
+    // because there is no graph write attempt whose outcome the status could reflect.
+    return persist(record, GraphSyncStatus.EXCLUDED).getId();
+  }
+
+  private ValidationResult persist(ValidationResultRecord record, GraphSyncStatus initialGraphSyncStatus) {
+    ValidationResult entity = buildEntity(record);
+    entity.setGraphSyncStatus(initialGraphSyncStatus);
+    entity.setContentHash(hasher.hash(entity));
+    ValidationResult saved = repository.save(entity);
+    log.debug("store; saved ValidationResult id={}, conforms={}, graphSyncStatus={}",
+        saved.getId(), saved.isConforms(), saved.getGraphSyncStatus());
+    return saved;
   }
 
   @Override
@@ -120,6 +157,7 @@ public class ValidationResultStoreImpl implements ValidationResultStore {
     entity.setConforms(record.conforms());
     entity.setValidatedAt(record.validatedAt());
     entity.setReport(record.report());
+    entity.setFailureCategory(record.failureCategory());
     return entity;
   }
 

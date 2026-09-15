@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.api.FcMediaTypes.MERGE_PATCH_JSON_VALUE;
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
 import static org.hamcrest.Matchers.hasItem;
@@ -62,6 +79,15 @@ public class TrustFrameworkAdminControllerTest {
         "timeoutSeconds":15,
         "trustAnchorUrl":"https://registry.test/v1/trust-anchors"
       }
+      """;
+  public static final String BUNDLE_CONFIG_PRIVATE_IP_SERVICE_URL = """
+      {"serviceUrl":"https://10.0.0.5/x"}
+      """;
+  public static final String BUNDLE_CONFIG_HTTP_SCHEME_SERVICE_URL = """
+      {"serviceUrl":"http://mock.test/v2"}
+      """;
+  public static final String BUNDLE_CONFIG_METADATA_IP_TRUST_ANCHOR_URL = """
+      {"trustAnchorUrl":"https://169.254.169.254/latest/meta-data/"}
       """;
   @Autowired
   private MockMvc mockMvc;
@@ -479,5 +505,43 @@ public class TrustFrameworkAdminControllerTest {
             .content(ENABLED_FALSE)
             .with(csrf()))
         .andExpect(status().isOk());
+  }
+
+  // --- Bundle config URL allowlist (SSRF guard) ---
+  // TrustFrameworkBundleUrlValidator is wired into TrustFrameworkAdminService.coerce();
+  // these three cases assert the rejection of a private-IP host, a non-https scheme, and
+  // the cloud-metadata address.
+
+  @Test
+  @WithMockUser(roles = {ADMIN_ALL})
+  void patchTrustFrameworkBundleConfig_privateIpServiceUrl_returns400() throws Exception {
+    mockMvc.perform(MockMvcRequestBuilders
+            .patch("/admin/trust-frameworks/bundles/gaia-x-2511")
+            .contentType(MERGE_PATCH_JSON_VALUE)
+            .content(BUNDLE_CONFIG_PRIVATE_IP_SERVICE_URL)
+            .with(csrf()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @WithMockUser(roles = {ADMIN_ALL})
+  void patchTrustFrameworkBundleConfig_httpSchemeServiceUrl_returns400() throws Exception {
+    mockMvc.perform(MockMvcRequestBuilders
+            .patch("/admin/trust-frameworks/bundles/gaia-x-2511")
+            .contentType(MERGE_PATCH_JSON_VALUE)
+            .content(BUNDLE_CONFIG_HTTP_SCHEME_SERVICE_URL)
+            .with(csrf()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @WithMockUser(roles = {ADMIN_ALL})
+  void patchTrustFrameworkBundleConfig_metadataIpTrustAnchorUrl_returns400() throws Exception {
+    mockMvc.perform(MockMvcRequestBuilders
+            .patch("/admin/trust-frameworks/bundles/gaia-x-2511")
+            .contentType(MERGE_PATCH_JSON_VALUE)
+            .content(BUNDLE_CONFIG_METADATA_IP_TRUST_ANCHOR_URL)
+            .with(csrf()))
+        .andExpect(status().isBadRequest());
   }
 }
