@@ -4,6 +4,9 @@ import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE_WITH_PREFIX;
 
 import java.util.Collection;
+import eu.xfsc.fc.core.security.DcpIdentity;
+import eu.xfsc.fc.core.security.DcpParticipantAccess;
+import org.springframework.security.core.Authentication;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -24,6 +27,13 @@ public class SessionUtils {
    * @return Returns either the Participant ID or null if the user session doesn't contain Participant ID attribute.
    */
   public static String getSessionParticipantId() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null || !authentication.isAuthenticated()) {
+      return null;
+    }
+    if (authentication.getPrincipal() instanceof DcpIdentity) {
+      return DcpParticipantAccess.requireIdentity(authentication).participantDid();
+    }
     String participantId = null;
     Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     if (principal instanceof Jwt) {
@@ -38,6 +48,13 @@ public class SessionUtils {
    * @return String user Id.
    */
   public static String getSessionUserId() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null || !authentication.isAuthenticated()) {
+      return null;
+    }
+    if (authentication.getPrincipal() instanceof DcpIdentity) {
+      return DcpParticipantAccess.requireIdentity(authentication).actorDid();
+    }
     String userId = null;
     Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     if (principal instanceof Jwt) {
@@ -76,6 +93,14 @@ public class SessionUtils {
    * @param participantId The Participant issuer of the asset (required).
    */
   public static void checkParticipantAccess(String participantId) {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null || !authentication.isAuthenticated()) {
+      throw new AccessDeniedException("Authenticated participant required");
+    }
+    if (authentication.getPrincipal() instanceof DcpIdentity) {
+      DcpParticipantAccess.checkAccess(authentication, participantId);
+      return;
+    }
     String sessionParticipantId = SessionUtils.getSessionParticipantId();
     if (!SessionUtils.sessionUserHasRole(CATALOGUE_ADMIN_ROLE_WITH_PREFIX)
         && !SessionUtils.sessionUserHasRole(ADMIN_ALL_WITH_PREFIX)
