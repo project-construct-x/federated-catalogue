@@ -31,6 +31,11 @@ public class DcpVerifierService {
    * and validates the response with the stored query definition (including holder binding).
    */
   public PresentationResponseMessage pullPresentations(String authorizationHeader, String purpose) {
+    return pullForAuthentication(authorizationHeader, purpose).response();
+  }
+
+  /** Pulls a response with its SI-authenticated holder; callers must still verify VC/VP signatures. */
+  public PulledPresentation pullForAuthentication(String authorizationHeader, String purpose) {
     String effectivePurpose =
         (purpose == null || purpose.isBlank()) ? DcpPurposes.POST_ASSETS : purpose.strip();
 
@@ -54,6 +59,10 @@ public class DcpVerifierService {
     log.debug("pullPresentations; purpose={}, holderDid={}, presentations={}",
         effectivePurpose, holderDid,
         response.presentation() == null ? 0 : response.presentation().size());
-    return response;
+    return new PulledPresentation(holderDid, response);
+  }
+
+  /** Protocol-checked response; this is not yet a verified membership identity. */
+  public record PulledPresentation(String holderDid, PresentationResponseMessage response) {
   }
 }

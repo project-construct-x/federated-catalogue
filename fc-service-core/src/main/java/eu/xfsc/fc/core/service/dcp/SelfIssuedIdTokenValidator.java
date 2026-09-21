@@ -71,7 +71,6 @@ public class SelfIssuedIdTokenValidator {
     verifyTimeClaims(claims);
     verifyAudience(claims);
     String jti = requireClaim(claims.getJWTID(), "jti");
-    rememberJti(jti);
 
     DIDDocument didDoc = didResolver.resolveDidDocument(iss);
     List<VerificationMethod> methods = didDoc.getCapabilityInvocationVerificationMethodsDereferenced();
@@ -84,6 +83,7 @@ public class SelfIssuedIdTokenValidator {
       kid = iss + kid;
     }
     verifySignature(signedJwt, header, kid, iss, methods);
+    rememberJti(jti);
 
     String opaqueToken = claimAsString(claims, "token");
     String aud = firstAudience(claims);
@@ -104,7 +104,7 @@ public class SelfIssuedIdTokenValidator {
 
   private void verifyTimeClaims(JWTClaimsSet claims) {
     try {
-      new DefaultJWTClaimsVerifier<>(null, Set.of()).verify(claims, null);
+      new DefaultJWTClaimsVerifier<>(null, Set.of("exp")).verify(claims, null);
     } catch (BadJWTException ex) {
       throw invalid("JWT claims validation failed: " + ex.getMessage());
     }

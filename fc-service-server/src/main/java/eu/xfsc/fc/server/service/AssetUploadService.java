@@ -48,6 +48,8 @@ import eu.xfsc.fc.core.service.verification.VerificationConstants;
 import eu.xfsc.fc.core.service.dcp.DcpPresentationFacade;
 import eu.xfsc.fc.core.service.dcp.DcpPurposes;
 import eu.xfsc.fc.core.service.dcp.ValidatedDcpPresentation;
+import eu.xfsc.fc.core.security.DcpAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import eu.xfsc.fc.core.service.graphdb.GraphStore;
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.GraphStoreDisabledException;
@@ -105,6 +107,9 @@ public class AssetUploadService {
         // DCP PresentationResponseMessage shares POST /assets with ordinary VC/VP/RDF uploads.
         var dcpResponse = dcpPresentationFacade.tryParsePresentationResponse(content, normalizedContentType);
         if (dcpResponse.isPresent()) {
+            if (isDcpRequest()) {
+                throw new ClientException("Upload the asset separately from the DCP authentication presentation");
+            }
             return handleDcpPresentation(dcpResponse.get());
         }
 
@@ -169,7 +174,9 @@ public class AssetUploadService {
         String text = new String(content, StandardCharsets.UTF_8);
         ContentAccessorDirect contentAccessor = new ContentAccessorDirect(text, contentType);
 
-        CredentialVerificationResult verificationResult = verificationService.verifyCredential(contentAccessor);
+        CredentialVerificationResult verificationResult = isDcpRequest()
+                ? verificationService.verifyCredential(contentAccessor, true, true, true, false)
+                : verificationService.verifyCredential(contentAccessor);
 
         // Non-credential RDF: ID and issuer are null — resolve both from local context.
         String assetId = verificationResult.getId() != null
@@ -183,6 +190,8 @@ public class AssetUploadService {
         assetMetadata.setContentType(contentType);
         assetMetadata.setFileSize((long) content.length);
 
+        // Explicit first DCP policy: self-publishing only. Issuer-owned storage has no separate
+        // participant owner yet; third-party issuance/delegated publishing requires that migration.
         checkParticipantAccess(assetMetadata.getIssuer());
         assetStorePublisher.storeCredential(assetMetadata, verificationResult);
 
@@ -207,6 +216,10 @@ public class AssetUploadService {
         assetMetadata.setFileSize((long) content.length);
 
         return assetStorePublisher.storeUnverified(assetMetadata, originalFilename);
+    }
+
+    private static boolean isDcpRequest() {
+        return SecurityContextHolder.getContext().getAuthentication() instanceof DcpAuthenticationToken;
     }
 
     /**
