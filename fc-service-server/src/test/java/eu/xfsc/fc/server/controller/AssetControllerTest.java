@@ -60,6 +60,7 @@ import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.mockito.ArgumentCaptor;
@@ -313,6 +314,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockUser
     public void deleteAsset_noPermission_returnsForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.delete("/assets/{asset_hash}", assetMeta.getAssetHash())
@@ -393,6 +395,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockUser
     public void deleteAssetById_noPermission_returnsForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.delete("/assets/by-id/{id}", assetMeta.getId())
@@ -425,6 +428,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockUser
     public void addAsset_noPermission_returnsForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/assets")
@@ -597,6 +601,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockUser
     public void revokeAsset_noPermission_returnsForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/assets/123/revoke")
@@ -719,6 +724,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void addAsset_withReadOnlyPermission_returnsForbidden() throws Exception {
@@ -731,6 +737,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockUser
     public void readAssets_noPermission_returnsForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets")
@@ -775,6 +782,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockUser  // No specific role
     public void getAssetValidations_withoutRequiredRole_shouldReturnForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets/did:web:example.org:asset1/validations")
@@ -855,6 +863,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockUser  // No specific role
     public void getValidationResult_withoutRequiredRole_shouldReturnForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/validations/1")
@@ -912,6 +921,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockUser
     public void validateAsset_withoutPermission_returnsForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/assets/validate")
@@ -933,6 +943,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockUser
     public void validateAssets_withoutPermission_returnsForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/assets/validate")

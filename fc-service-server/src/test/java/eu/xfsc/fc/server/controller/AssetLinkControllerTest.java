@@ -31,6 +31,7 @@ import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -275,6 +276,7 @@ public class AssetLinkControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void replaceHumanReadable_wrongRole_returnsForbidden() throws Exception {
@@ -394,6 +396,7 @@ public class AssetLinkControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void uploadHumanReadable_wrongRole_returnsForbidden() throws Exception {

@@ -1,14 +1,8 @@
 package eu.xfsc.fc.server.service;
 
-import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE;
-import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_USER_ADMIN_ROLE;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_ADMIN_ROLE;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.SessionUtils.checkParticipantAccess;
-import static eu.xfsc.fc.server.util.SessionUtils.getSessionUserId;
 import static eu.xfsc.fc.server.util.SessionUtils.getSessionUserRoles;
 
 import java.net.URI;
@@ -163,7 +157,7 @@ public class UsersService implements UsersApiDelegate {
   public ResponseEntity<UserProfiles> getUsers(Integer offset, Integer limit) { //String orderBy, Boolean ascending) {
     // sorting is not supported yet by keycloak admin API
     PaginatedResults<UserProfile> profiles;
-    if (SessionUtils.sessionUserHasRole(CATALOGUE_ADMIN_ROLE_WITH_PREFIX)) {
+    if (SessionUtils.sessionUserHasRole(ADMIN_ALL_WITH_PREFIX)) {
       profiles = userDao.search(null, offset, limit);
     } else {
       String participantId = SessionUtils.getSessionParticipantId();
@@ -247,53 +241,10 @@ public class UsersService implements UsersApiDelegate {
    * @param userId user of the user for which the roles are updated
    */
   private void doCheckRoleAssignmentRule(List<String> sessionUserRoles, String roleToUpdate,  String userId) {
-
-    switch (roleToUpdate) {
-
-      case CATALOGUE_ADMIN_ROLE:
-
-        if (!sessionUserRoles.contains(CATALOGUE_ADMIN_ROLE_WITH_PREFIX)) {
-          log.debug("doCheckRoleAssignmentRule.fails for assigning role :{};",CATALOGUE_ADMIN_ROLE );
-          throwAccessDeniedException(CATALOGUE_ADMIN_ROLE);
-        }
-
-        break;
-
-      case PARTICIPANT_ADMIN_ROLE:
-
-        if (!sessionUserRoles.stream()
-            .anyMatch(List.of(CATALOGUE_ADMIN_ROLE_WITH_PREFIX, PARTICIPANT_ADMIN_ROLE_WITH_PREFIX)::contains)) {
-          log.debug("doCheckRoleAssignmentRule.fails for assigning role :{};",PARTICIPANT_ADMIN_ROLE );
-          throwAccessDeniedException(PARTICIPANT_ADMIN_ROLE);
-        }
-        break;
-
-      case ASSET_ADMIN_ROLE:
-
-        if (!(sessionUserRoles.stream()
-            .anyMatch(List.of(CATALOGUE_ADMIN_ROLE_WITH_PREFIX, PARTICIPANT_ADMIN_ROLE_WITH_PREFIX,
-                PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX)::contains))
-            || !(sessionUserRoles.stream()
-            .anyMatch(List.of(CATALOGUE_ADMIN_ROLE_WITH_PREFIX, PARTICIPANT_ADMIN_ROLE_WITH_PREFIX)::contains))
-            && (sessionUserRoles.contains(PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX) && (userId == null || userId.equals(getSessionUserId())))
-        ) {
-          log.debug("doCheckRoleAssignmentRule.fails for assigning role :{};",ASSET_ADMIN_ROLE );
-          throwAccessDeniedException(ASSET_ADMIN_ROLE);
-        }
-
-        break;
-
-      case PARTICIPANT_USER_ADMIN_ROLE:
-
-        if (!sessionUserRoles.stream()
-            .anyMatch(List.of(CATALOGUE_ADMIN_ROLE_WITH_PREFIX, PARTICIPANT_ADMIN_ROLE_WITH_PREFIX,
-                PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX)::contains)) {
-          log.debug("doCheckRoleAssignmentRule.fails for assigning role :{};",PARTICIPANT_USER_ADMIN_ROLE );
-          throwAccessDeniedException(PARTICIPANT_USER_ADMIN_ROLE);
-        }
-
+    if (!sessionUserRoles.contains(ADMIN_ALL_WITH_PREFIX)) {
+      log.debug("doCheckRoleAssignmentRule.fails for assigning role :{};",roleToUpdate );
+      throwAccessDeniedException(roleToUpdate);
     }
-
   }
 
   /**

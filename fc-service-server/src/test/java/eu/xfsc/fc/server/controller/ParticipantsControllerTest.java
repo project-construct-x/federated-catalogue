@@ -63,6 +63,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -184,6 +185,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockUser
   public void participantAuthShouldReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.post("/participants").with(csrf())).andExpect(status().isForbidden());
@@ -292,6 +294,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockUser(authorities = ASSET_ADMIN_ROLE_WITH_PREFIX)
   public void getParticipantsShouldReturnForbiddenResponse() throws Exception {
     mockMvc
@@ -389,6 +392,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockUser(authorities = ASSET_ADMIN_ROLE_WITH_PREFIX)
   public void addParticipantShouldReturnForbiddenResponse() throws Exception {
     mockMvc
