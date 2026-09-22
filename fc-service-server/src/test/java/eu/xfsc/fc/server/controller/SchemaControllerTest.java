@@ -28,11 +28,7 @@ import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
 
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_READ;
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
-import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_CREATE;
-import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_DELETE;
-import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_READ;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -166,17 +162,6 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {ASSET_READ})
-  public void addSchemaWithoutRoleAccessShouldReturnForbiddenResponse() throws Exception {
-    mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
-            .content(SCHEMA_REQUEST)
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .accept(MediaType.APPLICATION_JSON))
-        .andExpect(status().isForbidden());
-  }
-
-  @Test
   @WithMockUser(roles = {ADMIN_ALL})
   public void addSchemaShouldReturnSuccessResponse() throws Exception {
     ResultActions resultActions = mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
@@ -199,8 +184,8 @@ public class SchemaControllerTest {
 
 
   @Test
-  @WithMockUser(roles = {ASSET_READ})
-  public void deleteSchemasWithDifferentRoleReturnForbiddenResponse() throws Exception {
+  @WithMockUser
+  public void deleteSchemasWithoutAdminRoleReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.delete("/schemas/schemaID")
             .with(csrf())
             .accept(MediaType.APPLICATION_JSON))
@@ -219,8 +204,8 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
-  public void addSchema_withReadOnlyRole_shouldReturnForbiddenResponse() throws Exception {
+  @WithMockUser
+  public void addSchema_withoutAdminRole_shouldReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
             .content(SCHEMA_REQUEST)
             .with(csrf())
@@ -231,7 +216,7 @@ public class SchemaControllerTest {
 
   @Test
   @WithMockUser
-  public void getSchema_withoutPermissionRole_shouldReturnForbiddenResponse() throws Exception {
+  public void getSchema_withoutAdminRole_shouldReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/schemas")
             .with(csrf())
             .accept(MediaType.APPLICATION_JSON))
@@ -239,8 +224,8 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
-  public void updateSchema_withReadRole_shouldReturnForbiddenResponse() throws Exception {
+  @WithMockUser
+  public void updateSchema_withoutAdminRole_shouldReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.put("/schemas")
             .content(getMockFileDataAsString("test-schema.ttl"))
             .with(csrf())

@@ -1,12 +1,6 @@
 package eu.xfsc.fc.server.controller;
 
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
-import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_READ;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_DELETE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_UPDATE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestUtil.getAccessor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -161,7 +155,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void readAssets_invalidParams_returnsBadRequest() throws Exception {
       mockMvc.perform(MockMvcRequestBuilders.get("/assets?statuses=123")
               .with(csrf())
@@ -170,7 +164,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void readAssets_validRequest_returnsSuccess() throws Exception {
         assetStorePublisher.storeCredential(assetMeta, getStaticVerificationResult());
         MvcResult result =  mockMvc.perform(MockMvcRequestBuilders.get("/assets")
@@ -186,7 +180,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void readAssetsByFilter_validFilter_returnsSuccess() throws Exception {
         assetStorePublisher.storeCredential(assetMeta, getStaticVerificationResult());
         
@@ -272,14 +266,14 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void readAsset_nonExistentId_returnsNotFound() throws Exception {
       mockMvc.perform(MockMvcRequestBuilders.get("/assets/{id}", "urn:uuid:00000000-0000-0000-0000-000000000099").with(csrf()))
           .andExpect(status().isNotFound());
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void readAsset_existingId_returnsOk() throws Exception {
         assetStorePublisher.storeCredential(assetMeta, getStaticVerificationResult());
 
@@ -289,7 +283,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void readNonRdfAssetById_returnsOkWithMetadata() throws Exception {
         Instant now = Instant.now();
 
@@ -325,7 +319,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = ASSET_DELETE_WITH_PREFIX, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = "")})))
     public void deleteAsset_withoutIssuer_returnsForbidden() throws Exception {
       assetStorePublisher.storeCredential(assetMeta, getStaticVerificationResult());
@@ -337,7 +331,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_DELETE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void deleteAsset_nonExistent_returnsNotFound() throws Exception {
       mockMvc.perform(MockMvcRequestBuilders.delete("/assets/{asset_hash}", assetMeta.getAssetHash())
@@ -348,7 +342,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_DELETE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void deleteAsset_validRequest_returnsOk() throws Exception {
         assetStorePublisher.storeCredential(assetMeta, getStaticVerificationResult());
@@ -361,7 +355,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_DELETE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void deleteAsset_hasValidationResults_cascadesDelete() throws Exception {
         assetStorePublisher.storeCredential(assetMeta, getStaticVerificationResult());
@@ -406,7 +400,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_DELETE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void deleteAssetById_withPermission_returnsNoContent() throws Exception {
         assetStorePublisher.storeCredential(assetMeta, getStaticVerificationResult());
@@ -440,7 +434,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void addAsset_withoutIssuer_returnsUnprocessableEntity() throws Exception {
       mockMvc.perform(MockMvcRequestBuilders.post("/assets")
@@ -452,7 +446,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void addAsset_validRequest_returnsCreated() throws Exception {
         MvcResult result = mockMvc.perform(MockMvcRequestBuilders.post("/assets")
@@ -470,7 +464,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void addAssetWithFcmetaTriples_returnsCreated_withWarning() throws Exception {
         MvcResult result = mockMvc.perform(MockMvcRequestBuilders.post("/assets")
@@ -490,7 +484,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = RESOURCE_ISSUER)})))
     public void addResource_validRequest_returnsCreated() throws Exception {
         MvcResult result = mockMvc.perform(MockMvcRequestBuilders.post("/assets")
@@ -506,7 +500,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = PARTICIPANT_ISSUER)})))
     public void addAsset_validParticipant_returnsCreated() throws Exception {
         schemaStore.initializeDefaultSchemas();
@@ -527,7 +521,7 @@ public class AssetControllerTest {
      * on-demand via POST /assets/validate, never on the upload path.
      */
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = PARTICIPANT_ISSUER)})))
     public void addAsset_shaclInvalid_returnsCreated() throws Exception {
         schemaStore.initializeDefaultSchemas();
@@ -545,7 +539,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void addAsset_duplicate_returnsConflict() throws Exception {
       String asset = getMockFileDataAsString(ASSET_FILE_NAME);
@@ -570,7 +564,7 @@ public class AssetControllerTest {
 
     // TODO: 05.09.2022 Need to add a test to check the correct scenario with graph storage when it is added
     //@Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void addAssetFailedThenAllTransactionRolledBack() throws Exception {
         ArgumentCaptor<String> hashCaptor = ArgumentCaptor.forClass(String.class);
@@ -612,7 +606,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void revokeAsset_nonExistentAsset_returnsNotFound() throws Exception {
       mockMvc.perform(MockMvcRequestBuilders.post("/assets/{asset_hash}/revoke", assetMeta.getAssetHash())
@@ -623,7 +617,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void revokeAsset_validRequest_returnsOk() throws Exception {
         final CredentialVerificationResult vr = new CredentialVerificationResult(Instant.now(), AssetStatus.ACTIVE.getValue(), "issuer",
@@ -638,7 +632,7 @@ public class AssetControllerTest {
 
     // Requires both ASSET_UPDATE (revoke) and ASSET_CREATE (re-add) to test the composite flow.
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void revokeAndReaddAsset_validFlow_returnsCreated() throws Exception {
         String content = getMockFileDataAsString(ASSET_FILE_NAME);
@@ -704,7 +698,7 @@ public class AssetControllerTest {
      * will be supported via version-specific endpoints.</p>
      */
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void revokeAsset_nonActiveStatus_returnsConflict() throws Exception {
         final CredentialVerificationResult vr = new CredentialVerificationResult(Instant.now(), AssetStatus.ACTIVE.getValue(), "issuer",
@@ -725,7 +719,7 @@ public class AssetControllerTest {
 
     @Test
     @Disabled("Keycloak Reduction")
-    @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void addAsset_withReadOnlyPermission_returnsForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/assets")
@@ -747,7 +741,8 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @Disabled("Keycloak Reduction")
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = "admin-participant")})))
     public void addAsset_withAdminAllRole_returnsCreated() throws Exception {
         MvcResult result = mockMvc.perform(MockMvcRequestBuilders.post("/assets")
@@ -763,6 +758,7 @@ public class AssetControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockUser(roles = {"ADMIN_ALL"})
     public void readAssets_withAdminAllRole_returnsOk() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets")
@@ -783,7 +779,7 @@ public class AssetControllerTest {
 
     @Test
     @Disabled("Keycloak Reduction")
-    @WithMockUser  // No specific role
+    @WithMockUser
     public void getAssetValidations_withoutRequiredRole_shouldReturnForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets/did:web:example.org:asset1/validations")
                         .with(csrf())
@@ -792,7 +788,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void getAssetValidations_nonExistentAsset_returnsNotFound() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets/did:web:example.org:nonexistent/validations")
                         .with(csrf())
@@ -801,7 +797,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void getAssetValidations_existingAssetNoResults_returnsEmptyList() throws Exception {
         assetStorePublisher.storeCredential(assetMeta, getStaticVerificationResult());
 
@@ -816,7 +812,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void getAssetValidations_withResults_returnsContentAndRespectsLimit() throws Exception {
         assetStorePublisher.storeCredential(assetMeta, getStaticVerificationResult());
 
@@ -864,7 +860,7 @@ public class AssetControllerTest {
 
     @Test
     @Disabled("Keycloak Reduction")
-    @WithMockUser  // No specific role
+    @WithMockUser
     public void getValidationResult_withoutRequiredRole_shouldReturnForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/validations/1")
                         .with(csrf())
@@ -873,7 +869,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void getValidationResult_nonExistentId_returnsNotFound() throws Exception {
         // Returns 404 if validation result doesn't exist, 200 if it does
         mockMvc.perform(MockMvcRequestBuilders.get("/validations/999999")
@@ -883,7 +879,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {ASSET_READ})
+    @WithMockUser
     public void getValidationResult_existingId_returnsResultWithCorrectFields() throws Exception {
         ValidationResult vr = new ValidationResult();
         vr.setAssetIds(new String[]{"did:web:example.org:test-asset"});
@@ -957,7 +953,7 @@ public class AssetControllerTest {
     // ===== validateAssets — input validation =====
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void validateAssets_emptyBody_returnsBadRequest() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/assets/validate")
@@ -969,7 +965,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void validateAssets_emptyAssetIds_returnsBadRequest() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/assets/validate")
@@ -981,7 +977,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void validateAssets_tooManyAssetIds_returnsBadRequest() throws Exception {
         List<String> twentyOneIds = java.util.stream.IntStream.range(0, 21)
@@ -996,7 +992,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void validateAssets_missingContentType_returnsBadRequest() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/assets/validate")
@@ -1009,7 +1005,7 @@ public class AssetControllerTest {
     // ===== validateAsset / validateAssets — boundary responses =====
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void validateAssets_storedRdfAsset_returnsOk() throws Exception {
         ValidationResponse mockedResponse = new ValidationResponse();
@@ -1025,7 +1021,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void validateAssets_nonExistentAsset_returnsNotFound() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/assets/validate")
@@ -1037,7 +1033,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void validateAsset_nonExistentAsset_returnsNotFound() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/assets/validate")
@@ -1049,7 +1045,7 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void validateAsset_unsupportedContentType_returnsUnprocessableEntity() throws Exception {
         doThrow(new VerificationException("unsupported content type for asset"))

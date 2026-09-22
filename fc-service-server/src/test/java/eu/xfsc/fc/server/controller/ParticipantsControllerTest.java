@@ -2,12 +2,7 @@ package eu.xfsc.fc.server.controller;
 
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
 import static eu.xfsc.fc.server.helper.UserServiceHelper.getAllRoles;
-import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_USER_ADMIN_ROLE;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_ADMIN_ROLE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -192,7 +187,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+  @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
   @Order(10)
   public void addParticipantShouldReturnCreatedResponse() throws Exception {
     String json = getMockFileDataAsString(DEFAULT_PARTICIPANT_FILE);
@@ -223,7 +218,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+  @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
   @Order(10)
   public void addDuplicateParticipantShouldReturnConflictResponse() throws Exception {
     String json = getMockFileDataAsString(DEFAULT_PARTICIPANT_FILE);
@@ -261,7 +256,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+  @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
   @Order(15)
   public void getParticipantsShouldReturnEmptyResults() throws Exception {
     setupKeycloak(HttpStatus.SC_OK, null);
@@ -278,7 +273,7 @@ public class ParticipantsControllerTest {
   }
   
   @Test
-  @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+  @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
   @Order(20)
   public void getParticipantShouldReturnSuccessResponse() throws Exception {
     String json = getMockFileDataAsString(DEFAULT_PARTICIPANT_FILE);
@@ -295,7 +290,7 @@ public class ParticipantsControllerTest {
 
   @Test
   @Disabled("Keycloak Reduction")
-  @WithMockUser(authorities = ASSET_ADMIN_ROLE_WITH_PREFIX)
+  @WithMockUser
   public void getParticipantsShouldReturnForbiddenResponse() throws Exception {
     mockMvc
             .perform(MockMvcRequestBuilders.get("/participants")
@@ -305,7 +300,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX, ASSET_READ_WITH_PREFIX})
+  @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
   @Order(20)
   public void getAddedParticipantCredentialShouldReturnSuccessResponseWithSameCredential() throws Exception {
     String json = getMockFileDataAsString(DEFAULT_PARTICIPANT_FILE);
@@ -336,7 +331,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+  @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
   @Order(20)
   public void wrongParticipantShouldReturnNotFoundResponse() throws Exception {
     String partId = URLEncoder.encode("unknown", Charset.defaultCharset());
@@ -350,7 +345,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+  @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
   @Order(20)
   public void getParticipantsShouldReturnCorrectNumber() throws Exception {
     String json = getMockFileDataAsString(DEFAULT_PARTICIPANT_FILE);
@@ -370,7 +365,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+  @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
   @Order(20)
   public void getParticipantUsersShouldReturnCorrectNumber() throws Exception {
     ParticipantMetaData part = new ParticipantMetaData("did:example:issuer", "did:example:holder", "did:example:holder#key-1", "empty asset");
@@ -393,7 +388,7 @@ public class ParticipantsControllerTest {
 
   @Test
   @Disabled("Keycloak Reduction")
-  @WithMockUser(authorities = ASSET_ADMIN_ROLE_WITH_PREFIX)
+  @WithMockUser
   public void addParticipantShouldReturnForbiddenResponse() throws Exception {
     mockMvc
             .perform(MockMvcRequestBuilders.post("/participants")
@@ -404,7 +399,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+  @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
   @Order(25)
   public void addParticipantFailWithSameCredentialShouldReturnConflictFromKeyCloakWithoutDBStore() throws Exception {
     String json = getMockFileDataAsString(DEFAULT_PARTICIPANT_FILE);
@@ -425,7 +420,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockUser(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX})
+  @WithMockUser(authorities = {ADMIN_ALL_WITH_PREFIX})
   @Order(26)
   public void addParticipantFailWithKeyCloakErrorShouldReturnErrorWithoutDBStore() throws Exception {
     String json = getMockFileDataAsString(DEFAULT_PARTICIPANT_FILE);
@@ -446,7 +441,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX}, // think how to provide claims to test Jwt converter
+  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX}, // think how to provide claims to test Jwt converter
         claims = @OpenIdClaims(otherClaims = @Claims(
             stringClaims = {@StringClaim(name = "participant_id", value = "did:example:credSub")},
         	stringArrayClaims = {@StringArrayClaim(name = "roles", value = "gaia-x-admin")}
@@ -485,9 +480,8 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {"ROLE_" + PARTICIPANT_ADMIN_ROLE},
-        claims = @OpenIdClaims(otherClaims = @Claims(stringClaims =
-            {@StringClaim(name = "participant_id", value = "wrongId")})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims =
+        {@StringClaim(name = "participant_id", value = "wrongId")})))
   public void updateParticipantShouldReturnForbiddenResponse() throws Exception {
     mockMvc
             .perform(MockMvcRequestBuilders.put("/participants/{participantId}", "123")
@@ -498,7 +492,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX},
+  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX},
         claims = @OpenIdClaims(otherClaims = @Claims(stringClaims =
             {@StringClaim(name = "participant_id", value = "did:example:credSub")})))
   @Order(30)
@@ -526,7 +520,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX},
+  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX},
         claims = @OpenIdClaims(otherClaims = @Claims(stringClaims =
             {@StringClaim(name = "participant_id", value = "did:example:alt-credSub")})))
   @Order(30)
@@ -550,11 +544,10 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {"ROLE_unknown"},
-        claims = @OpenIdClaims(otherClaims = @Claims(stringClaims =
-            {@StringClaim(name = "participant_id", value = "wrongId")})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims =
+        {@StringClaim(name = "participant_id", value = "wrongId")})))
   @Order(40)
-  public void deleteParticipantFailWithWrongSessionParticipantIdAndUnknownRoleShouldReturnForbiddenResponse() throws Exception {
+  public void deleteParticipantFailWithWrongSessionParticipantIdAndNoAdminRoleShouldReturnForbiddenResponse() throws Exception {
     String json = getMockFileDataAsString(DEFAULT_PARTICIPANT_FILE);
     ParticipantMetaData part = new ParticipantMetaData("did:example:issuer", "did:example:updated", "did:example:holder#key", json);
     setupKeycloak(HttpStatus.SC_OK, part);
@@ -566,9 +559,8 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {PARTICIPANT_ADMIN_ROLE_WITH_PREFIX},
-        claims = @OpenIdClaims(otherClaims = @Claims(stringClaims =
-            {@StringClaim(name = "participant_id", value = "wrongId")})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims =
+        {@StringClaim(name = "participant_id", value = "wrongId")})))
   public void deleteParticipantShouldReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.delete("/participants/{participantId}", "123")
             .contentType(MediaType.APPLICATION_JSON)
@@ -578,7 +570,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX},
+  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX},
         claims = @OpenIdClaims(otherClaims = @Claims(stringClaims =
             {@StringClaim(name = "participant_id", value = "did:example:wrong-issuer")})))
   @Order(40)
@@ -600,7 +592,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {CATALOGUE_ADMIN_ROLE_WITH_PREFIX},
+  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX},
         claims = @OpenIdClaims(otherClaims = @Claims(stringClaims =
             {@StringClaim(name = "participant_id", value = "did:example:issuer")})))
   @Order(50)
@@ -635,12 +627,12 @@ public class ParticipantsControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {"ROLE_Ro-MU-CA"},
+  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX},
           claims = @OpenIdClaims(otherClaims = @Claims(stringClaims
                   = {
               @StringClaim(name = "participant_id", value = "did:example:credSub")})))
   @Order(60)
-  public void deleteParticipantWithAllUsersSuccessShouldReturnSuccessResponse() throws Exception {
+  public void deleteParticipantWithAdminAllSuccessShouldReturnSuccessResponse() throws Exception {
     //Initially adding user
     addParticipantShouldReturnCreatedResponse();
 
@@ -759,6 +751,6 @@ public class ParticipantsControllerTest {
   }
 
   public User getUserOfParticipant(String partId) {
-    return new User(partId, "testUserName", "testLastName", "test@gmail", List.of(PARTICIPANT_USER_ADMIN_ROLE));
+    return new User(partId, "testUserName", "testLastName", "test@gmail", List.of());
   }
 }

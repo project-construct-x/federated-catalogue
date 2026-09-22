@@ -1,7 +1,6 @@
 package eu.xfsc.fc.server.controller;
 
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_READ;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -114,7 +113,7 @@ class GraphRebuildValidationResultRestoreTest {
   }
 
   @Test
-  @WithMockUser(roles = {ASSET_READ})
+  @WithMockUser
   void postGraphRebuild_nonAdminRole_returnsForbidden() throws Exception {
     GraphRebuildRequest rebuildRequest = new GraphRebuildRequest(
         REBUILD_CHUNK_COUNT, REBUILD_CHUNK_ID, REBUILD_THREADS, REBUILD_BATCH_SIZE);

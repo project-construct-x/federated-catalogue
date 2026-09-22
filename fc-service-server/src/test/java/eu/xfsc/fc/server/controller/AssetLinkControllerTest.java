@@ -1,9 +1,5 @@
 package eu.xfsc.fc.server.controller;
 
-import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_UPDATE_WITH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -114,7 +110,7 @@ public class AssetLinkControllerTest {
 
   @ParameterizedTest(name = "{0} upload returns 201 Created")
   @MethodSource("humanReadableUploadCases")
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void uploadHumanReadable_supportedType_returnsCreated(String caseName, String filename,
                                                         String contentType, byte[] content) throws Exception {
@@ -143,7 +139,7 @@ public class AssetLinkControllerTest {
   // ===== POST /assets/{id}/human-readable — error cases =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void uploadHumanReadable_unsupportedContentType_returnsBadRequest() throws Exception {
     final var mrAsset = uploadMachineReadableAsset();
@@ -168,7 +164,7 @@ public class AssetLinkControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void uploadHumanReadable_unknownParentAsset_returnsNotFound() throws Exception {
     final var file = new MockMultipartFile("file", "doc.pdf", MediaType.APPLICATION_PDF_VALUE, PDF_CONTENT);
@@ -182,7 +178,7 @@ public class AssetLinkControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void uploadHumanReadable_whenHrAlreadyLinked_returnsConflict() throws Exception {
     final var mrAsset = uploadMachineReadableAsset();
@@ -214,7 +210,7 @@ public class AssetLinkControllerTest {
   // ===== PUT /assets/{id}/human-readable =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void replaceHumanReadable_existingHr_returnsOkAndPreservesIri() throws Exception {
     final var mrAsset = uploadMachineReadableAsset();
@@ -248,7 +244,7 @@ public class AssetLinkControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void replaceHumanReadable_noLinkedHr_returnsNotFound() throws Exception {
     final var mrAsset = uploadMachineReadableAsset();
@@ -277,7 +273,7 @@ public class AssetLinkControllerTest {
 
   @Test
   @Disabled("Keycloak Reduction")
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void replaceHumanReadable_wrongRole_returnsForbidden() throws Exception {
     final var file = new MockMultipartFile("file", "doc.pdf", MediaType.APPLICATION_PDF_VALUE, PDF_CONTENT);
@@ -292,9 +288,8 @@ public class AssetLinkControllerTest {
   // ===== GET /assets/{id}/human-readable =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_READ_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void getHumanReadable_afterUpload_returnsFileContent() throws Exception {
     final var mrAsset = uploadMachineReadableAsset();
     mrIri = mrAsset.getId();
@@ -324,7 +319,7 @@ public class AssetLinkControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void getHumanReadable_noLinkExists_returnsNotFound() throws Exception {
     // Use ASSET_READ — this user cannot create, they can only read.
@@ -338,9 +333,8 @@ public class AssetLinkControllerTest {
   // ===== GET /assets/{id}/machine-readable =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_READ_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void getMachineReadable_afterUpload_returnsFileContent() throws Exception {
     final var mrContent = "binary-mr-content-for-link-test".getBytes(StandardCharsets.UTF_8);
     final var mrAsset = uploadMachineReadableNonRdfAsset(mrContent);
@@ -372,7 +366,7 @@ public class AssetLinkControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void getMachineReadable_noLinkExists_returnsNotFound() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -397,7 +391,7 @@ public class AssetLinkControllerTest {
 
   @Test
   @Disabled("Keycloak Reduction")
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void uploadHumanReadable_wrongRole_returnsForbidden() throws Exception {
     final var file = new MockMultipartFile("file", "doc.pdf", MediaType.APPLICATION_PDF_VALUE, PDF_CONTENT);
@@ -427,7 +421,8 @@ public class AssetLinkControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @Disabled("Keycloak Reduction")
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void uploadHumanReadable_adminAllRole_returnsNotFoundForUnknownParent() throws Exception {
     // ADMIN_ALL has permission — request reaches the controller and gets 404 for unknown MR asset.
@@ -442,7 +437,7 @@ public class AssetLinkControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void uploadAsset_withHasHumanReadableTriple_stripsTripleAndReturnsWarning() throws Exception {
     // Clients must not be able to set triples in the protected fcmeta namespace —

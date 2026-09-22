@@ -1,8 +1,6 @@
 package eu.xfsc.fc.server.service;
 
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -75,9 +73,8 @@ public class AssetLinkEnrichmentTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_READ_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+      @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void readAssetById_machineReadableWithLinkedHr_includesHumanReadableId() throws Exception {
     final var mrAsset = uploadNonRdfAsset("mr content for enrichment test", "text/plain", "mr.txt");
     final var hrAsset = uploadHumanReadable(mrAsset.getId(), "pdf content", "application/pdf", "doc.pdf");
@@ -101,9 +98,8 @@ public class AssetLinkEnrichmentTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_READ_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+      @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void readAssetById_humanReadableWithLinkedMr_includesMachineReadableId() throws Exception {
     final var mrAsset = uploadNonRdfAsset("mr content v2 for enrichment test", "text/plain", "mr2.txt");
     final var hrAsset = uploadHumanReadable(mrAsset.getId(), "pdf content v2", "application/pdf", "doc2.pdf");
@@ -127,9 +123,8 @@ public class AssetLinkEnrichmentTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_READ_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+      @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void readAssetById_noLinksExist_linkFieldsAreNull() throws Exception {
     final var mrAsset = uploadNonRdfAsset("standalone mr no link", "text/plain", "standalone.txt");
 
@@ -148,9 +143,8 @@ public class AssetLinkEnrichmentTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_READ_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+      @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void getAssetById_jsonLdAssetWithLinkedHr_returnsEnrichedMetadataWithRawContent() throws Exception {
     final var jsonLdAsset = uploadJsonLdAsset(getMockFileDataAsString("default-credential.json"));
     final var hrAsset = uploadHumanReadable(jsonLdAsset.getId(), "pdf content for jsonld test", "application/pdf", "jsonld-doc.pdf");
@@ -175,9 +169,8 @@ public class AssetLinkEnrichmentTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_READ_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+      @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void getAssetById_jsonLdAssetWithoutLinks_returnsMetadataWithRawContent() throws Exception {
     final String originalContent = getMockFileDataAsString("default-credential.json");
     final var jsonLdAsset = uploadJsonLdAsset(originalContent);
