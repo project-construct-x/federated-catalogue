@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.config;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import eu.xfsc.fc.api.generated.model.Error;
@@ -40,11 +57,22 @@ public class SecurityConfig {
     this.resourceId = resourceId;
   }
 
+  /** Public documentation, static resources and orchestrator health probes only. */
+  @Bean
+  @Order(-1)
+  public SecurityFilterChain publicResourcesFilterChain(HttpSecurity http) throws Exception {
+    http.securityMatcher("/actuator/health", "/actuator/health/**", "/api/docs", "/api/docs.yaml",
+            "/api/docs/**", "/swagger-ui/**", "/js/**", "/css/**")
+        .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/**").permitAll()
+            .anyRequest().denyAll());
+    return http.build();
+  }
+
   /**
    * Define security constraints for the application resources.
    */
   @Bean
-  @Order(0)
+  @Order(-2)
   public SecurityFilterChain optionsFilterChain(HttpSecurity http) throws Exception {
     http
       .securityMatcher(request ->
@@ -91,7 +119,7 @@ public class SecurityConfig {
         // .requestMatchers(HttpMethod.GET, "/js/**", "/css/**").permitAll()
 
         // Verification APIs
-        .requestMatchers("/verification").permitAll()
+        .requestMatchers("/verification").authenticated()
 
         // DCP verifier pull — auth is the client Self-Issued ID Token (not Keycloak)
         .requestMatchers(HttpMethod.POST, "/dcp/presentations").permitAll()
@@ -148,7 +176,8 @@ public class SecurityConfig {
     http
       .securityMatcher(
         "/admin/**", 
-        "/actuator/graph-rebuild", 
+        "/actuator",
+        "/actuator/**",
         "/schemas", 
         "/schemas/**",
         "/users",
@@ -165,6 +194,17 @@ public class SecurityConfig {
       .oauth2ResourceServer(c -> c
           .jwt(jc -> jc.jwtAuthenticationConverter(new CustomJwtAuthenticationConverter(resourceId))));
       return http.build();
+  }
+
+  /** Unassigned paths must not bypass Spring Security when using separate chains. */
+  @Bean
+  @Order(4)
+  public SecurityFilterChain fallbackFilterChain(HttpSecurity http) throws Exception {
+    http.authorizeHttpRequests(auth -> auth.anyRequest().denyAll())
+        .exceptionHandling(c -> c
+            .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+            .accessDeniedHandler(accessDeniedHandler()));
+    return http.build();
   }
 
   /**

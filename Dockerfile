@@ -4,7 +4,6 @@ WORKDIR /app
 
 COPY fc-service-api fc-service-api
 COPY fc-service-client fc-service-client
-COPY fc-test-support fc-test-support
 COPY fc-service-core fc-service-core
 COPY fc-service-server fc-service-server
 COPY fc-demo-portal fc-demo-portal
@@ -15,6 +14,8 @@ COPY openapi openapi
 
 COPY pom.xml pom.xml
 COPY lombok.config lombok.config
+COPY license-template license-template
+COPY .mvn .mvn
 
 RUN mvn clean install -DskipTests -Dcheckstyle.skip
 

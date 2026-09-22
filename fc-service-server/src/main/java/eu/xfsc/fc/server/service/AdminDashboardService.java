@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.service;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.SQLException;
@@ -59,16 +76,12 @@ public class AdminDashboardService implements AdminApiDelegate {
   public ResponseEntity<AdminStats> getAdminStats() {
     AdminStats stats = new AdminStats();
 
-    AssetFilter allFilter = new AssetFilter();
-    allFilter.setLimit(0);
-    allFilter.setOffset(0);
+    AssetFilter allFilter = AssetFilter.forCountOnly();
     stats.setTotalAssets(safeGet(
         () -> assetStore.getByFilter(allFilter, false, false).getTotalCount(), -1L, "total asset count"));
 
-    AssetFilter activeFilter = new AssetFilter();
+    AssetFilter activeFilter = AssetFilter.forCountOnly();
     activeFilter.setStatuses(List.of(AssetStatus.ACTIVE));
-    activeFilter.setLimit(0);
-    activeFilter.setOffset(0);
     stats.setActiveAssets(safeGet(
         () -> assetStore.getByFilter(activeFilter, false, false).getTotalCount(), -1L, "active asset count"));
 

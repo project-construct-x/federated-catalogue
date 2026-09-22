@@ -1,12 +1,29 @@
 package eu.xfsc.fc.core.service.dcp;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.nimbusds.jwt.SignedJWT;
 import de.eecc.dcp.vp.PresentationParser;
 import eu.xfsc.fc.core.config.DcpProperties;
 import eu.xfsc.fc.core.pojo.ContentAccessorDirect;
 import eu.xfsc.fc.core.security.DcpIdentity;
-import eu.xfsc.fc.core.service.verification.VerificationConstants;
+import eu.xfsc.fc.api.FcMediaTypes;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -74,7 +91,7 @@ public class DcpMachineAuthenticationService {
       }
       String content = presentation.isTextual() ? presentation.asText() : presentation.toString();
       String mediaType = presentation.isTextual()
-          ? VerificationConstants.MEDIA_TYPE_VP_JWT : VerificationConstants.MEDIA_TYPE_VP_LD_JSON;
+          ? FcMediaTypes.VP_JWT_VALUE : FcMediaTypes.VP_LD_JSON_VALUE;
       // Never trust only the EECC query/claim extraction checks, or the lab signature toggles.
       var verified = verification.verifyCredential(
           new ContentAccessorDirect(content, mediaType), true, true, true, false);

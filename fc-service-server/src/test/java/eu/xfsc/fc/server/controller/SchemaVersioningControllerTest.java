@@ -1,6 +1,23 @@
 package eu.xfsc.fc.server.controller;
 
-import static eu.xfsc.fc.core.service.schemastore.SchemaStore.MEDIA_TYPE_RDF_XML;
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
+import static eu.xfsc.fc.api.FcMediaTypes.RDF_XML_VALUE;
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
 import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_CREATE;
@@ -60,7 +77,7 @@ class SchemaVersioningControllerTest {
     mockMvc.perform(MockMvcRequestBuilders.put("/schemas/{schemaId}", encodedId)
             .content(content)
             .with(csrf())
-            .contentType(MEDIA_TYPE_RDF_XML)
+            .contentType(RDF_XML_VALUE)
             .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.version").value(2))
@@ -171,7 +188,7 @@ class SchemaVersioningControllerTest {
     mockMvc.perform(MockMvcRequestBuilders.put("/schemas/{schemaId}", "some-id")
             .content("content")
             .with(csrf())
-            .contentType(MEDIA_TYPE_RDF_XML))
+            .contentType(RDF_XML_VALUE))
         .andExpect(status().isForbidden());
   }
 }

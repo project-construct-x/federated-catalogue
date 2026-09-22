@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -27,6 +44,7 @@ import static eu.xfsc.fc.server.util.TestUtil.getAccessor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -63,11 +81,20 @@ public class VerificationControllerTest {
   }
 
   @Test
+  public void getVerification_unauthenticated_isRejected() throws Exception {
+    mockMvc.perform(MockMvcRequestBuilders.get("/verification")
+            .contentType(MediaType.APPLICATION_JSON)
+            .accept(MediaType.APPLICATION_JSON)
+            .with(csrf()))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
   public void getVerifyPageShouldReturnSuccessResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/verification")
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
-        	.with(csrf()))
+        	.with(csrf()).with(jwt()))
             .andExpect(status().isOk())
             .andExpect(header().stringValues("Content-Type", "text/html"));
   }
@@ -82,7 +109,7 @@ public class VerificationControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .content(json)
-        	.with(csrf()))
+        	.with(csrf()).with(jwt()))
             .andExpect(status().isOk())
             .andReturn()
             .getResponse()
@@ -99,7 +126,7 @@ public class VerificationControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .content(json)
-        	.with(csrf()))
+        	.with(csrf()).with(jwt()))
             .andExpect(status().isUnprocessableEntity());
   }
 
@@ -113,7 +140,7 @@ public class VerificationControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .content(json)
-        	.with(csrf()))
+        	.with(csrf()).with(jwt()))
             .andExpect(status().isOk());
   }
 
@@ -124,7 +151,7 @@ public class VerificationControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .content(json)
-        	.with(csrf()))
+        	.with(csrf()).with(jwt()))
             .andExpect(status().isUnprocessableEntity())
             .andReturn()
             .getResponse()
@@ -145,7 +172,7 @@ public class VerificationControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .content(json)
-        	.with(csrf()))
+        	.with(csrf()).with(jwt()))
             .andExpect(status().isOk());
   }
 
@@ -177,7 +204,7 @@ public class VerificationControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .content(UNKNOWN_TYPE_VP)
-            .with(csrf()))
+            .with(csrf()).with(jwt()))
         .andExpect(status().isBadRequest());
   }
 
@@ -191,7 +218,7 @@ public class VerificationControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .content(UNKNOWN_TYPE_VP)
-            .with(csrf()))
+            .with(csrf()).with(jwt()))
         .andExpect(status().isBadRequest())
         .andReturn()
         .getResponse()

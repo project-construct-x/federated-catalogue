@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.trustframework.compliance;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -15,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.ConflictException;
+import eu.xfsc.fc.core.exception.ServiceErrorException;
 import eu.xfsc.fc.core.exception.ServiceUnavailableException;
 import eu.xfsc.fc.core.exception.TimeoutException;
 import eu.xfsc.fc.core.service.trustframework.TrustFrameworkProfileResolver;
@@ -147,6 +165,19 @@ class ComplianceCheckOrchestratorTest {
     when(mockClient.check(any(), any())).thenThrow(new ServiceUnavailableException("unreachable"));
 
     assertThrows(ServiceUnavailableException.class,
+        () -> orchestrator.check(ASSET_ID, PROFILE_ID, ASSET_PAYLOAD));
+  }
+
+  @Test
+  void check_clientThrowsServiceErrorException_propagatesAsSubtype() {
+    // ServiceErrorException is a ServiceUnavailableException subtype; the multi-catch that
+    // rethrows ServiceUnavailableException unchanged must not widen it to the base type.
+    when(profileResolver.getProfileConfig(PROFILE_ID)).thenReturn(Optional.of(MOCK_CONFIG));
+    when(tfService.isEnabled(FAMILY_ID)).thenReturn(true);
+    when(clientRegistry.resolve("jwt-vc-compliance")).thenReturn(mockClient);
+    when(mockClient.check(any(), any())).thenThrow(new ServiceErrorException("server error", null));
+
+    assertThrows(ServiceErrorException.class,
         () -> orchestrator.check(ASSET_ID, PROFILE_ID, ASSET_PAYLOAD));
   }
 

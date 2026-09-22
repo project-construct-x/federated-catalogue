@@ -1,12 +1,27 @@
 package eu.xfsc.fc.server.controller;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.unauthorized;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static eu.xfsc.fc.core.dao.impl.UserDaoImpl.toUserRepo;
-import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
 import static eu.xfsc.fc.server.helper.UserServiceHelper.getAllRoles;
 import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE;
 import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE;
@@ -30,8 +45,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
-import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -48,12 +61,6 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 
 import org.apache.http.HttpStatus;
-import org.jose4j.jwk.JsonWebKeySet;
-import org.jose4j.jwk.RsaJsonWebKey;
-import org.jose4j.jwk.RsaJwkGenerator;
-import org.jose4j.jws.AlgorithmIdentifiers;
-import org.jose4j.jws.JsonWebSignature;
-import org.jose4j.jwt.JwtClaims;
 import org.jose4j.lang.JoseException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -111,6 +118,7 @@ import eu.xfsc.fc.api.generated.model.User;
 import eu.xfsc.fc.api.generated.model.UserProfile;
 import eu.xfsc.fc.api.generated.model.UserProfiles;
 import eu.xfsc.fc.core.dao.UserDao;
+import eu.xfsc.fc.server.helper.KeycloakJwtTestSupport;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
 
@@ -159,11 +167,12 @@ public class UsersControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private static RsaJsonWebKey rsaJsonWebKey;
+    private KeycloakJwtTestSupport jwtSupport;
 
     @BeforeTestClass
     public void setup() {
         mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        jwtSupport = new KeycloakJwtTestSupport(keycloakBaseUrl);
     }
 
     @Test
@@ -363,7 +372,10 @@ public class UsersControllerTest {
     }
 
     @Test
-    @Disabled // TODO: fix me!!
+    @Disabled("Disabled since the initial code import 8effb886 (2025-05-20), recorded only as "
+        + "'TODO: fix me!!' with no reason. Asserts that userDao.delete propagates the JAX-RS "
+        + "NotFoundException stubbed on the Keycloak users resource and that the token grant "
+        + "then fails as unauthorized.")
     public void deleteUserAndKeycloakAccessShouldReturnUnauthorizedError() throws Exception {
         User user = getTestUser("newuser", "newuser").addRoleIdsItem(CATALOGUE_ADMIN_ROLE);
         String userId = UUID.randomUUID().toString();
@@ -620,19 +632,7 @@ public class UsersControllerTest {
     }
 
     private void setUpKeycloakAuth(User user) throws IOException, JoseException {
-        rsaJsonWebKey = RsaJwkGenerator.generateJwk(2048);
-        rsaJsonWebKey.setKeyId("k1");
-        rsaJsonWebKey.setAlgorithm(AlgorithmIdentifiers.RSA_USING_SHA256);
-        rsaJsonWebKey.setUse("sig");
-
-        String openidConfig = getMockFileDataAsString("openid-configs.json")
-            .replace("keycloakBaseUrl", keycloakBaseUrl);
-
-        stubFor(WireMock.get(urlEqualTo("/auth/realms/gaia-x/.well-known/openid-configuration"))
-            .willReturn(aResponse().withHeader(CONTENT_TYPE, APPLICATION_JSON_VALUE).withBody(openidConfig)));
-        stubFor(WireMock.get(urlEqualTo("/auth/realms/gaia-x/protocol/openid-connect/certs"))
-            .willReturn(aResponse().withHeader(CONTENT_TYPE, APPLICATION_JSON_VALUE).withBody(openidConfig)
-                .withBody(new JsonWebKeySet(rsaJsonWebKey).toJson())));
+        jwtSupport.setUpOidcAndJwks("k1");
 
         stubFor(WireMock.post(urlEqualTo("/auth/realms/gaia-x/protocol/openid-connect/token"))
             .willReturn(ok().withBody("{\"access_token\": \"" + generateToken(user) + "\", \"expires_in\": 900," +
@@ -640,31 +640,7 @@ public class UsersControllerTest {
     }
 
     private String generateToken(User user) throws JoseException {
-        JwtClaims claims = new JwtClaims();
-        claims.setJwtId(UUID.randomUUID().toString());
-        claims.setExpirationTimeMinutesInTheFuture(10);
-        claims.setNotBeforeMinutesInThePast(0);
-        claims.setIssuedAtToNow();
-        claims.setAudience("account");
-        claims.setIssuer(String.format("%s/auth/realms/gaia-x", keycloakBaseUrl));
-        claims.setSubject(UUID.randomUUID().toString());
-        claims.setClaim("typ", "Bearer");
-        claims.setClaim("azp", clientId);
-        claims.setClaim("session_state", UUID.randomUUID().toString());
-        claims.setClaim("resource_access", Map.of(clientId, Map.of("roles", List.of(CATALOGUE_ADMIN_ROLE))));
-        claims.setClaim("scope", "openid gaia-x");
-        claims.setClaim("email_verified", true);
-        claims.setClaim("preferred_username", user.getEmail());
-        claims.setClaim("given_name", user.getFirstName());
-        claims.setClaim("family_name", user.getLastName());
-
-        JsonWebSignature jws = new JsonWebSignature();
-        jws.setPayload(claims.toJson());
-        jws.setKey(rsaJsonWebKey.getPrivateKey());
-        jws.setKeyIdHeaderValue(rsaJsonWebKey.getKeyId());
-        jws.setAlgorithmHeaderValue(AlgorithmIdentifiers.RSA_USING_SHA256);
-        jws.setHeader("typ","JWT");
-        return jws.getCompactSerialization();
+        return jwtSupport.mintTokenForUser(clientId, List.of(CATALOGUE_ADMIN_ROLE), user);
     }
 
     private String grantAccessToken(String username, String password) throws Exception {

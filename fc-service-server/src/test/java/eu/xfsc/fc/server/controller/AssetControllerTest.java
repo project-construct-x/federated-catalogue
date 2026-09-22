@@ -1,8 +1,28 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
+import static eu.xfsc.fc.server.util.CommonConstants.ASSET_CREATE;
+import static eu.xfsc.fc.server.util.CommonConstants.ASSET_DELETE;
 import static eu.xfsc.fc.server.util.CommonConstants.ASSET_READ;
+import static eu.xfsc.fc.server.util.CommonConstants.ASSET_UPDATE;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_DELETE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
@@ -24,6 +44,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.c4_soft.springaddons.security.oauth2.test.annotations.Claims;
@@ -31,6 +52,7 @@ import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenIdClaims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.StringClaim;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.WithMockJwtAuth;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import eu.xfsc.fc.api.generated.model.Asset;
 import eu.xfsc.fc.api.generated.model.AssetStatus;
 import eu.xfsc.fc.api.generated.model.Assets;
@@ -55,8 +77,10 @@ import eu.xfsc.fc.core.service.validation.AssetValidationService;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 import eu.xfsc.fc.core.util.HashUtils;
 import eu.xfsc.fc.graphdb.config.EmbeddedNeo4JConfig;
+import eu.xfsc.fc.server.helper.KeycloakJwtTestSupport;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
+import org.jose4j.lang.JoseException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -69,9 +93,13 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import org.neo4j.harness.Neo4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -79,6 +107,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -86,9 +115,10 @@ import org.springframework.web.context.WebApplicationContext;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@TestPropertySource(properties = {"graphstore.impl=neo4j"})
+@TestPropertySource(locations = "classpath:wiremock.properties", properties = {"graphstore.impl=neo4j"})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @AutoConfigureEmbeddedDatabase(provider = DatabaseProvider.ZONKY)
+@AutoConfigureWireMock(port = 0)
 @Import(EmbeddedNeo4JConfig.class)
 public class AssetControllerTest {
     private final static String TEST_ISSUER = "http://example.org/test-issuer";
@@ -97,6 +127,8 @@ public class AssetControllerTest {
     private final static String ASSET_FILE_NAME = "default-credential.json";
     private static final byte[] NON_RDF_PDF_BYTES = "%PDF-1.4 fake".getBytes(StandardCharsets.UTF_8);
     private static final String NON_RDF_PDF_HASH = HashUtils.calculateSha256AsHex(NON_RDF_PDF_BYTES);
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final boolean WITH_CSRF_TOKEN = true;
 
     @Autowired
     private Neo4j embeddedDatabaseServer;
@@ -125,11 +157,31 @@ public class AssetControllerTest {
     @Autowired
     private ValidationResultHasher validationResultHasher;
     private static AssetMetadata assetMeta;
-    
+
+    // ===== Real-JWT fine-grained RBAC matrix — WireMock-backed JWKS/issuer =====
+    @Value("${wiremock.server.baseUrl}")
+    private String keycloakBaseUrl;
+    @Value("${keycloak.resource}")
+    private String resourceId;
+    private KeycloakJwtTestSupport jwtSupport;
+
+    // credential-resource.json's credentialSubject "@id" is DID-style (no forward slashes), so it
+    // round-trips safely as a single MockMvc path segment on PUT /assets/{id} — unlike TEST_ISSUER's
+    // "http://..." form, which is only safe for assetMeta's direct-store (bypass-HTTP) usages below.
+    private static final String RESOURCE_CREDENTIAL_FILE = "credential-resource.json";
+    private static final String UPDATABLE_ASSET_ID = "did:example:fad49ec6-d488-4bf9-bae5-d0ffa62a9bd2";
+    private static String resourceAssetHash;
+    private static String updatedResourceAssetHash;
+
     @BeforeAll
     public void setup() throws IOException {
         mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        jwtSupport = new KeycloakJwtTestSupport(keycloakBaseUrl);
         assetMeta = createAssetMetadata();
+        String resourceCredential = getMockFileDataAsString(RESOURCE_CREDENTIAL_FILE);
+        resourceAssetHash = HashUtils.calculateSha256AsHex(resourceCredential);
+        updatedResourceAssetHash = HashUtils.calculateSha256AsHex(updatedResourceCredential(resourceCredential));
+        setUpRbacJwtIssuer();
     }
 
     @AfterAll
@@ -143,6 +195,16 @@ public class AssetControllerTest {
             assetStorePublisher.deleteAsset(assetMeta.getAssetHash());
         } catch (NotFoundException e) {
             // expected if not created
+        }
+        try {
+            assetStorePublisher.deleteAsset(resourceAssetHash);
+        } catch (NotFoundException e) {
+            // expected if the test did not create/update the credential-resource.json fixture asset
+        }
+        try {
+            assetStorePublisher.deleteAsset(updatedResourceAssetHash);
+        } catch (NotFoundException e) {
+            // expected if the test did not successfully PUT the updated credential-resource.json content
         }
         try {
             assetStorePublisher.deleteAsset(NON_RDF_PDF_HASH);
@@ -569,7 +631,10 @@ public class AssetControllerTest {
     }
 
     // TODO: 05.09.2022 Need to add a test to check the correct scenario with graph storage when it is added
-    //@Test
+    @Test
+    @Disabled("Disabled since the initial code import 8effb886 (2025-05-20); original reason not recorded. The "
+        + "failure-injection stub (doThrow on fileStore.storeFile) is commented out in the body below, so the 500 this "
+        + "test expects is never provoked.")
     @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void addAssetFailedThenAllTransactionRolledBack() throws Exception {
@@ -1063,6 +1128,28 @@ public class AssetControllerTest {
                 .andExpect(status().isUnprocessableEntity());
     }
 
+    // Real Keycloak JWTs must not substitute for DCP, regardless of their old catalogue roles.
+    @Test
+    public void assetOperations_realKeycloakTokensCannotAuthorizeMachineOperations() throws Exception {
+        String credential = getMockFileDataAsString(RESOURCE_CREDENTIAL_FILE);
+        for (String[] roles : List.of(new String[0], new String[]{ASSET_CREATE},
+                new String[]{ASSET_READ}, new String[]{ASSET_UPDATE}, new String[]{ASSET_DELETE},
+                new String[]{ASSET_CREATE, ASSET_READ},
+                new String[]{ASSET_CREATE, ASSET_READ, ASSET_UPDATE, ASSET_DELETE},
+                new String[]{"ADMIN_ALL"})) {
+            String token = mintFineGrainedAssetToken(RESOURCE_ISSUER, roles);
+            // Supply CSRF on writes to prove rejection is by authentication, not the CSRF filter.
+            for (MvcResult result : List.of(
+                    performCreateAsset(token, credential, WITH_CSRF_TOKEN),
+                    performReadAsset(UPDATABLE_ASSET_ID, token),
+                    performUpdateAsset(UPDATABLE_ASSET_ID, token, credential, WITH_CSRF_TOKEN),
+                    performDeleteAsset(resourceAssetHash, token, WITH_CSRF_TOKEN))) {
+                assertEquals(HttpStatus.UNAUTHORIZED.value(), result.getResponse().getStatus(),
+                    "Keycloak roles must not authorize machine data APIs");
+            }
+        }
+    }
+
     // ===== Helpers =====
 
     private static AssetMetadata createAssetMetadata() throws IOException {
@@ -1083,7 +1170,85 @@ public class AssetControllerTest {
         return assetMeta;
     }
 
+    /**
+     * Produces a byte-distinct variant of the credential-resource.json fixture (same asset IRI and
+     * issuer, different literal value) so PUT /assets/{id} tests exercise a genuine content update
+     * rather than resubmitting a byte-identical payload, which the store layer treats as a duplicate.
+     */
+    private static String updatedResourceCredential(String originalCredential) {
+        return originalCredential.replace("ExampleResourceForFederatedCatalogue",
+                "ExampleResourceForFederatedCatalogue (updated)");
+    }
+
     private CredentialVerificationResult getStaticVerificationResult() {
-      return verificationService.verifyCredential(assetMeta.getContentAccessor());
+        return verificationService.verifyCredential(assetMeta.getContentAccessor());
+    }
+
+    /**
+     * Directly stores the {@code credential-resource.json} fixture (bypassing HTTP/authorization),
+     * so role-isolation tests can assert a single operation's authorization outcome without first
+     * needing the ASSET_CREATE role to establish that precondition.
+     */
+    private void storeResourceAsset(String credentialContent) {
+        AssetMetadata meta = new AssetMetadata(UPDATABLE_ASSET_ID, RESOURCE_ISSUER, new ArrayList<>(),
+                new ContentAccessorDirect(credentialContent));
+        meta.setStatus(AssetStatus.ACTIVE);
+        Instant now = Instant.now();
+        meta.setStatusDatetime(now);
+        meta.setUploadDatetime(now);
+        assetStorePublisher.storeCredential(meta, verificationService.verifyCredential(meta.getContentAccessor()));
+    }
+
+    /** Registers a real test issuer so rejection cannot be attributed to malformed JWT fixtures. */
+    private void setUpRbacJwtIssuer() throws IOException {
+        try {
+            jwtSupport.setUpOidcAndJwks("rbac-test-k1");
+        } catch (JoseException ex) {
+            throw new IllegalStateException("Failed to set up OIDC and JWKS", ex);
+        }
+    }
+
+    /** Mints a signed Keycloak-shaped token; machine endpoints must reject it regardless of roles. */
+    private String mintFineGrainedAssetToken(String participantId, String... roles) throws JoseException {
+        return jwtSupport.mintToken(resourceId, List.of(roles), participantId);
+    }
+
+    /**
+     * Builds and executes a real-JWT POST /assets request. {@code includeCsrfToken} isolates the
+     * CSRF-filter dimension from the RBAC dimension: a real bearer-token client never holds a
+     * Spring-session CSRF token, so {@code false} reproduces genuine client behavior while
+     * {@code true} isolates whether the role check itself behaves correctly once CSRF is out of the way.
+     */
+    private MvcResult performCreateAsset(String token, String credential, boolean includeCsrfToken) throws Exception {
+        MockHttpServletRequestBuilder request = MockMvcRequestBuilders.post("/assets")
+                .header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + token)
+                .content(credential)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON);
+        return mockMvc.perform(includeCsrfToken ? request.with(csrf()) : request).andReturn();
+    }
+
+    private MvcResult performReadAsset(String id, String token) throws Exception {
+        return mockMvc.perform(MockMvcRequestBuilders.get("/assets/{id}", id)
+                        .header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + token))
+                .andReturn();
+    }
+
+    private MvcResult performUpdateAsset(String id, String token, String credential, boolean includeCsrfToken) throws
+            Exception {
+        MockHttpServletRequestBuilder request = MockMvcRequestBuilders.put("/assets/{id}", id)
+                .header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + token)
+                .content(credential)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON);
+        return mockMvc.perform(includeCsrfToken ? request.with(csrf()) : request).andReturn();
+    }
+
+    private MvcResult performDeleteAsset(String assetHash, String token, boolean includeCsrfToken) throws Exception {
+        MockHttpServletRequestBuilder request = MockMvcRequestBuilders.delete("/assets/{asset_hash}", assetHash)
+                .header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON);
+        return mockMvc.perform(includeCsrfToken ? request.with(csrf()) : request).andReturn();
     }
 }

@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.config;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -25,7 +42,6 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -94,6 +110,17 @@ class DcpAssetSecurityTest {
   }
 
   @Test
+  void infrastructurePerimeterKeepsOnlyHealthAndDocsPublic() throws Exception {
+    mvc.perform(get("/actuator/health")).andExpect(status().isOk());
+    mvc.perform(get("/api/docs")).andExpect(status().isOk());
+    mvc.perform(get("/actuator/info")).andExpect(status().isUnauthorized());
+    mvc.perform(get("/api/probe")).andExpect(status().isUnauthorized());
+    mvc.perform(get("/api/probe").with(jwt())).andExpect(status().isForbidden());
+    mvc.perform(get("/verification")).andExpect(status().isUnauthorized());
+    mvc.perform(options("/api/docs")).andExpect(status().isOk());
+  }
+
+  @Test
   void strictCredentialUploadChecksOwnershipBeforeStorage() throws Exception {
     when(detector.isRdf(any(), any())).thenReturn(true);
     when(verification.verifyCredential(any(), eq(true), eq(true), eq(true), eq(false)))
@@ -127,7 +154,7 @@ class DcpAssetSecurityTest {
     @Bean AssetUploadService uploads() {
       return new AssetUploadService(verification(), store(), detector(), mock(IriGenerator.class),
           mock(ProtectedNamespaceFilter.class), mock(GraphStore.class), new ObjectMapper(),
-          mock(ObjectProvider.class), mock(DcpPresentationFacade.class));
+          mock(DcpPresentationFacade.class));
     }
     @Bean UploadController controller() { return new UploadController(uploads()); }
   }
@@ -142,5 +169,6 @@ class DcpAssetSecurityTest {
       return ResponseEntity.status(201).build();
     }
     @GetMapping("/admin/me") String admin() { return "admin"; }
+    @GetMapping({"/actuator/health", "/api/docs"}) String publicResource() { return "public"; }
   }
 }
