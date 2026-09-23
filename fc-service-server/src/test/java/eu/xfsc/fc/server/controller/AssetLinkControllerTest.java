@@ -322,7 +322,6 @@ public class AssetLinkControllerTest {
   @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void getHumanReadable_noLinkExists_returnsNotFound() throws Exception {
-    // Use ASSET_READ — this user cannot create, they can only read.
     // We test GET against a real (but unlinked) asset IRI via a dummy UUID.
     mockMvc.perform(MockMvcRequestBuilders
             .get(String.format(HR_URL_TEMPLATE, "urn:uuid:unlinked-asset"))

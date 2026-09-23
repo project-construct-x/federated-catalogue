@@ -1,6 +1,6 @@
 package eu.xfsc.fc.server.service;
 
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.SessionUtils.checkParticipantAccess;
 import static eu.xfsc.fc.server.util.SessionUtils.getSessionUserRoles;
@@ -109,14 +109,14 @@ public class UsersService implements UsersApiDelegate {
     UserProfile profile = userDao.select(userId);
     checkParticipantAccess(profile.getParticipantId());
 
-    //last participant-admin-user cannot deleted
+    //last admin-user cannot deleted
     // weird code, con't understand how it works..
     PaginatedResults<UserProfile> profiles = userDao.search(profile.getParticipantId(), 0, 100);
-    Long participantAdminCount = profiles.getResults().stream()
-        .filter(userProfile -> userProfile.getRoleIds().contains(PARTICIPANT_ADMIN_ROLE)).count();
-    log.debug("deleteUser; total count of participant  admin is : {}", participantAdminCount);
-    if (participantAdminCount == 1) {
-        throw new ConflictException("Last participant admin cannot be deleted");
+    Long adminCount = profiles.getResults().stream()
+        .filter(userProfile -> userProfile.getRoleIds().contains(ADMIN_ALL)).count();
+    log.debug("deleteUser; total count of admin is : {}", adminCount);
+    if (adminCount == 1) {
+        throw new ConflictException("Last admin cannot be deleted");
     }
     profile = userDao.delete(userId);
     log.debug("deleteUser.exit; returning: {}", profile);

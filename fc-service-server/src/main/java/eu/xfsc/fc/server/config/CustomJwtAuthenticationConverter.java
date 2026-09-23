@@ -76,11 +76,11 @@ public class CustomJwtAuthenticationConverter implements Converter<Jwt, Abstract
       if (roles != null) {
         roles.stream().forEach(x -> {
         	if ("gaia-x-admin".equals(x)) {
-              authorities.add(new SimpleGrantedAuthority(CATALOGUE_ADMIN_ROLE_WITH_PREFIX));
+              authorities.add(new SimpleGrantedAuthority(ADMIN_ALL_WITH_PREFIX));
             } else if ("gaia-x-notar".equals(x)) {
-              authorities.add(new SimpleGrantedAuthority(PARTICIPANT_ADMIN_ROLE_WITH_PREFIX));	
+              authorities.add(new SimpleGrantedAuthority(ADMIN_ALL_WITH_PREFIX));	
             } else if ("gaia-x-business-owner".equals(x)) {
-        	  authorities.add(new SimpleGrantedAuthority(PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX));
+        	  authorities.add(new SimpleGrantedAuthority(ADMIN_ALL_WITH_PREFIX));
             }
         });
       }

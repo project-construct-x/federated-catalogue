@@ -630,7 +630,6 @@ public class AssetControllerTest {
                 .andExpect(status().isOk());
     }
 
-    // Requires both ASSET_UPDATE (revoke) and ASSET_CREATE (re-add) to test the composite flow.
     @Test
     @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
