@@ -129,6 +129,8 @@
         <commons-io.version>2.21.0</commons-io.version>
         <!-- EECC DCP (Eclipse Decentralized Claims Protocol); published on Maven Central -->
         <dcp.version>1.0.0</dcp.version>
+        <!-- oid4vp Java Library; published on Maven Central -->
+        <oid4vp.version>0.5.1</oid4vp.version>
         <!-- plugins -->
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
         <plugin.jacoco.version>0.8.14</plugin.jacoco.version>
@@ -244,6 +246,12 @@
                 <groupId>de.eecc.dcp</groupId>
                 <artifactId>dcp</artifactId>
                 <version>${dcp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.eecc.oid4vc</groupId>
+                <artifactId>oid4vp</artifactId>
+                <version>${oid4vp.version}</version>
             </dependency>
 
             <dependency>

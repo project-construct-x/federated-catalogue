@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
+
+    <changeSet id="2026-09-25-oid4vp-bootstrap-001" author="ibr">
+        <createTable tableName="oid4vp_binding_challenge">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="connector_did" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="challenge_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="nonce" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="state" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="holder_did" type="VARCHAR(512)"/>
+            <column name="presentation_id" type="VARCHAR(255)"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consumed_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="revoked_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+
+        <addUniqueConstraint
+                tableName="oid4vp_binding_challenge"
+                columnNames="challenge_id"
+                constraintName="uk_oid4vp_binding_challenge_id"/>
+
+        <addUniqueConstraint
+                tableName="oid4vp_binding_challenge"
+                columnNames="state"
+                constraintName="uk_oid4vp_binding_challenge_state"/>
+
+        <createIndex tableName="oid4vp_binding_challenge"
+                     indexName="ix_oid4vp_binding_challenge_connector_did">
+            <column name="connector_did"/>
+        </createIndex>
+
+        <createIndex tableName="oid4vp_binding_challenge"
+                     indexName="ix_oid4vp_binding_challenge_expires_at">
+            <column name="expires_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="023-oid4vp-bootstrap-002" author="ibr">
+        <createTable tableName="oid4vp_bootstrap_token">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="jti" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="connector_did" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="holder_did" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="membership_issuer" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="presentation_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scope" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token_type" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="redeemed_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="revoked_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+
+        <addUniqueConstraint
+                tableName="oid4vp_bootstrap_token"
+                columnNames="jti"
+                constraintName="uk_oid4vp_bootstrap_token_jti"/>
+
+        <createIndex tableName="oid4vp_bootstrap_token"
+                     indexName="ix_oid4vp_bootstrap_token_connector_did">
+            <column name="connector_did"/>
+        </createIndex>
+
+        <createIndex tableName="oid4vp_bootstrap_token"
+                     indexName="ix_oid4vp_bootstrap_token_expires_at">
+            <column name="expires_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="023-oid4vp-bootstrap-003" author="ibr">
+        <createTable tableName="oid4vp_connector_binding">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="connector_did" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="holder_did" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="membership_issuer" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="presentation_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="challenge_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="bound_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="binding_status" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_consumer" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_provider" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint
+                tableName="oid4vp_connector_binding"
+                columnNames="connector_did"
+                constraintName="uk_oid4vp_connector_binding_connector_did"/>
+
+        <addUniqueConstraint
+                tableName="oid4vp_connector_binding"
+                columnNames="presentation_id"
+                constraintName="uk_oid4vp_connector_binding_presentation_id"/>
+
+        <createIndex tableName="oid4vp_connector_binding"
+                     indexName="ix_oid4vp_connector_binding_holder_did">
+            <column name="holder_did"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
