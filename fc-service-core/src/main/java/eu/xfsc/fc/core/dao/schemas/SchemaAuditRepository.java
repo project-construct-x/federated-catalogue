@@ -21,7 +21,7 @@ import eu.xfsc.fc.core.service.schemastore.SchemaRecord;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.envers.AuditReaderFactory;
-import org.hibernate.envers.DefaultRevisionEntity;
+import eu.xfsc.fc.core.dao.audit.AuthenticationRevision;
 import org.hibernate.envers.query.AuditEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Repository;
@@ -108,7 +108,7 @@ public class SchemaAuditRepository {
 
   private SchemaRecord toRecord(Object[] revision, int version) {
     SchemaFile snapshot = (SchemaFile) revision[0];
-    DefaultRevisionEntity revEntity = (DefaultRevisionEntity) revision[1];
+    AuthenticationRevision revEntity = (AuthenticationRevision) revision[1];
     Instant revTimestamp = Instant.ofEpochMilli(revEntity.getTimestamp());
     Set<String> terms = snapshot.getTerms() == null ? new HashSet<>()
         : snapshot.getTerms().stream().map(SchemaTerm::getTerm).collect(Collectors.toSet());

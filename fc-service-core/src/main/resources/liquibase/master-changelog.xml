@@ -27,4 +27,5 @@
     <include file="changesets/021-rename-trust-framework-role-to-base-class.xml" relativeToChangelogFile="true"/>
     <include file="changesets/022-dcp-tables.xml" relativeToChangelogFile="true"/>
     <include file="changesets/022-validation-result-failure-category.xml" relativeToChangelogFile="true"/>
+    <include file="changesets/023-dcp-revision-identity.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

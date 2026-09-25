@@ -23,7 +23,7 @@ import eu.xfsc.fc.core.service.assetstore.AssetRecord;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.envers.AuditReaderFactory;
-import org.hibernate.envers.DefaultRevisionEntity;
+import eu.xfsc.fc.core.dao.audit.AuthenticationRevision;
 import org.hibernate.envers.query.AuditEntity;
 import org.springframework.stereotype.Repository;
 
@@ -180,7 +180,7 @@ public class AssetAuditRepository {
 
   private AssetRecord toRecord(Object[] revision, int version, boolean isCurrent) {
     Asset snapshot = (Asset) revision[0];
-    DefaultRevisionEntity revEntity = (DefaultRevisionEntity) revision[1];
+    AuthenticationRevision revEntity = (AuthenticationRevision) revision[1];
     Instant revTimestamp = Instant.ofEpochMilli(revEntity.getTimestamp());
 
     // Envers records the state at time of mutation; in-place UPDATE leaves all historical snapshots

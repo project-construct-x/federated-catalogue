@@ -39,6 +39,40 @@ requires a separate ownership/delegation design; do not remove the ownership che
 Strict signature and semantic verification is also requested for uploaded credentials.
 Existing support for non-credential RDF/binary assets remains available.
 
+## Database audit attribution
+
+Committed Envers revisions record the verified membership subject in `revinfo.participant_did`,
+the authentication method `DCP` in `authentication_method`, and the separately authenticated
+actor in `actor_did` when available. The actor is never inferred from the participant DID.
+Only an authenticated `DcpAuthenticationToken` supplies these values; JWT claims and a
+`DcpIdentity` wrapped in another authentication type cannot supply DCP attribution.
+
+Join the revision to its audit rows to obtain the affected resource and mutation. For assets:
+
+```sql
+SELECT r.rev, r.revtstmp, r.participant_did, r.actor_did, r.authentication_method,
+       a.subjectid, a.asset_hash,
+       CASE a.revtype WHEN 0 THEN 'CREATE' WHEN 1 THEN 'UPDATE' WHEN 2 THEN 'DELETE' END AS operation
+FROM revinfo r
+JOIN assets_aud a ON a.rev = r.rev
+WHERE r.authentication_method = 'DCP';
+```
+
+Revision identity describes the caller performing the mutation, including deletion; an entity's
+`modified_by` snapshot can instead describe its last editor. Revocation is an UPDATE with the
+resulting asset status in the snapshot. A revision may contain changes to several resources.
+Rollbacks leave no committed revision. The new metadata stores identifiers only, with no bearer
+token, credential or presentation contents and no additional authentication-payload logging.
+Existing asset version snapshots retain their existing content-storage behavior.
+
+The additive migration leaves historical and non-DCP revision attribution null; it does not
+guess authentication methods from existing `created_by`/`modified_by` values. Admin JWT
+subjects remain available through the existing entity auditing fields.
+
+This is a database mutation audit, not a complete HTTP access log: reads, rejected requests and
+participant operations performed solely in Keycloak do not create Envers revisions. Those paths
+need separate coverage before claiming that every machine operation is audited.
+
 ## Review scope
 
 The model/access commits are independent of the cutover switch. Unit tests cover strict
