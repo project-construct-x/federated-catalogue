@@ -19,7 +19,7 @@ package eu.xfsc.fc.server.service;
 
 import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE;
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.SessionUtils.checkParticipantAccess;
+import static eu.xfsc.fc.server.util.SessionUtils.requireApplicationAdmin;
 import static eu.xfsc.fc.server.util.SessionUtils.getSessionUserRoles;
 
 import java.net.URI;
@@ -35,14 +35,12 @@ import org.springframework.util.ObjectUtils;
 import eu.xfsc.fc.api.generated.model.User;
 import eu.xfsc.fc.api.generated.model.UserProfile;
 import eu.xfsc.fc.api.generated.model.UserProfiles;
-import eu.xfsc.fc.core.dao.ParticipantDao;
 import eu.xfsc.fc.core.dao.UserDao;
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.ConflictException;
 import eu.xfsc.fc.core.exception.NotFoundException;
 import eu.xfsc.fc.core.pojo.PaginatedResults;
 import eu.xfsc.fc.server.generated.controller.UsersApiDelegate;
-import eu.xfsc.fc.server.util.SessionUtils;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -54,9 +52,6 @@ public class UsersService implements UsersApiDelegate {
 
   @Autowired
   private UserDao userDao;
-
-  @Autowired
-  private ParticipantDao partDao;
 
   /**
    * Service method for  register a new user to the associated participant in the catalogue.
@@ -71,11 +66,11 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfile> addUser(User user) {
+    requireApplicationAdmin();
     log.debug("addUser.enter; got user: {}", user);
     if (ObjectUtils.isEmpty(user) || hasEmptyRequiredFields(user)) {
       throw new ClientException("User cannot be empty or have empty field values, except for the role!");
     }
-    checkParticipantAccess(user.getParticipantId());
     checkRoleAssignmentAccess(user.getRoleIds(), null);
     UserProfile profile = userDao.create(user);
     log.debug("addUser.exit; returning: {}", profile);
@@ -96,12 +91,12 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfile> updateUser(String userId, User user) {
+    requireApplicationAdmin();
     log.debug("updateUser.enter; got userId: {}", userId);
     if (ObjectUtils.isEmpty(user) || hasEmptyRequiredFields(user)) {
       throw new ClientException("User cannot be empty or have empty field values, except for the role!");
     }
     UserProfile profile = userDao.select(userId);
-    checkParticipantAccess(profile.getParticipantId());
     checkRoleAssignmentAccess(user.getRoleIds(), userId);
     profile = userDao.update(userId, user);
     log.debug("updateUser.exit; returning: {}", profile);
@@ -122,9 +117,9 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfile> deleteUser(String userId) {
+    requireApplicationAdmin();
     log.debug("deleteUser.enter; got userId: {}", userId);
     UserProfile profile = userDao.select(userId);
-    checkParticipantAccess(profile.getParticipantId());
 
     //last participant-admin-user cannot deleted
     // weird code, con't understand how it works..
@@ -153,9 +148,9 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfile> getUser(String userId) {
+    requireApplicationAdmin();
     log.debug("getUser.enter; got userId: {}", userId);
     UserProfile profile = userDao.select(userId);
-    checkParticipantAccess(profile.getParticipantId());
     log.debug("getUser.exit; returning: {}", profile);
     return ResponseEntity.ok(profile);
   }
@@ -171,21 +166,10 @@ public class UsersService implements UsersApiDelegate {
    *        any information about the internal structure of the server. (status code 500)
    */
   @Override
-  public ResponseEntity<UserProfiles> getUsers(Integer offset, Integer limit) { //String orderBy, Boolean ascending) {
+  public ResponseEntity<UserProfiles> getUsers(Integer offset, Integer limit) {
+    requireApplicationAdmin();
     // sorting is not supported yet by keycloak admin API
-    PaginatedResults<UserProfile> profiles;
-    if (SessionUtils.sessionUserHasRole(ADMIN_ALL_WITH_PREFIX)) {
-      profiles = userDao.search(null, offset, limit);
-    } else {
-      String participantId = SessionUtils.getSessionParticipantId();
-      if (participantId == null) {
-        throw new NotFoundException("Access restricted — your account has no participant association. "
-            + "Users with participant roles must be created through the catalogue's user management.");
-      }
-      profiles = partDao.selectUsers(participantId, offset, limit)
-          .orElseThrow(() -> new NotFoundException(
-              "The participant associated with your account was not found in the catalogue."));
-    }
+    PaginatedResults<UserProfile> profiles = userDao.search(null, offset, limit);
     return ResponseEntity.ok(new UserProfiles((int) profiles.getTotalCount(), profiles.getResults()));
   }
 
@@ -202,9 +186,9 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<List<String>> getUserRoles(String userId) {
+    requireApplicationAdmin();
     log.debug("getUserRoles.enter; got userId: {}", userId);
     UserProfile profile = userDao.select(userId);
-    checkParticipantAccess(profile.getParticipantId());
     log.debug("getUserRoles.exit; returning: {}", profile.getRoleIds());
     return ResponseEntity.ok(profile.getRoleIds());
   }
@@ -223,9 +207,9 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfile> updateUserRoles(String userId, List<String> roles) {
+    requireApplicationAdmin();
     log.debug("updateUserRoles.enter; got userId: {}, roles: {}", userId, roles);
     UserProfile profile = userDao.select(userId);
-    checkParticipantAccess(profile.getParticipantId());
     checkRoleAssignmentAccess(roles, userId);
     profile = userDao.updateRoles(userId, roles);
     log.debug("updateUserRoles.exit; returning: {}", profile);

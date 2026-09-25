@@ -20,6 +20,7 @@ package eu.xfsc.fc.server.service;
 import static eu.xfsc.fc.core.util.HashUtils.calculateSha256AsHex;
 import static eu.xfsc.fc.server.util.SessionUtils.checkParticipantAccess;
 import static eu.xfsc.fc.server.util.SessionUtils.getSessionParticipantId;
+import static eu.xfsc.fc.server.util.SessionUtils.requireDcpIdentity;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -64,15 +65,10 @@ import eu.xfsc.fc.core.service.verification.ProtectedNamespaceFilter;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 import eu.xfsc.fc.core.service.verification.VerificationConstants;
 import eu.xfsc.fc.core.service.dcp.DcpPresentationFacade;
-import eu.xfsc.fc.core.service.dcp.DcpPurposes;
-import eu.xfsc.fc.core.service.dcp.ValidatedDcpPresentation;
-import eu.xfsc.fc.core.security.DcpAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import eu.xfsc.fc.core.service.graphdb.GraphStore;
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.GraphStoreDisabledException;
 import eu.xfsc.fc.core.pojo.GraphBackendType;
-import de.eecc.dcp.message.PresentationResponseMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -115,19 +111,20 @@ public class AssetUploadService {
      *                   when null, a fresh asset is created with a generated IRI
      */
     public UploadResult processUpload(byte[] content, String contentType, String originalFilename, String existingId) {
+        requireDcpIdentity();
+        if (existingId != null) {
+            checkParticipantAccess(assetStorePublisher.getById(existingId).getIssuer());
+        }
         if (content == null || content.length == 0) {
             throw new ClientException("Upload content must not be empty");
         }
 
         String normalizedContentType = normalizeContentType(contentType);
 
-        // DCP PresentationResponseMessage shares POST /assets with ordinary VC/VP/RDF uploads.
+        // Authentication presentations are not catalogue asset payloads.
         var dcpResponse = dcpPresentationFacade.tryParsePresentationResponse(content, normalizedContentType);
         if (dcpResponse.isPresent()) {
-            if (isDcpRequest()) {
-                throw new ClientException("Upload the asset separately from the DCP authentication presentation");
-            }
-            return handleDcpPresentation(dcpResponse.get());
+            throw new ClientException("Upload the asset separately from the DCP authentication presentation");
         }
 
         if (!rdfDetector.isRdf(normalizedContentType, content)) {
@@ -147,27 +144,6 @@ public class AssetUploadService {
 
         // Not an enrichment case; process as new RDF asset
         return new UploadResult.AssetCreated(handleCredential(content, normalizedContentType));
-    }
-
-    /**
-     * Validates a DCP {@link PresentationResponseMessage} against the Postgres-backed request
-     * definition and access whitelist for {@link DcpPurposes#POST_ASSETS}, then ingests each
-     * {@code presentation[]} entry through the existing credential pipeline.
-     */
-    private UploadResult handleDcpPresentation(PresentationResponseMessage response) {
-        log.debug("handleDcpPresentation; validating DCP PresentationResponseMessage for POST_ASSETS");
-        ValidatedDcpPresentation validated =
-            dcpPresentationFacade.validateForPurpose(response, DcpPurposes.POST_ASSETS);
-
-        AssetMetadata last = null;
-        for (ValidatedDcpPresentation.PresentationPayload payload : validated.presentations()) {
-            last = handleCredential(payload.content(), payload.contentType());
-            log.debug("handleDcpPresentation; stored presentation asset hash={}", last.getAssetHash());
-        }
-        if (last == null) {
-            throw new ClientException("DCP PresentationResponseMessage produced no assets");
-        }
-        return new UploadResult.AssetCreated(last);
     }
 
     /**
@@ -191,9 +167,8 @@ public class AssetUploadService {
         String text = new String(content, StandardCharsets.UTF_8);
         ContentAccessorDirect contentAccessor = new ContentAccessorDirect(text, contentType);
 
-        CredentialVerificationResult verificationResult = isDcpRequest()
-                ? verificationService.verifyCredential(contentAccessor, true, true, true, false)
-                : verificationService.verifyCredential(contentAccessor);
+        CredentialVerificationResult verificationResult =
+                verificationService.verifyCredential(contentAccessor, true, true, true, false);
 
         // Non-credential RDF: ID and issuer are null — resolve both from local context.
         String assetId = verificationResult.getId() != null
@@ -210,6 +185,9 @@ public class AssetUploadService {
         // Explicit first DCP policy: self-publishing only. Issuer-owned storage has no separate
         // participant owner yet; third-party issuance/delegated publishing requires that migration.
         checkParticipantAccess(assetMetadata.getIssuer());
+        if (assetStorePublisher.existsById(assetMetadata.getId())) {
+            checkParticipantAccess(assetStorePublisher.getById(assetMetadata.getId()).getIssuer());
+        }
         assetStorePublisher.storeCredential(assetMetadata, verificationResult);
 
         if (verificationResult.getWarnings() != null && !verificationResult.getWarnings().isEmpty()) {
@@ -235,10 +213,6 @@ public class AssetUploadService {
         return assetStorePublisher.storeUnverified(assetMetadata, originalFilename);
     }
 
-    private static boolean isDcpRequest() {
-        return SecurityContextHolder.getContext().getAuthentication() instanceof DcpAuthenticationToken;
-    }
-
     /**
      * Enriches an existing non-RDF asset with RDF metadata.
      *
@@ -248,7 +222,7 @@ public class AssetUploadService {
         String subjectId = record.getId();
         log.debug("enrichAsset.enter; assetId={}, contentType={}", subjectId, contentType);
 
-        // Only the asset's issuer (or a catalogue admin) may enrich its metadata.
+        // Only the DCP participant owning the asset may enrich its metadata.
         checkParticipantAccess(record.getIssuer());
 
         // Fail-fast: no point parsing the payload if the graph backend can't accept it.

@@ -157,7 +157,6 @@ public class SecurityConfig {
         .requestMatchers(HttpMethod.PUT, "/participants/*").authenticated()
         .requestMatchers(HttpMethod.DELETE, "/participants/*").authenticated()
         .requestMatchers(HttpMethod.GET, "/participants/*").authenticated()
-        .requestMatchers(HttpMethod.GET, "/participants/*/users").authenticated()
 
         .anyRequest().denyAll()
       )  
@@ -171,7 +170,7 @@ public class SecurityConfig {
   }
 
   @Bean
-  @Order(3)
+  @Order(1)
   public SecurityFilterChain adminFilterChain(HttpSecurity http) throws Exception {
     http
       .securityMatcher(
@@ -182,6 +181,7 @@ public class SecurityConfig {
         "/schemas/**",
         "/users",
         "/users/**",
+        "/participants/*/users",
         "/roles",
         "/session",
         "/query", 

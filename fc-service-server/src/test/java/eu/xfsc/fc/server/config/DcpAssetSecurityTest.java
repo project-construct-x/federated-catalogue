@@ -110,6 +110,33 @@ class DcpAssetSecurityTest {
   }
 
   @Test
+  void participantUserManagementUsesAdminChain() throws Exception {
+    mvc.perform(get("/participants/example/users").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN_ALL"))))
+        .andExpect(status().isOk());
+    mvc.perform(get("/participants/example/users").with(jwt())).andExpect(status().isForbidden());
+    mvc.perform(get("/participants/example/users")).andExpect(status().isUnauthorized());
+    mvc.perform(get("/participants/example/users").with(
+        org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication(
+            new eu.xfsc.fc.core.security.DcpAuthenticationToken(new DcpIdentity(PARTICIPANT, null)))))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void selfIssuedCredentialCannotOverwriteAnotherParticipantsAsset() throws Exception {
+    when(detector.isRdf(any(), any())).thenReturn(true);
+    when(verification.verifyCredential(any(), eq(true), eq(true), eq(true), eq(false)))
+        .thenReturn(result(PARTICIPANT));
+    when(store.existsById("urn:asset:1")).thenReturn(true);
+    AssetMetadata existing = new AssetMetadata();
+    existing.setIssuer("did:web:other.example");
+    when(store.getById("urn:asset:1")).thenReturn(existing);
+    mvc.perform(post("/assets").header("Authorization", "Bearer dcp")
+        .contentType("application/vc+jwt").content("eyJ.asset.signature"))
+        .andExpect(status().isForbidden());
+    verify(store, never()).storeCredential(any(), any());
+  }
+
+  @Test
   void infrastructurePerimeterKeepsOnlyHealthAndDocsPublic() throws Exception {
     mvc.perform(get("/actuator/health")).andExpect(status().isOk());
     mvc.perform(get("/api/docs")).andExpect(status().isOk());
@@ -169,6 +196,7 @@ class DcpAssetSecurityTest {
       return ResponseEntity.status(201).build();
     }
     @GetMapping("/admin/me") String admin() { return "admin"; }
+    @GetMapping("/participants/{id}/users") String participantUsers() { return "users"; }
     @GetMapping({"/actuator/health", "/api/docs"}) String publicResource() { return "public"; }
   }
 }
