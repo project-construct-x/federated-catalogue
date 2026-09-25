@@ -37,7 +37,7 @@ import javax.sql.DataSource;
 
 @Configuration
 @EnableTransactionManagement
-// Wires SecurityAuditorAware to populate createdBy/modifiedBy from JWT subject on every JPA write
+// Populates createdBy/modifiedBy from the DCP participant DID or JWT subject on JPA writes.
 @EnableJpaAuditing(
     auditorAwareRef = "securityAuditorAware",
     dateTimeProviderRef = "zonedDateTimeProvider")
