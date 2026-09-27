@@ -92,6 +92,36 @@ class DcpAssetSecurityTest {
   }
 
   @Test
+  void successfulUploadAuditsIdentityBeforeAuthenticationContextIsCleared() throws Exception {
+    var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(
+        "eu.xfsc.fc.server.audit.DcpOperationAudit");
+    var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+    var previousLevel = logger.getLevel();
+    logger.setLevel(ch.qos.logback.classic.Level.INFO);
+    appender.start();
+    logger.addAppender(appender);
+    try {
+      mvc.perform(post("/assets").header("Authorization", "Bearer dcp")
+          .contentType("application/octet-stream").content("secret-asset-content"))
+          .andExpect(status().isCreated());
+      assertEquals(1, appender.list.size());
+      String message = appender.list.getFirst().getFormattedMessage();
+      var audit = new ObjectMapper().readTree(message);
+      assertEquals("SUCCESS", audit.get("outcome").asText());
+      assertEquals("POST /assets", audit.get("operation").asText());
+      assertEquals(PARTICIPANT, audit.get("participantDid").asText());
+      assertEquals("DCP", audit.get("authenticationMethod").asText());
+      assertFalse(message.contains("secret-asset-content"));
+      assertFalse(message.contains("Bearer dcp"));
+      assertNull(SecurityContextHolder.getContext().getAuthentication());
+    } finally {
+      logger.detachAppender(appender);
+      logger.setLevel(previousLevel);
+      appender.stop();
+    }
+  }
+
+  @Test
   void keycloakAdminAndMissingDcpCannotUpload() throws Exception {
     mvc.perform(post("/assets").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN_ALL")))
         .header("Authorization", "Bearer keycloak").content("asset"))
@@ -171,7 +201,7 @@ class DcpAssetSecurityTest {
 
   @Configuration
   @EnableWebMvc
-  @Import({DcpAssetSecurityConfig.class, SecurityConfig.class})
+  @Import({DcpAssetSecurityConfig.class, SecurityConfig.class, DcpOperationAuditConfig.class})
   static class Config {
     @Bean DcpMachineAuthenticationService authentication() { return mock(DcpMachineAuthenticationService.class); }
     @Bean AssetStore store() { return mock(AssetStore.class); }
