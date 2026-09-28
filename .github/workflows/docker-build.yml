@@ -178,6 +178,14 @@ jobs:
             --docker-username="${{ github.actor }}" \
             --docker-password="${token}" \
             --dry-run=client -o yaml | kubectl apply -f -
+          # A StatefulSet will not replace a pod that is already unready, so an
+          # old Fuseki pod keeps pulling the previous tag forever. Delete it
+          # after the pull secret exists; the controller recreates it from the
+          # current template and the pull happens while this job's token is valid.
+          fuseki_ready="$(kubectl -n "${KUBE_NAMESPACE}" get pod fc-fuseki-0 -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || true)"
+          if [[ "${fuseki_ready}" != "true" ]]; then
+            kubectl -n "${KUBE_NAMESPACE}" delete pod fc-fuseki-0 --ignore-not-found --wait=false
+          fi
 
       - name: Build chart dependencies
         run: helm dependency build "${HELM_CHART}"
@@ -190,6 +198,7 @@ jobs:
             --namespace "${KUBE_NAMESPACE}" \
             -f "${HELM_CHART}/values.yaml" \
             -f "${HELM_STAGE_VALUES}" \
+            --set-string podAnnotations.deployed-sha="${GITHUB_SHA}" \
             --wait --timeout 10m
 
       - name: Status

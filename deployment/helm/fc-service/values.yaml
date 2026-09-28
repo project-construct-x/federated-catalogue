@@ -112,11 +112,11 @@ probes:
   initialDelaySeconds: 60
   periodSeconds: 30
 
+# Recreate: the filestore PVC is ReadWriteOnce. A RollingUpdate with
+# maxSurge starts a second pod that cannot mount the volume while the
+# previous pod still holds it, so the rollout never becomes ready.
 strategy:
-  type: RollingUpdate
-  rollingUpdate:
-    maxSurge: 1
-    maxUnavailable: 0
+  type: Recreate
 
 autoscaling:
   enabled: false
