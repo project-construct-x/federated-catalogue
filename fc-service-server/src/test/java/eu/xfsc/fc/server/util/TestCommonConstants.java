@@ -17,13 +17,14 @@ package eu.xfsc.fc.server.util;
  * ---license-end
  */
 
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_CREATE;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_DELETE;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_READ;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_UPDATE;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_ADMIN_ROLE;
 
 public class TestCommonConstants {
+  // Legacy role names retained only as test inputs.
+  public static final String ASSET_CREATE = "ASSET_CREATE";
+  public static final String ASSET_READ = "ASSET_READ";
+  public static final String ASSET_UPDATE = "ASSET_UPDATE";
+  public static final String ASSET_DELETE = "ASSET_DELETE";
+  public static final String ASSET_ADMIN_ROLE = "Ro-AS-A";
   public static final String DEFAULT_PARTICIPANT_ID = "https://issuers/particiant123";
   public static final String CATALOGUE_ADMIN_USERNAME = "catalog_admin";
 
