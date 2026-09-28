@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.security;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -10,6 +27,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +36,40 @@ import org.springframework.security.oauth2.jwt.Jwt;
 class SecurityAuditorAwareTest {
 
   private final SecurityAuditorAware auditorAware = new SecurityAuditorAware();
+
+  @Test
+  void getCurrentAuditor_dcp_usesMembershipSubjectInsteadOfActor() {
+    SecurityContextHolder.getContext().setAuthentication(new DcpAuthenticationToken(
+        new DcpIdentity("did:web:participant.example", "did:web:actor.example")));
+
+    assertEquals(Optional.of("did:web:participant.example"), auditorAware.getCurrentAuditor());
+  }
+
+  @Test
+  void getCurrentAuditor_dcpWithoutActor_returnsParticipantDid() {
+    SecurityContextHolder.getContext().setAuthentication(new DcpAuthenticationToken(
+        new DcpIdentity("did:web:participant.example", null)));
+
+    assertEquals(Optional.of("did:web:participant.example"), auditorAware.getCurrentAuditor());
+  }
+
+  @Test
+  void getCurrentAuditor_unauthenticatedDcp_returnsEmpty() {
+    DcpAuthenticationToken authentication = new DcpAuthenticationToken(
+        new DcpIdentity("did:web:participant.example", null));
+    authentication.setAuthenticated(false);
+    SecurityContextHolder.getContext().setAuthentication(authentication);
+
+    assertTrue(auditorAware.getCurrentAuditor().isEmpty());
+  }
+
+  @Test
+  void getCurrentAuditor_dcpIdentityInUnrelatedToken_returnsEmpty() {
+    SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+        new DcpIdentity("did:web:participant.example", null), null, "ROLE_ADMIN_ALL"));
+
+    assertTrue(auditorAware.getCurrentAuditor().isEmpty());
+  }
 
   @AfterEach
   void clearSecurityContext() {

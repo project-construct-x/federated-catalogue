@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.dao.assets;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -73,6 +90,9 @@ public class AssetRepositoryCustomImpl implements AssetRepositoryCustom {
       List<String> kindNames = filter.getContentKinds().stream()
           .map(Enum::name).collect(Collectors.toList());
       queryBuilder.addClause("content_kind in (?)", "contentKinds", kindNames);
+    }
+    if (filter.getHasContent() != null) {
+      queryBuilder.addClause("(content is not null) = ?", "hasContent", filter.getHasContent());
     }
 
     String query = queryBuilder.buildCountQuery();
@@ -155,12 +175,16 @@ public class AssetRepositoryCustomImpl implements AssetRepositoryCustom {
             uploadtime, statustime, expirationtime, validators, \
             content_type, file_size, original_filename, content_kind""");
       } else {
+        // content_kind and content_type are selected as their real values even when full metadata
+        // is suppressed: distinguishing RDF from non-RDF content, and textual from binary content,
+        // is required to correctly source an asset's body, independently of whether metadata is
+        // returned to the API consumer.
         query = new StringBuilder("""
             select asset_hash, null as subjectid, status, \
             null as issuer, null as uploadtime, null as statustime, \
             null as expirationtime, null as validators, \
-            null as content_type, null::bigint as file_size, \
-            null as original_filename, null as content_kind""");
+            content_type, null::bigint as file_size, \
+            null as original_filename, content_kind""");
       }
       if (returnContent) {
         query.append(", content");
@@ -214,6 +238,8 @@ public class AssetRepositoryCustomImpl implements AssetRepositoryCustom {
       Timestamp exp = rs.getTimestamp("expirationtime");
       String contentType = rs.getString("content_type");
       long fileSize = rs.getLong("file_size");
+      // wasNull() reflects the last column read, so capture it right after getLong
+      boolean fileSizeWasNull = rs.wasNull();
       String originalFilename = rs.getString("original_filename");
       String contentKindStr = rs.getString("content_kind");
       return AssetRecord.builder()
@@ -228,7 +254,7 @@ public class AssetRepositoryCustomImpl implements AssetRepositoryCustom {
           .content(content == null ? null : new ContentAccessorDirect(content))
           .expirationTime(exp == null ? null : exp.toInstant())
           .contentType(contentType)
-          .fileSize(rs.wasNull() ? null : fileSize)
+          .fileSize(fileSizeWasNull ? null : fileSize)
           .originalFilename(originalFilename)
           .contentKind(contentKindStr == null ? null : ContentKind.valueOf(contentKindStr))
           .build();

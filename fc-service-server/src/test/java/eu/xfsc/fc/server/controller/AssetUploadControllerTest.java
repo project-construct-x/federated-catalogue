@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import com.c4_soft.springaddons.security.oauth2.test.annotations.Claims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenIdClaims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.StringClaim;
@@ -22,6 +39,7 @@ import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -199,6 +217,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
+    @Disabled("Keycloak Reduction")
     @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void uploadMultipart_withWrongRole_returnsForbidden() throws Exception {

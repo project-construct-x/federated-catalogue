@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.graphdb;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import java.util.concurrent.atomic.AtomicLong;
 
 import lombok.AccessLevel;
@@ -109,7 +126,10 @@ public class GraphRebuildProgress {
     if (total == 0) {
       return complete ? 100 : 0;
     }
-    return (int) (processed.get() * 100 / total);
+    // Clamped rather than reported raw: total is a snapshot taken before the walk begins, so an
+    // asset activated mid-rebuild is processed without having been counted. Aligning the counting
+    // and tick predicates removes the systematic overshoot; this bounds the residual race.
+    return (int) Math.min(100L, processed.get() * 100 / total);
   }
 
   /**

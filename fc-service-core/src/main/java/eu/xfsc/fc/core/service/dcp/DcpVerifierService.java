@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.dcp;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import de.eecc.dcp.api.DcpOptions;
 import de.eecc.dcp.api.DcpPresentation;
 import de.eecc.dcp.message.PresentationQueryMessage;
@@ -31,6 +48,11 @@ public class DcpVerifierService {
    * and validates the response with the stored query definition (including holder binding).
    */
   public PresentationResponseMessage pullPresentations(String authorizationHeader, String purpose) {
+    return pullForAuthentication(authorizationHeader, purpose).response();
+  }
+
+  /** Pulls a response with its SI-authenticated holder; callers must still verify VC/VP signatures. */
+  public PulledPresentation pullForAuthentication(String authorizationHeader, String purpose) {
     String effectivePurpose =
         (purpose == null || purpose.isBlank()) ? DcpPurposes.POST_ASSETS : purpose.strip();
 
@@ -54,6 +76,10 @@ public class DcpVerifierService {
     log.debug("pullPresentations; purpose={}, holderDid={}, presentations={}",
         effectivePurpose, holderDid,
         response.presentation() == null ? 0 : response.presentation().size());
-    return response;
+    return new PulledPresentation(holderDid, response);
+  }
+
+  /** Protocol-checked response; this is not yet a verified membership identity. */
+  public record PulledPresentation(String holderDid, PresentationResponseMessage response) {
   }
 }

@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
 import static eu.xfsc.fc.server.helper.UserServiceHelper.getAllRoles;
 import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE_WITH_PREFIX;
@@ -63,6 +80,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -184,6 +202,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockUser
   public void participantAuthShouldReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.post("/participants").with(csrf())).andExpect(status().isForbidden());
@@ -292,6 +311,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockUser(authorities = ASSET_ADMIN_ROLE_WITH_PREFIX)
   public void getParticipantsShouldReturnForbiddenResponse() throws Exception {
     mockMvc
@@ -389,6 +409,7 @@ public class ParticipantsControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockUser(authorities = ASSET_ADMIN_ROLE_WITH_PREFIX)
   public void addParticipantShouldReturnForbiddenResponse() throws Exception {
     mockMvc

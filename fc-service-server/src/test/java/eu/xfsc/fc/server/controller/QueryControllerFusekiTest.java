@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.xfsc.fc.api.generated.model.Error;
 import eu.xfsc.fc.api.generated.model.QueryInfo;
@@ -31,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static eu.xfsc.fc.server.util.CommonConstants.QUERY_EXECUTE;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -50,7 +67,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // context cache key unique, so the dataset is dedicated to this test and only contains the two
 // claims seeded in @BeforeAll — no leakage from neighbouring fuseki tests.
 @TestPropertySource(properties = {"graphstore.impl=fuseki", "test.fuseki.isolate=QueryControllerFusekiTest"})
-@WithMockUser(roles = {QUERY_EXECUTE})
+@WithMockUser(roles = {ADMIN_ALL})
 public class QueryControllerFusekiTest {
 
   private static final String OPENCYPHER_CONTENT_TYPE = "application/opencypher-query";

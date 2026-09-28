@@ -1,7 +1,25 @@
 package eu.xfsc.fc.server.controller;
 
-import static eu.xfsc.fc.core.service.schemastore.SchemaStore.MEDIA_TYPE_RDF_XML;
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
+import static eu.xfsc.fc.api.FcMediaTypes.RDF_XML_VALUE;
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
 import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_CREATE;
 import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_READ;
 import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_UPDATE;
@@ -50,7 +68,7 @@ class SchemaVersioningControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_UPDATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   void updateSchema_returnsVersionAndPreviousVersion() throws Exception {
     String content = getMockFileDataAsString("test-schema.ttl");
     String id = schemaStore.addSchema(new ContentAccessorDirect(content)).id();
@@ -59,7 +77,7 @@ class SchemaVersioningControllerTest {
     mockMvc.perform(MockMvcRequestBuilders.put("/schemas/{schemaId}", encodedId)
             .content(content)
             .with(csrf())
-            .contentType(MEDIA_TYPE_RDF_XML)
+            .contentType(RDF_XML_VALUE)
             .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.version").value(2))
@@ -67,7 +85,7 @@ class SchemaVersioningControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   void getSchema_withVersionParam_returnsOriginalContent() throws Exception {
     String contentV1 = getMockFileDataAsString("test-schema.ttl");
     String id = schemaStore.addSchema(new ContentAccessorDirect(contentV1)).id();
@@ -87,7 +105,7 @@ class SchemaVersioningControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   void getSchema_withoutVersion_returnsCurrentVersion() throws Exception {
     String content = getMockFileDataAsString("test-schema.ttl");
     String id = schemaStore.addSchema(new ContentAccessorDirect(content)).id();
@@ -100,7 +118,7 @@ class SchemaVersioningControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   void getSchema_nonExistentVersion_returns404() throws Exception {
     String content = getMockFileDataAsString("test-schema.ttl");
     String id = schemaStore.addSchema(new ContentAccessorDirect(content)).id();
@@ -113,7 +131,7 @@ class SchemaVersioningControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   void getSchemaVersions_returnsOrderedList() throws Exception {
     String content = getMockFileDataAsString("test-schema.ttl");
     String id = schemaStore.addSchema(new ContentAccessorDirect(content)).id();
@@ -134,7 +152,7 @@ class SchemaVersioningControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_UPDATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   void getSchemaVersions_afterThreeUpdates_returnsThreeVersionsWithCurrentMarked() throws Exception {
     String content = getMockFileDataAsString("test-schema.ttl");
     String id = schemaStore.addSchema(new ContentAccessorDirect(content)).id();
@@ -156,7 +174,7 @@ class SchemaVersioningControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   void getSchemaVersions_nonExistentSchema_returns404() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/schemas/{schemaId}/versions", "nonexistent")
             .with(csrf())
@@ -170,7 +188,7 @@ class SchemaVersioningControllerTest {
     mockMvc.perform(MockMvcRequestBuilders.put("/schemas/{schemaId}", "some-id")
             .content("content")
             .with(csrf())
-            .contentType(MEDIA_TYPE_RDF_XML))
+            .contentType(RDF_XML_VALUE))
         .andExpect(status().isForbidden());
   }
 }

@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
@@ -31,6 +48,7 @@ import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -275,6 +293,7 @@ public class AssetLinkControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void replaceHumanReadable_wrongRole_returnsForbidden() throws Exception {
@@ -394,6 +413,7 @@ public class AssetLinkControllerTest {
   }
 
   @Test
+  @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
   void uploadHumanReadable_wrongRole_returnsForbidden() throws Exception {

@@ -1,8 +1,26 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.AfterEach;
@@ -125,6 +143,19 @@ class VerificationOwlToggleControllerTest {
   }
 
   @Test
+  void verify_unauthenticated_isRejected() throws Exception {
+    mockMvc.perform(MockMvcRequestBuilders.post("/verification")
+            .queryParam("verifySemantics", "false")
+            .queryParam("verifyVPSignature", "false")
+            .queryParam("verifyVCSignature", "false")
+            .contentType(MediaType.APPLICATION_JSON)
+            .accept(MediaType.APPLICATION_JSON)
+            .content(CUSTOM_PARTICIPANT_VP)
+            .with(csrf()))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
   void verify_customSubclassWithOwlDisabled_returns400() throws Exception {
     when(schemaModuleConfigService.isModuleEnabled(SchemaModuleType.OWL)).thenReturn(false);
 
@@ -136,7 +167,7 @@ class VerificationOwlToggleControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .content(CUSTOM_PARTICIPANT_VP)
-            .with(csrf()))
+            .with(csrf()).with(jwt()))
         .andExpect(status().isBadRequest())
         .andReturn()
         .getResponse()
@@ -159,7 +190,7 @@ class VerificationOwlToggleControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .content(CUSTOM_PARTICIPANT_VP)
-            .with(csrf()))
+            .with(csrf()).with(jwt()))
         .andExpect(status().isOk());
   }
 }
