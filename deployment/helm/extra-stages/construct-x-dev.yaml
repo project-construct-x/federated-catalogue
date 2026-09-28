@@ -84,6 +84,10 @@ env:
     value: fuseki
   - name: GRAPHSTORE_FUSEKI_URI
     value: http://fc-fuseki:3030/ds
+  # No Neo4j in this stage. The driver starter otherwise health-checks
+  # localhost:7687 and /actuator/health stays 503, so Helm --wait never finishes.
+  - name: MANAGEMENT_HEALTH_NEO4J_ENABLED
+    value: "false"
   - name: KEYCLOAK_AUTH_SERVER_URL
     value: http://fc-keycloak-headless:8080/auth
   - name: KEYCLOAK_CREDENTIALS_SECRET
