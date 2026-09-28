@@ -20,6 +20,7 @@ package eu.xfsc.fc.server.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import eu.xfsc.fc.api.generated.model.Error;
+import eu.xfsc.fc.core.service.oid4vp.BootstrapTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -35,8 +36,10 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 
 /**
@@ -85,17 +88,30 @@ public class SecurityConfig {
 
   @Bean
   @Order(1)
-  public SecurityFilterChain oid4vpFilterChain(HttpSecurity http) throws Exception {
-    http
-      .securityMatcher(
-        "/api/auth/oid4vp/**"
-      )
-      .authorizeHttpRequests(authorization -> authorization
-        .anyRequest().authenticated()
-      )
-      .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()));
-      // TODO: Implement OID4VP authentication
-      return http.build();
+  public SecurityFilterChain oid4vpFilterChain(HttpSecurity http, BootstrapTokenService token) throws Exception {
+//    http
+//      .securityMatcher(
+//        "/api/auth/oid4vp/**"
+//      )
+//      .authorizeHttpRequests(authorization -> authorization
+//        .anyRequest().authenticated()
+//      )
+//      .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()));
+//      // TODO: Implement OID4VP authentication
+//      return http.build();
+
+    http.securityMatcher("/api/auth/oid4vp/**")
+            .csrf(c -> c.disable())
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(a -> a
+                    .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/requests",
+                            "/api/auth/oid4vp/direct-post", "/api/auth/oid4vp/token").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/connectors/*/bind").hasAuthority("SCOPE_connector:bind")
+                    .anyRequest().denyAll())
+            .addFilterBefore(new BootstrapTokenAuthenticationFilter(), AuthorizationFilter.class)
+            .exceptionHandling(c -> c.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                    .accessDeniedHandler(accessDeniedHandler()));
+    return http.build();
   }
 
   @Bean
@@ -160,7 +176,7 @@ public class SecurityConfig {
         .requestMatchers(HttpMethod.GET, "/participants/*/users").authenticated()
 
         .anyRequest().denyAll()
-      )  
+      ).addFilterBefore(new BootstrapTokenRejectingFilter(), AuthorizationFilter.class)
       .exceptionHandling(c -> c
           .authenticationEntryPoint(
               new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
@@ -189,7 +205,7 @@ public class SecurityConfig {
       )
       .authorizeHttpRequests(authorization -> authorization
         .anyRequest().hasRole(ADMIN_ALL)
-      )
+      ).addFilterBefore(new BootstrapTokenRejectingFilter(), AuthorizationFilter.class)
       .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()))
       .oauth2ResourceServer(c -> c
           .jwt(jc -> jc.jwtAuthenticationConverter(new CustomJwtAuthenticationConverter(resourceId))));
