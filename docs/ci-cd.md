@@ -22,7 +22,7 @@ Images are published to GitHub Container Registry under this repository:
 Branch builds use `docker-build.yml` on **`dev`** (`GITHUB_TOKEN`, `packages: write`);
 `latest` and branch tag `dev` are published from `dev`. After a successful image push,
 the same workflow deploys Helm release `fc-service` to kube context `construct-x-dev`
-(namespace `user-grp-03`) using
+(namespace `dev-01`) using
 [`deployment/helm/extra-stages/construct-x-dev.yaml`](../deployment/helm/extra-stages/construct-x-dev.yaml).
 
 `main` is reserved for upstream merges and does not build or push images. Releases and

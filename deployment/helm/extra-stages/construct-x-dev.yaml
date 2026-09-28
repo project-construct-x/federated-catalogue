@@ -11,7 +11,7 @@
 #   helm dependency build deployment/helm/fc-service
 #   helm upgrade --install fc-service deployment/helm/fc-service \
 #     --kube-context construct-x-dev \
-#     --namespace user-grp-03 --create-namespace \
+#     --namespace dev-01 \
 #     -f deployment/helm/fc-service/values.yaml \
 #     -f deployment/helm/extra-stages/construct-x-dev.yaml \
 #     --server-side=true --force-conflicts
@@ -64,7 +64,7 @@ did:
   enabled: false
 
 # Full env list (Helm replaces arrays). Fuseki only — no Neo4j. Keycloak DNS
-# uses the short service name so it works in any namespace (user-grp-03).
+# uses the short service name so it works in the deploy namespace (dev-01).
 env:
   - name: DATASTORE_FILE_PATH
     value: /var/lib/fc-service/filestore
