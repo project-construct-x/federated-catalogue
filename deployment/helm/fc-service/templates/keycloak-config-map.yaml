@@ -15,7 +15,7 @@
 # ---license-end
 ###
 
-{{- if .Values.keycloak.extraVolumes -}}
+{{- if .Values.keycloak.extraVolumes }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
