@@ -21,6 +21,7 @@ kind: ConfigMap
 metadata:
   name: {{ .Values.keycloak.fullnameOverride }}-realm-configmap
 data:
-  {{ .Values.keycloak.realmFile }}: |-
+  # Keycloak 26 only imports "<realm>-realm.json" from the import directory.
+  {{ .Values.keycloak.realm }}-realm.json: |-
 {{ .Files.Get .Values.keycloak.realmFile | indent 4 }}
 {{- end }}      

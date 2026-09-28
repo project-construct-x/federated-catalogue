@@ -30,6 +30,16 @@ image:
   pullPolicy: Always
   tag: "dev"
 
+# GHCR packages are private. CI refreshes this secret before each install.
+imagePullSecrets:
+  - name: ghcr-pull
+
+fuseki:
+  image:
+    # CI publishes the branch tag (dev), not the chart default 5.5.0.
+    tag: "dev"
+    pullPolicy: Always
+
 ingress:
   hosts:
     - host: "federated-catalogue.staging.construct-x.net"

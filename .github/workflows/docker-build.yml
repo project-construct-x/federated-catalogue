@@ -98,6 +98,7 @@ jobs:
       url: https://federated-catalogue.staging.construct-x.net
     permissions:
       contents: read
+      packages: read
 
     steps:
       - name: Checkout repository
@@ -157,6 +158,25 @@ jobs:
           PY
           kubectl -n "${KUBE_NAMESPACE}" create secret generic fc-keycloak-client-secret \
             --from-literal=keycloak_client_secret="${FC_KEYCLOAK_CLIENT_SECRET}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply GHCR pull secret
+        env:
+          # Optional long-lived PAT (read:packages). Falls back to this job's token,
+          # which can pull during the deploy but expires when the job ends.
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          token="${GHCR_PULL_TOKEN:-${GITHUB_TOKEN}}"
+          if [[ -z "${token}" ]]; then
+            echo "::error::GHCR_PULL_TOKEN or GITHUB_TOKEN is required to pull private GHCR images."
+            exit 1
+          fi
+          kubectl -n "${KUBE_NAMESPACE}" create secret docker-registry ghcr-pull \
+            --docker-server=ghcr.io \
+            --docker-username="${{ github.actor }}" \
+            --docker-password="${token}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Build chart dependencies
