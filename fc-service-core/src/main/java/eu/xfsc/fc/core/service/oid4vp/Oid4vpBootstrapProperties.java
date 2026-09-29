@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.oid4vp;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -22,4 +39,8 @@ public class Oid4vpBootstrapProperties {
     private Duration requestTtl = Duration.ofMinutes(5);
     private Duration tokenTtl = Duration.ofMinutes(5);
     private Duration challengeTtl = Duration.ofMinutes(10);
+
+    public String getVerifierUrl() {
+        return verifierUrl;
+    }
 }

@@ -17,18 +17,13 @@ package eu.xfsc.fc.core.service.oid4vp;
  * ---license-end
  */
 
-import java.time.Instant;
-import java.util.UUID;
-
-public record Challenge(
-        String id,
-        String connectorDid,
-        String nonce,
-        String state,
-        Instant createdAt,
-        Instant expiresAt
+/** Verified membership information extracted from an OID4VP presentation. */
+public record VerifiedMembership(
+    String holderDid,
+    String membershipIssuer,
+    boolean consumer,
+    boolean provider,
+    String presentationId
 ) {
-    public boolean isExpiredAt(Instant now) {
-        return now.isAfter(expiresAt);
-    }
 }
+

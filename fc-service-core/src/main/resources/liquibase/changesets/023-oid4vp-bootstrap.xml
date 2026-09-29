@@ -106,7 +106,6 @@
             <column name="expires_at"/>
         </createIndex>
     </changeSet>
-
     <changeSet id="023-oid4vp-bootstrap-003" author="ibr">
         <createTable tableName="oid4vp_connector_binding">
             <column name="id" type="UUID">

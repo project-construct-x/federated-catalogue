@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.oid4vp;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import com.fasterxml.jackson.databind.JsonNode;
 import de.eecc.oid4vc.oid4vp.Constants;
 import de.eecc.oid4vc.oid4vp.DcqlQuery;
@@ -22,7 +39,6 @@ public class Oid4vpPresentationRequestService {
     private final Oid4vpBootstrapProperties props;
 
     public PresentationRequestResult createBootstrapRequest(String connectorDid) {
-        var challenge = challenges.issue(connectorDid);   // Einmal-Challenge, an Connector gebunden
         var dcql = DcqlQueries.membership(props.getTrustedMembershipIssuers(),
                 props.isRequireCredentialStatus());
 
@@ -122,7 +138,9 @@ public class Oid4vpPresentationRequestService {
 //                        .build());
 //        return oid4Vp.createPresentationRequest(dcql, props.getVerifierUrl(),
 //                Map.of("connector_did", connectorDid, "challenge_id", challenge.id()));
-        return toResult(oid4Vp.generatePresentationRequest(myDefinition), connectorDid, challenge.id());
+        var request = oid4Vp.generatePresentationRequest(myDefinition);
+        var challenge = challenges.issue(connectorDid, request.getState());
+        return toResult(request, connectorDid, challenge.id());
         // liefert state + request_uri (bzw. openid4vp://…) für die Wallet
     }
 

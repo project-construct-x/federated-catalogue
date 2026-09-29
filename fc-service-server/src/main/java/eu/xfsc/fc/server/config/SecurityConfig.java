@@ -88,7 +88,7 @@ public class SecurityConfig {
 
   @Bean
   @Order(1)
-  public SecurityFilterChain oid4vpFilterChain(HttpSecurity http, BootstrapTokenService token) throws Exception {
+  public SecurityFilterChain oid4vpFilterChain(HttpSecurity http, BootstrapTokenService tokens) throws Exception {
 //    http
 //      .securityMatcher(
 //        "/api/auth/oid4vp/**"
@@ -108,7 +108,7 @@ public class SecurityConfig {
                             "/api/auth/oid4vp/direct-post", "/api/auth/oid4vp/token").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/connectors/*/bind").hasAuthority("SCOPE_connector:bind")
                     .anyRequest().denyAll())
-            .addFilterBefore(new BootstrapTokenAuthenticationFilter(), AuthorizationFilter.class)
+            .addFilterBefore(new BootstrapTokenAuthenticationFilter(tokens), AuthorizationFilter.class)
             .exceptionHandling(c -> c.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                     .accessDeniedHandler(accessDeniedHandler()));
     return http.build();

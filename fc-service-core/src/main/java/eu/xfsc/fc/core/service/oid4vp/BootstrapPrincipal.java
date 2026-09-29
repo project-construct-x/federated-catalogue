@@ -17,18 +17,16 @@ package eu.xfsc.fc.core.service.oid4vp;
  * ---license-end
  */
 
-import java.time.Instant;
-import java.util.UUID;
-
-public record Challenge(
-        String id,
-        String connectorDid,
-        String nonce,
-        String state,
-        Instant createdAt,
-        Instant expiresAt
+/** Authenticated principal represented by a catalogue-local bootstrap token. */
+public record BootstrapPrincipal(
+    String jti,
+    String holderDid,
+    String connectorDid,
+    String challengeId,
+    String membershipIssuer,
+    boolean consumer,
+    boolean provider,
+    String presentationId
 ) {
-    public boolean isExpiredAt(Instant now) {
-        return now.isAfter(expiresAt);
-    }
 }
+
