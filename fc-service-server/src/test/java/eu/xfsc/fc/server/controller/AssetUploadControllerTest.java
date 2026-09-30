@@ -200,7 +200,7 @@ public class AssetUploadControllerTest {
     @Disabled("Keycloak Reduction")
     @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
-    public void uploadMultipart_withWrongRole_returnsForbidden() throws Exception {
+    public void uploadMultipart_noPermission_returnsForbidden() throws Exception {
         byte[] content = "wrong role test".getBytes(StandardCharsets.UTF_8);
         MockMultipartFile file = new MockMultipartFile("file", "test.txt", "text/plain", content);
 

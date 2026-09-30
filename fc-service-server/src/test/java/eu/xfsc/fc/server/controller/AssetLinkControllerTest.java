@@ -275,7 +275,7 @@ public class AssetLinkControllerTest {
   @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
-  void replaceHumanReadable_wrongRole_returnsForbidden() throws Exception {
+  void replaceHumanReadable_noPermission_returnsForbidden() throws Exception {
     final var file = new MockMultipartFile("file", "doc.pdf", MediaType.APPLICATION_PDF_VALUE, PDF_CONTENT);
     mockMvc.perform(MockMvcRequestBuilders
             .multipart(HttpMethod.PUT, String.format(HR_URL_TEMPLATE, "urn:uuid:any"))
@@ -392,7 +392,7 @@ public class AssetLinkControllerTest {
   @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
-  void uploadHumanReadable_wrongRole_returnsForbidden() throws Exception {
+  void uploadHumanReadable_noPermission_returnsForbidden() throws Exception {
     final var file = new MockMultipartFile("file", "doc.pdf", MediaType.APPLICATION_PDF_VALUE, PDF_CONTENT);
 
     mockMvc.perform(MockMvcRequestBuilders
@@ -420,10 +420,9 @@ public class AssetLinkControllerTest {
   }
 
   @Test
-  @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = PARTICIPANT_ID, value = TEST_PARTICIPANT_ID)})))
-  void uploadHumanReadable_adminAllRole_returnsNotFoundForUnknownParent() throws Exception {
+  void uploadHumanReadable_returnsNotFoundForUnknownParent() throws Exception {
     // ADMIN_ALL has permission — request reaches the controller and gets 404 for unknown MR asset.
     final var file = new MockMultipartFile("file", "doc.pdf", MediaType.APPLICATION_PDF_VALUE, PDF_CONTENT);
 

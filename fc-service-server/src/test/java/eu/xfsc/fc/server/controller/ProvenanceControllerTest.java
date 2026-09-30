@@ -191,7 +191,7 @@ public class ProvenanceControllerTest {
   @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
-  void addProvenanceCredential_wrongRole_returnsForbidden() throws Exception {
+  void addProvenanceCredential_noPermission_returnsForbidden() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
             .post(String.format(PROVENANCE_URL, encode(ASSET_IRI)))
             .contentType(MediaType.APPLICATION_JSON)
@@ -314,7 +314,7 @@ public class ProvenanceControllerTest {
   @Disabled("Keycloak Reduction")
   @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
-  void listProvenanceCredentials_wrongRole_returnsForbidden() throws Exception {
+  void listProvenanceCredentials_noPermission_returnsForbidden() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
             .get(String.format(PROVENANCE_URL, encode(ASSET_IRI)))
             .with(csrf())
