@@ -20,9 +20,7 @@ package eu.xfsc.fc.server.controller;
 import static eu.xfsc.fc.api.FcMediaTypes.NTRIPLES_VALUE;
 import static eu.xfsc.fc.api.FcMediaTypes.RDF_XML_VALUE;
 import static eu.xfsc.fc.api.FcMediaTypes.TURTLE_VALUE;
-import static eu.xfsc.fc.server.util.CommonConstants.QUERY_EXECUTE;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.PREFIX;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -137,7 +135,7 @@ public class NonCredentialRdfGraphExtractionTest {
    * Upload a JSON-LD asset with one triple → triple is queryable via SPARQL.
    */
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, PREFIX + QUERY_EXECUTE},
+  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX},
       claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
           @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void uploadNonCredentialJsonLd_singleTriple_isExtractedToGraph() throws Exception {
@@ -185,7 +183,7 @@ public class NonCredentialRdfGraphExtractionTest {
    * Upload a Turtle asset with one triple → triple is queryable via SPARQL.
    */
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, PREFIX + QUERY_EXECUTE},
+  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX},
       claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
           @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void uploadNonCredentialTurtle_singleTriple_isExtractedToGraph() throws Exception {
@@ -229,7 +227,7 @@ public class NonCredentialRdfGraphExtractionTest {
    * Upload an N-Triples asset with one triple → triple is queryable via SPARQL.
    */
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, PREFIX + QUERY_EXECUTE},
+  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX},
       claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
           @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void uploadNonCredentialNTriples_singleTriple_isExtractedToGraph() throws Exception {
@@ -273,7 +271,7 @@ public class NonCredentialRdfGraphExtractionTest {
    * Upload an RDF/XML asset with one triple → triple is queryable via SPARQL.
    */
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, PREFIX + QUERY_EXECUTE},
+  @WithMockJwtAuth(authorities = {ADMIN_ALL_WITH_PREFIX},
       claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
           @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void uploadNonCredentialRdfXml_singleTriple_isExtractedToGraph() throws Exception {

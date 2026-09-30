@@ -60,6 +60,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -132,7 +133,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance — happy path =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_validRequest_returnsCreated() throws Exception {
     final var assetMeta = assetMetaWithIssuer(TEST_ISSUER);
@@ -157,7 +158,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance — error cases =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_wrongCredentialSubjectId_returnsBadRequest() throws Exception {
     final var assetMeta = assetMetaWithIssuer(TEST_ISSUER);
@@ -174,7 +175,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_duplicateCredentialId_returnsConflict() throws Exception {
     final var assetMeta = assetMetaWithIssuer(TEST_ISSUER);
@@ -191,7 +192,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_unknownAsset_returnsNotFound() throws Exception {
     doThrow(new NotFoundException("Asset not found")).when(assetStorePublisher).getById(anyString());
@@ -217,7 +218,8 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @Disabled("Keycloak Reduction")
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_wrongRole_returnsForbidden() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -231,7 +233,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance — boundary tests =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_versionZero_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -246,7 +248,7 @@ public class ProvenanceControllerTest {
   // ===== GET /assets/{id}/provenance — happy path =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_existingAsset_returnsOk() throws Exception {
     doReturn(new ProvenanceCredentials(1, List.of(provenanceCredentialStub())))
@@ -267,7 +269,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_unknownAsset_returnsNotFound() throws Exception {
     doThrow(new NotFoundException("Asset not found")).when(provenanceService).list(eq(ASSET_IRI), any(), any());
@@ -282,7 +284,7 @@ public class ProvenanceControllerTest {
   // ===== GET /assets/{id}/provenance — boundary tests =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_versionZero_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -294,7 +296,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_negativePageIndex_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -306,7 +308,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_sizeZero_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -318,7 +320,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_sizeAboveMaximum_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -339,7 +341,8 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @Disabled("Keycloak Reduction")
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_wrongRole_returnsForbidden() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -352,7 +355,7 @@ public class ProvenanceControllerTest {
   // ===== GET /assets/{id}/provenance/{credentialId} =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void getProvenanceCredential_existingCredential_returnsOk() throws Exception {
     doReturn(provenanceCredentialStub()).when(provenanceService).get(eq(ASSET_IRI), eq(CREDENTIAL_ID));
@@ -370,7 +373,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void getProvenanceCredential_unknownCredential_returnsNotFound() throws Exception {
     doThrow(new NotFoundException("Provenance credential not found")).when(provenanceService).get(anyString(), anyString());
@@ -394,7 +397,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance/{credentialId}/verify =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyProvenanceCredential_validCredential_returnsOk() throws Exception {
     doReturn(assetMetaWithIssuer(TEST_ISSUER)).when(assetStorePublisher).getById(ASSET_IRI);
@@ -414,7 +417,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyProvenanceCredential_invalidSignature_returnsOkWithIsValidFalse() throws Exception {
     doReturn(assetMetaWithIssuer(TEST_ISSUER)).when(assetStorePublisher).getById(ASSET_IRI);
@@ -433,7 +436,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyProvenanceCredential_unknownCredential_returnsNotFound() throws Exception {
     doReturn(assetMetaWithIssuer(TEST_ISSUER)).when(assetStorePublisher).getById(ASSET_IRI);
@@ -458,7 +461,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance/verify =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyAllProvenanceCredentials_allValid_returnsOkWithIsValidTrue() throws Exception {
     doReturn(assetMetaWithIssuer(TEST_ISSUER)).when(assetStorePublisher).getById(ASSET_IRI);
@@ -477,7 +480,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyAllProvenanceCredentials_mixedResults_returnsOkWithIsValidFalse() throws Exception {
     doReturn(assetMetaWithIssuer(TEST_ISSUER)).when(assetStorePublisher).getById(ASSET_IRI);
@@ -496,7 +499,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyAllProvenanceCredentials_unknownAsset_returnsNotFound() throws Exception {
     doThrow(new NotFoundException("Asset not found")).when(provenanceService).verifyAll(anyString(), any());
@@ -576,7 +579,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance/verify — boundary tests =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyAllProvenanceCredentials_versionZero_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders

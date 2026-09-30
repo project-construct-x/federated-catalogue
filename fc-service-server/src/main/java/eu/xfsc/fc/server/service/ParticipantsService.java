@@ -38,6 +38,8 @@ import eu.xfsc.fc.core.service.assetstore.AssetStore;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 
 import static eu.xfsc.fc.server.util.SessionUtils.checkParticipantAccess;
+import static eu.xfsc.fc.server.util.SessionUtils.requireDcpIdentity;
+import static eu.xfsc.fc.server.util.SessionUtils.requireApplicationAdmin;
 
 import java.net.URI;
 import java.util.List;
@@ -78,11 +80,13 @@ public class ParticipantsService implements ParticipantsApiDelegate {
   @Override
   @Transactional
   public ResponseEntity<Participant> addParticipant(String body) {
+    requireDcpIdentity();
     log.debug("addParticipant.enter; got credential of length: {}", body.length()); // it can be JWT?
     Pair<CredentialVerificationResult, AssetMetadata> pairResult = validateCredential(body);
     CredentialVerificationResult verificationResult = pairResult.getLeft();
     AssetMetadata assetMetadata = pairResult.getRight();
 
+    checkParticipantAccess(verificationResult.getId());
     assetStorePublisher.storeCredential(assetMetadata, verificationResult);
     ParticipantMetaData participantMetaData = toParticipantMetaData(verificationResult, assetMetadata);
 
@@ -105,6 +109,7 @@ public class ParticipantsService implements ParticipantsApiDelegate {
   @Override
   @Transactional
   public ResponseEntity<Participant> deleteParticipant(String participantId) {
+    requireDcpIdentity();
     log.debug("deleteParticipant.enter; got participant: {}", participantId);
     checkParticipantAccess(participantId);
     ParticipantMetaData participant = partDao.select(participantId)
@@ -131,6 +136,7 @@ public class ParticipantsService implements ParticipantsApiDelegate {
    */
   @Override
   public ResponseEntity<Participant> getParticipant(String participantId) {
+    requireDcpIdentity();
     log.debug("getParticipant.enter; got participant: {}", participantId);
     checkParticipantAccess(participantId);
     ParticipantMetaData part = partDao.select(participantId)
@@ -155,8 +161,8 @@ public class ParticipantsService implements ParticipantsApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfiles> getParticipantUsers(String participantId, Integer offset, Integer limit) {
+    requireApplicationAdmin();
     log.debug("getParticipantUsers.enter; got participantId: {}, offset :{}, limit:{}", participantId, offset, limit);
-    checkParticipantAccess(participantId);
     PaginatedResults<UserProfile> profiles = partDao.selectUsers(participantId, offset, limit)
         .orElseThrow(() -> new NotFoundException("Participant not found: " + participantId));
     log.debug("getParticipantUsers.exit; returning: {}", profiles.getTotalCount());
@@ -174,7 +180,8 @@ public class ParticipantsService implements ParticipantsApiDelegate {
    *         Must not outline any information about the internal structure of the server. (status code 500)
    */
   @Override
-  public ResponseEntity<Participants> getParticipants(Integer offset, Integer limit) { //String orderBy, Boolean asc) {
+  public ResponseEntity<Participants> getParticipants(Integer offset, Integer limit) {
+    requireDcpIdentity();
     // sorting is not supported yet by keycloak admin API
     log.debug("getParticipants.enter; got offset: {}, limit: {}", offset, limit);
     PaginatedResults<ParticipantMetaData> results = partDao.search(offset, limit);
@@ -218,6 +225,7 @@ public class ParticipantsService implements ParticipantsApiDelegate {
   @Override
   @Transactional
   public ResponseEntity<Participant> updateParticipant(String participantId, String body) {
+    requireDcpIdentity();
     log.debug("updateParticipant.enter; got participant: {}", participantId);
 
     checkParticipantAccess(participantId);

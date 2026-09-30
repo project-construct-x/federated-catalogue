@@ -39,6 +39,7 @@ import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,9 +59,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_DELETE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -98,7 +96,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void uploadMultipart_plainText_returnsCreated() throws Exception {
         byte[] content = "Hello, this is a plain text template.".getBytes(StandardCharsets.UTF_8);
@@ -125,7 +123,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void uploadMultipart_pdf_returnsCreated() throws Exception {
         byte[] content = new byte[]{0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A}; // %PDF-1.4\n
@@ -147,7 +145,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void uploadJson_plainJsonNoContext_returnsCreated() throws Exception {
         byte[] content = "{\"name\": \"contract\", \"version\": 1}".getBytes(StandardCharsets.UTF_8);
@@ -169,7 +167,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void uploadOctetStream_validContent_returnsCreated() throws Exception {
         byte[] content = "raw binary content for testing".getBytes(StandardCharsets.UTF_8);
@@ -191,7 +189,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void uploadMultipart_duplicateAsset_returnsConflict() throws Exception {
         byte[] content = "duplicate-test-content".getBytes(StandardCharsets.UTF_8);
@@ -216,7 +214,8 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @Disabled("Keycloak Reduction")
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void uploadMultipart_withWrongRole_returnsForbidden() throws Exception {
         byte[] content = "wrong role test".getBytes(StandardCharsets.UTF_8);
@@ -242,9 +241,9 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
-    public void uploadMultipart_withAssetAdminRole_returnsCreated() throws Exception {
+    public void uploadMultipart_returnsCreated() throws Exception {
         byte[] content = "asset-admin upload test".getBytes(StandardCharsets.UTF_8);
         MockMultipartFile file = new MockMultipartFile("file", "admin.txt", "text/plain", content);
 
@@ -260,7 +259,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void enrichNonRdfAsset_withJsonLd_returnsOkWithEnrichmentResponse() throws Exception {
         Asset createdAsset = createNonRdfAssetMultipart("doc.txt", "text/plain",
@@ -290,7 +289,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void enrichNonRdfAsset_withTurtle_returnsOkWithEnrichmentResponse() throws Exception {
         Asset createdAsset = createNonRdfAssetMultipart("data.bin", "application/octet-stream",
@@ -317,7 +316,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void enrichNonRdfAsset_viaMultipartWithTurtle_returnsOkWithEnrichmentResponse() throws Exception {
         Asset createdAsset = createNonRdfAssetMultipart("doc.txt", "text/plain",
@@ -343,7 +342,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void enrichNonRdfAsset_withDifferentSubject_createsNewRdfAsset() throws Exception {
         Asset createdAsset = createNonRdfAssetMultipart("doc.txt", "text/plain",
@@ -368,7 +367,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void enrichNonRdfAsset_withInvalidRdf_returnsBadRequest() throws Exception {
         Asset createdAsset = createNonRdfAssetMultipart("doc.txt", "text/plain",
@@ -390,7 +389,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void enrich_humanReadableAsset_returnsUnprocessableEntity() throws Exception {
         Asset mrAsset = createNonRdfAssetMultipart("doc.txt", "text/plain",
@@ -441,7 +440,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void enrichNonRdfAsset_reEnriched_priorTriplesReplaced() throws Exception {
         Asset createdAsset = createNonRdfAssetMultipart("doc.txt", "text/plain",
@@ -475,7 +474,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void enrichNonRdfAsset_withHumanReadableLinked_preservesLinkTriples() throws Exception {
         // Human-readable link triples are stored under the MR asset's credentialSubject.
@@ -541,7 +540,7 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void enrichNonRdfAsset_byNonOwner_returnsForbidden() throws Exception {
         // Seed an asset owned by a different participant (bypassing the controller so we can set the issuer).
@@ -622,9 +621,8 @@ public class AssetUploadControllerTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_DELETE_WITH_PREFIX, ASSET_READ_WITH_PREFIX},
-        claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-            @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+        @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void deleteNonRdfAsset_withEnrichment_deletesEnrichmentTriples() throws Exception {
         Asset createdAsset = createNonRdfAssetMultipart("doc.txt", "text/plain",
             "plain text document".getBytes(StandardCharsets.UTF_8));

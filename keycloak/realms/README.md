@@ -12,6 +12,19 @@ Each environment-specific subdirectory contains a single ecosystem-neutral realm
 The realm name is selected at runtime via `KEYCLOAK_REALM` (default `federated-catalogue-realm`).
 The name in the imported JSON must match `KEYCLOAK_REALM` for the application to authenticate against it.
 
+## Admin-only authentication
+
+The Federated Catalogue client uses Keycloak only for application-administrator authentication.
+It defines one application role, `ADMIN_ALL`. Catalogue and registry permissions are not represented
+as Keycloak roles; machine operations are authorized through DCP membership-credential policies.
+
+The development realm contains one local administrator account. Staging and production administrators
+must be treated as operator accounts and assigned `ADMIN_ALL`. Do not add catalogue users, connectors,
+participants, fine-grained `ASSET_*` / `SCHEMA_*` / `QUERY_*` roles, or `Ro-*` composites to these realms.
+
+The `federated-catalogue` client intentionally disables direct-access grants, service accounts, and
+Keycloak Authorization Services. Interactive administrator login uses the OIDC authorization-code flow.
+
 ### Existing `gaia-x` deployments
 
 Keycloak's `--import-realm` only imports when the realm does not already exist in the database, so
@@ -24,7 +37,7 @@ volume mount or ConfigMap; we no longer ship one.
 ## Why three copies?
 
 Each environment uses a different Keycloak client secret (`FC_CLIENT_SECRET`) and may have
-environment-specific redirect URIs, user accounts, or role assignments. The correct file is
+environment-specific redirect URIs or administrator accounts. The correct file is
 selected at container startup via the `KC_IMPORT` env var or the `dev.sh` profile mechanism
 in `docker/`.
 

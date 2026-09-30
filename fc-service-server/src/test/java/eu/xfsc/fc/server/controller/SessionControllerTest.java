@@ -17,6 +17,7 @@ package eu.xfsc.fc.server.controller;
  * ---license-end
  */
 
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -99,7 +100,7 @@ public class SessionControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = ADMIN_ALL)
     public void getSessionShouldReturnSuccessResponse() throws Exception {
       
         String id = UUID.randomUUID().toString();
@@ -119,7 +120,7 @@ public class SessionControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = ADMIN_ALL)
     public void deleteSessionShouldReturnSuccessResponse() throws Exception {
       
         String id = UUID.randomUUID().toString();
