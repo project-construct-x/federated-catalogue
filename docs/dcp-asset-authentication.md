@@ -69,8 +69,9 @@ The additive migration leaves historical and non-DCP revision attribution null; 
 guess authentication methods from existing `created_by`/`modified_by` values. Admin JWT
 subjects remain available through the existing entity auditing fields.
 
-This is a database mutation audit, not a complete HTTP access log: reads, rejected requests and
-participant operations performed solely in Keycloak do not create Envers revisions.
+This is a database mutation audit, not a complete HTTP access log: reads and rejected requests do not create Envers revisions.
+Participant mutations now use the catalogue database and create their own audited revisions;
+see [catalogue participant storage](dcp-participant-storage.md).
 
 ## HTTP operation audit
 

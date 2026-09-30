@@ -38,7 +38,6 @@ import eu.xfsc.fc.api.generated.model.UserProfiles;
 import eu.xfsc.fc.core.dao.UserDao;
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.ConflictException;
-import eu.xfsc.fc.core.exception.NotFoundException;
 import eu.xfsc.fc.core.pojo.PaginatedResults;
 import eu.xfsc.fc.server.generated.controller.UsersApiDelegate;
 import lombok.extern.slf4j.Slf4j;
@@ -54,7 +53,7 @@ public class UsersService implements UsersApiDelegate {
   private UserDao userDao;
 
   /**
-   * Service method for  register a new user to the associated participant in the catalogue.
+   * Register an administrator account independently of catalogue participants.
    *
    * @param user User entity to be added {@link User}
    * @return Created User profile (status code 201)
@@ -123,11 +122,11 @@ public class UsersService implements UsersApiDelegate {
 
     //last admin-user cannot deleted
     // weird code, con't understand how it works..
-    PaginatedResults<UserProfile> profiles = userDao.search(profile.getParticipantId(), 0, 100);
+    PaginatedResults<UserProfile> profiles = userDao.search(0, Integer.MAX_VALUE);
     Long adminCount = profiles.getResults().stream()
         .filter(userProfile -> userProfile.getRoleIds().contains(ADMIN_ALL)).count();
     log.debug("deleteUser; total count of admin is : {}", adminCount);
-    if (adminCount == 1) {
+    if (profile.getRoleIds().contains(ADMIN_ALL) && adminCount == 1) {
         throw new ConflictException("Last admin cannot be deleted");
     }
     profile = userDao.delete(userId);
@@ -169,7 +168,7 @@ public class UsersService implements UsersApiDelegate {
   public ResponseEntity<UserProfiles> getUsers(Integer offset, Integer limit) {
     requireApplicationAdmin();
     // sorting is not supported yet by keycloak admin API
-    PaginatedResults<UserProfile> profiles = userDao.search(null, offset, limit);
+    PaginatedResults<UserProfile> profiles = userDao.search(offset, limit);
     return ResponseEntity.ok(new UserProfiles((int) profiles.getTotalCount(), profiles.getResults()));
   }
 
@@ -217,7 +216,7 @@ public class UsersService implements UsersApiDelegate {
   }
 
   private boolean hasEmptyRequiredFields(User user) {
-    return StringUtils.isBlank(user.getParticipantId()) || StringUtils.isBlank(user.getEmail())
+    return StringUtils.isBlank(user.getEmail())
         || StringUtils.isBlank(user.getFirstName()) || StringUtils.isBlank(user.getLastName());
   }
 
