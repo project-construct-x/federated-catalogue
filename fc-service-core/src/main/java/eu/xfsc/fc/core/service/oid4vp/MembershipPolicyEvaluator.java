@@ -29,7 +29,14 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
-/** Gemeinsame Membership-Prüfung, genutzt von DCP und OID4VP. Aus DcpMachineAuthenticationService extrahieren. */
+/**
+ * Evaluates the catalogue membership policy for OID4VP bootstrap presentations.
+ *
+ * <p>The checks intentionally mirror the DCP asset-write authentication path: a trusted membership
+ * issuer, a single membership credential, an unambiguous credential subject, matching holder DID
+ * and successful verification by {@link VerificationService} are required before connector roles
+ * are accepted.
+ */
 @Component
 public class MembershipPolicyEvaluator {
 
@@ -41,32 +48,23 @@ public class MembershipPolicyEvaluator {
     }
 
     /**
+     * Validates a membership presentation and extracts the verified binding-relevant attributes.
      *
-     * @param presentation
-     * @param expectedHolderDid
-     * @param trustedIssuers
-     * @return
+     * <p>The method verifies that:
+     * <ul>
+     *   <li>the presentation and expected holder DID are present,</li>
+     *   <li>the presentation holder matches the expected holder DID,</li>
+     *   <li>exactly one {@code MembershipCredential} is presented,</li>
+     *   <li>the membership issuer is trusted,</li>
+     *   <li>the credential subject is exactly the expected holder DID,</li>
+     *   <li>{@link VerificationService} confirms the presentation and credential, and</li>
+     *   <li>at least one supported connector role is declared.</li>
+     * </ul>
      *
-     * evaluate(...) prüft jetzt:
-     * Präsentation ist vorhanden
-     * expectedHolderDid ist eine DID
-     * Trusted Issuer Liste ist gesetzt
-     * bei JWT-VP: Holder-Presentation-Issuer entspricht expectedHolderDid
-     * genau eine verifiableCredential
-     * Credential ist vom Typ MembershipCredential
-     * Issuer ist vertrauenswürdig
-     * Credential Subject ist eindeutig
-     * credentialSubject.id == expectedHolderDid
-     * VerificationService liefert ein Ergebnis
-     * mindestens zwei Validatoren vorhanden, also VP/VC-Signaturpfad ähnlich DCP
-     * verifizierter Subject-ID und Issuer stimmen mit den extrahierten Werten überein
-     * Rolle isConsumer oder isProvider ist vorhanden
-     * VerifiedMembership wird mit echten Werten zurückgegeben:
-     * holderDid
-     * membershipIssuer
-     * consumer
-     * provider
-     * presentationId
+     * @param presentation parsed JWT VP or JSON-LD presentation node
+     * @param expectedHolderDid holder DID expected from the OID4VP presentation context
+     * @param trustedIssuers configured membership issuers trusted by this catalogue
+     * @return verified membership attributes used for connector binding
      */
     public VerifiedMembership evaluate(JsonNode presentation, String expectedHolderDid,
                                        Collection<String> trustedIssuers) {
@@ -123,6 +121,9 @@ public class MembershipPolicyEvaluator {
                 || !holderDid.equals(verified.getId()) || !issuer.equals(verified.getIssuer())) {
             throw new IllegalArgumentException("Verified membership and both signatures required");
         }
+        if (!"ACTIVE".equalsIgnoreCase(verified.getLifecycleStatus())) {
+            throw new IllegalArgumentException("Membership credential status must be ACTIVE");
+        }
 
         boolean consumer = booleanClaim(subject, "isConsumer", "consumer");
         boolean provider = booleanClaim(subject, "isProvider", "provider");
@@ -134,18 +135,34 @@ public class MembershipPolicyEvaluator {
                 extractPresentationId(presentation, membershipJwt, holderDid));
     }
 
+    /**
+     * Ensures that a presentation node was supplied.
+     *
+     * @param presentation presentation node to validate
+     */
     private void requirePresentation(JsonNode presentation) {
         if (presentation == null || presentation.isNull() || presentation.isMissingNode()) {
             throw new IllegalArgumentException("Membership presentation is required");
         }
     }
 
+    /**
+     * Ensures that the expected holder identifier is a DID.
+     *
+     * @param did expected holder DID
+     */
     private void requireExpectedHolderDid(String did) {
         if (did == null || did.isBlank() || !did.startsWith("did:")) {
             throw new IllegalArgumentException("expectedHolderDid must be a DID");
         }
     }
 
+    /**
+     * Checks that a signed JWT VP was issued by the expected holder DID.
+     *
+     * @param presentation presentation node to inspect
+     * @param expectedHolderDid holder DID expected as JWT issuer
+     */
     private void assertPresentationHolder(JsonNode presentation, String expectedHolderDid) {
         if (!presentation.isTextual()) {
             return;
@@ -160,6 +177,13 @@ public class MembershipPolicyEvaluator {
         }
     }
 
+    /**
+     * Extracts the membership credential issuer from a credential JWT or JSON-LD presentation.
+     *
+     * @param presentation full presentation used for JSON-LD fallback extraction
+     * @param membershipJwt embedded membership credential JWT, if present
+     * @return issuer DID or URI of the membership credential
+     */
     private String extractMembershipIssuer(JsonNode presentation, String membershipJwt) {
         if (membershipJwt != null && !membershipJwt.isBlank()) {
             try {
@@ -175,6 +199,12 @@ public class MembershipPolicyEvaluator {
         return issuer;
     }
 
+    /**
+     * Delegates cryptographic and semantic verification to the core verification service.
+     *
+     * @param presentation presentation to verify
+     * @return verification result returned by {@link VerificationService}
+     */
     private CredentialVerificationResult verifyPresentation(JsonNode presentation) {
         String content = presentation.isTextual() ? presentation.asText() : presentation.toString();
         String mediaType = presentation.isTextual()
@@ -183,6 +213,14 @@ public class MembershipPolicyEvaluator {
                 new ContentAccessorDirect(content, mediaType), true, true, true, false);
     }
 
+    /**
+     * Reads a boolean role claim from the credential subject using a primary and fallback name.
+     *
+     * @param subject credential subject node
+     * @param primaryName preferred claim name
+     * @param fallbackName legacy or alternate claim name
+     * @return boolean claim value, or {@code false} if no supported value exists
+     */
     private boolean booleanClaim(JsonNode subject, String primaryName, String fallbackName) {
         JsonNode value = subject.get(primaryName);
         if (value == null || value.isNull() || value.isMissingNode()) {
@@ -200,6 +238,14 @@ public class MembershipPolicyEvaluator {
         return false;
     }
 
+    /**
+     * Extracts a traceable presentation identifier with JWT and credential fallback handling.
+     *
+     * @param presentation verified presentation
+     * @param membershipJwt embedded membership credential JWT, if present
+     * @param fallback value used when no explicit identifier exists
+     * @return presentation identifier used in binding records and bootstrap tokens
+     */
     private String extractPresentationId(JsonNode presentation, String membershipJwt, String fallback) {
         if (presentation.hasNonNull("id")) {
             return presentation.get("id").asText();

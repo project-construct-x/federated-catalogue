@@ -17,7 +17,18 @@ package eu.xfsc.fc.core.service.oid4vp;
  * ---license-end
  */
 
-/** Verified membership information extracted from an OID4VP presentation. */
+/**
+ * Verified membership information extracted from an OID4VP presentation.
+ *
+ * <p>Instances are only created after the membership credential and presentation have passed the
+ * local trust policy and signature or semantic verification checks.
+ *
+ * @param holderDid participant DID from the verified membership credential subject
+ * @param membershipIssuer trusted issuer of the membership credential
+ * @param consumer whether the membership allows consumer connector behavior
+ * @param provider whether the membership allows provider connector behavior
+ * @param presentationId identifier used to trace the verified presentation
+ */
 public record VerifiedMembership(
     String holderDid,
     String membershipIssuer,

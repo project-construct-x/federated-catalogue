@@ -20,6 +20,7 @@ package eu.xfsc.fc.core.dao.oid4vp;
 import eu.xfsc.fc.core.service.oid4vp.ConnectorBinding;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -30,7 +31,12 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/** JDBC repository for connector-to-participant bindings created after OID4VP bootstrap. */
+/**
+ * JDBC repository for connector-to-participant bindings created after OID4VP bootstrap.
+ *
+ * <p>The repository writes the Liquibase-defined {@code oid4vp_connector_binding} table and keeps
+ * idempotent insert semantics for repeated binding calls of the same connector DID.
+ */
 @Repository
 @RequiredArgsConstructor
 public class ConnectorBindingRepository {
@@ -39,6 +45,26 @@ public class ConnectorBindingRepository {
 
   private final NamedParameterJdbcTemplate jdbc;
 
+  private static Instant instant(ResultSet rs, String column) throws SQLException {
+    Timestamp timestamp = rs.getTimestamp(column);
+    return timestamp == null ? null : timestamp.toInstant();
+  }
+
+  /**
+   * Inserts a new active connector binding unless the connector DID is already present.
+   *
+   * <p>If a row already exists, the current row is returned. Callers must perform authorization
+   * before invoking this method because the database conflict handling is purely idempotent.
+   *
+   * @param connectorDid connector DID to bind
+   * @param holderDid verified participant holder DID
+   * @param membershipIssuer trusted issuer of the membership credential
+   * @param presentationId verified presentation identifier
+   * @param challengeId consumed challenge identifier
+   * @param consumer whether the binding holder has consumer permissions
+   * @param provider whether the binding holder has provider permissions
+   * @return inserted or existing binding row
+   */
   public ConnectorBinding insertIfAbsent(String connectorDid, String holderDid,
       String membershipIssuer, String presentationId, String challengeId,
       boolean consumer, boolean provider) {
@@ -58,7 +84,7 @@ public class ConnectorBindingRepository {
         .addValue("membershipIssuer", membershipIssuer)
         .addValue("presentationId", presentationId)
         .addValue("challengeId", challengeId)
-        .addValue("boundAt", now)
+        .addValue("boundAt", Timestamp.from(now))
         .addValue("bindingStatus", STATUS_ACTIVE)
         .addValue("consumer", consumer)
         .addValue("provider", provider));
@@ -71,6 +97,12 @@ public class ConnectorBindingRepository {
         """, Map.of("connectorDid", connectorDid), this::mapBinding);
   }
 
+  /**
+   * Finds the active binding for a connector DID.
+   *
+   * @param connectorDid connector DID to look up
+   * @return active binding if present
+   */
   public Optional<ConnectorBinding> findActiveByConnectorDid(String connectorDid) {
     try {
       return Optional.ofNullable(jdbc.queryForObject("""
@@ -87,6 +119,14 @@ public class ConnectorBindingRepository {
     }
   }
 
+  /**
+   * Maps one connector binding database row to the service-layer record.
+   *
+   * @param rs current result set row
+   * @param rowNum row number supplied by Spring JDBC
+   * @return connector binding record
+   * @throws SQLException if a column cannot be read
+   */
   private ConnectorBinding mapBinding(ResultSet rs, int rowNum) throws SQLException {
     return new ConnectorBinding(
         rs.getString("id"),
@@ -95,7 +135,7 @@ public class ConnectorBindingRepository {
         rs.getString("membership_issuer"),
         rs.getString("presentation_id"),
         rs.getString("challenge_id"),
-        rs.getObject("bound_at", Instant.class),
+        instant(rs, "bound_at"),
         rs.getString("binding_status"),
         rs.getBoolean("is_consumer"),
         rs.getBoolean("is_provider"));

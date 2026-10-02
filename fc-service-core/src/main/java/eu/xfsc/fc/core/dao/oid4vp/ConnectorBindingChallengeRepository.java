@@ -20,6 +20,7 @@ package eu.xfsc.fc.core.dao.oid4vp;
 import eu.xfsc.fc.core.service.oid4vp.Challenge;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -30,13 +31,23 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/** JDBC repository for catalogue-local OID4VP connector binding challenges. */
+/**
+ * JDBC repository for catalogue-local OID4VP connector binding challenges.
+ *
+ * <p>Challenge operations stay close to SQL so active-state filtering and one-time consumption can
+ * be expressed atomically against the {@code oid4vp_binding_challenge} table.
+ */
 @Repository
 @RequiredArgsConstructor
 public class ConnectorBindingChallengeRepository {
 
   private final NamedParameterJdbcTemplate jdbc;
 
+  /**
+   * Persists a newly generated connector binding challenge.
+   *
+   * @param challenge challenge domain object to store
+   */
   public void save(Challenge challenge) {
     jdbc.update("""
         INSERT INTO oid4vp_binding_challenge
@@ -53,12 +64,18 @@ public class ConnectorBindingChallengeRepository {
         .addValue("state", challenge.state())
         .addValue("holderDid", null)
         .addValue("presentationId", null)
-        .addValue("createdAt", challenge.createdAt())
-        .addValue("expiresAt", challenge.expiresAt())
+        .addValue("createdAt", timestamp(challenge.createdAt()))
+        .addValue("expiresAt", timestamp(challenge.expiresAt()))
         .addValue("consumedAt", null)
         .addValue("revokedAt", null));
   }
 
+  /**
+   * Finds a challenge by OID4VP state without applying active-state predicates.
+   *
+   * @param state OID4VP state value
+   * @return matching challenge if present
+   */
   public Optional<Challenge> findByState(String state) {
     try {
       return Optional.ofNullable(jdbc.queryForObject("""
@@ -71,6 +88,13 @@ public class ConnectorBindingChallengeRepository {
     }
   }
 
+  /**
+   * Finds a challenge by state only if it is active at the supplied timestamp.
+   *
+   * @param state OID4VP state value
+   * @param now timestamp used for expiry comparison
+   * @return active matching challenge if present
+   */
   public Optional<Challenge> findActiveByState(String state, Instant now) {
     try {
       return Optional.ofNullable(jdbc.queryForObject("""
@@ -80,12 +104,20 @@ public class ConnectorBindingChallengeRepository {
              AND consumed_at IS NULL
              AND revoked_at IS NULL
              AND expires_at > :now
-          """, Map.of("state", state, "now", now), this::mapChallenge));
+          """, Map.of("state", state, "now", timestamp(now)), this::mapChallenge));
     } catch (EmptyResultDataAccessException e) {
       return Optional.empty();
     }
   }
 
+  /**
+   * Finds an active challenge by challenge id and connector DID.
+   *
+   * @param challengeId persisted challenge identifier
+   * @param connectorDid connector DID that must match the challenge row
+   * @param now timestamp used for expiry comparison
+   * @return active matching challenge if present
+   */
   public Optional<Challenge> findActiveByChallengeIdAndConnectorDid(
       String challengeId, String connectorDid, Instant now) {
     try {
@@ -100,12 +132,20 @@ public class ConnectorBindingChallengeRepository {
           """, Map.of(
           "challengeId", challengeId,
           "connectorDid", connectorDid,
-          "now", now), this::mapChallenge));
+          "now", timestamp(now)), this::mapChallenge));
     } catch (EmptyResultDataAccessException e) {
       return Optional.empty();
     }
   }
 
+  /**
+   * Atomically consumes a challenge if it is still active for the connector DID.
+   *
+   * @param challengeId persisted challenge identifier
+   * @param connectorDid connector DID that must match the challenge row
+   * @param consumedAt consumption timestamp, also used for expiry comparison
+   * @return {@code true} if exactly one active challenge was consumed
+   */
   public boolean consumeIfActive(String challengeId, String connectorDid, Instant consumedAt) {
     int updated = jdbc.update("""
         UPDATE oid4vp_binding_challenge
@@ -118,17 +158,34 @@ public class ConnectorBindingChallengeRepository {
         """, Map.of(
         "challengeId", challengeId,
         "connectorDid", connectorDid,
-        "consumedAt", consumedAt));
+        "consumedAt", timestamp(consumedAt)));
     return updated == 1;
   }
 
+  private static Timestamp timestamp(Instant instant) {
+    return instant == null ? null : Timestamp.from(instant);
+  }
+
+  private static Instant instant(ResultSet rs, String column) throws SQLException {
+    Timestamp timestamp = rs.getTimestamp(column);
+    return timestamp == null ? null : timestamp.toInstant();
+  }
+
+  /**
+   * Maps one challenge database row to the service-layer record.
+   *
+   * @param rs current result set row
+   * @param rowNum row number supplied by Spring JDBC
+   * @return challenge record
+   * @throws SQLException if a column cannot be read
+   */
   private Challenge mapChallenge(ResultSet rs, int rowNum) throws SQLException {
     return new Challenge(
         rs.getString("challenge_id"),
         rs.getString("connector_did"),
         rs.getString("nonce"),
         rs.getString("state"),
-        rs.getObject("created_at", Instant.class),
-        rs.getObject("expires_at", Instant.class));
+        instant(rs, "created_at"),
+        instant(rs, "expires_at"));
   }
 }

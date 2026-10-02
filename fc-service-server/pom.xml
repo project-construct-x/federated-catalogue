@@ -16,6 +16,10 @@
     <name>fc-service-server</name>
     <description>Eclipse XFSC Federated Catalogue Server Application</description>
 
+    <properties>
+        <surefire.forkCount>1</surefire.forkCount>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>ch.qos.logback</groupId>
@@ -259,7 +263,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <forkCount>1</forkCount>
+                    <forkCount>${surefire.forkCount}</forkCount>
                     <reuseForks>true</reuseForks>
                 </configuration>
             </plugin>

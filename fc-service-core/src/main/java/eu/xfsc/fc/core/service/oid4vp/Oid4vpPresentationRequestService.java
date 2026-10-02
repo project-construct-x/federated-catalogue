@@ -31,6 +31,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Creates OID4VP presentation requests for connector bootstrap and stores matching challenges.
+ *
+ * <p>The service builds the membership DCQL request, lets the EECC OID4VP library create the
+ * protocol request and then persists a connector-bound challenge using the generated state.
+ */
 @Service
 @RequiredArgsConstructor
 public class Oid4vpPresentationRequestService {
@@ -38,11 +44,22 @@ public class Oid4vpPresentationRequestService {
     private final ConnectorBindingChallengeService challenges;
     private final Oid4vpBootstrapProperties props;
 
+    /**
+     * Creates a new bootstrap presentation request for a connector DID.
+     *
+     * @param connectorDid connector DID that requests the bootstrap flow
+     * @return presentation request metadata and catalogue challenge information
+     */
     public PresentationRequestResult createBootstrapRequest(String connectorDid) {
         var dcql = DcqlQueries.membership(props.getTrustedMembershipIssuers(),
                 props.isRequireCredentialStatus());
 
         PresentationRequestDefinition myDefinition = new PresentationRequestDefinition() {
+            /**
+             * Supplies the membership DCQL query requested from the wallet.
+             *
+             * @return DCQL query definition for one membership credential
+             */
             @Override
             public DcqlQuery.Query dcqlQuery() {
                 return new DcqlQuery.Query(List.of(
@@ -53,13 +70,21 @@ public class Oid4vpPresentationRequestService {
                                 dcql,
                                 List.of(
                                         new DcqlQuery.ClaimsQuery("subject", List.of("credentialSubject", "id")),
-                                        new DcqlQuery.ClaimsQuery("isConsumer", List.of("credentialSubject", "isConsumer")),
-                                        new DcqlQuery.ClaimsQuery("isProvider", List.of("credentialSubject", "isProvider")),
+                                        new DcqlQuery.ClaimsQuery("isConsumer",
+                                                List.of("credentialSubject", "isConsumer")),
+                                        new DcqlQuery.ClaimsQuery("isProvider",
+                                                List.of("credentialSubject", "isProvider")),
                                         new DcqlQuery.ClaimsQuery("credentialStatus", List.of("credentialStatus"))
                                 ),
                                 true)));
             }
 
+            /**
+             * Extracts normalized membership claims from a presented credential.
+             *
+             * @param jsonNode credential JSON passed by the OID4VP library
+             * @return normalized presentation claims used by the verifier library
+             */
             @Override
             public PresentationClaims extractPresentationClaims(JsonNode jsonNode) {
                 Map<String, Object> claimValues = new LinkedHashMap<>();
@@ -144,6 +169,14 @@ public class Oid4vpPresentationRequestService {
         // liefert state + request_uri (bzw. openid4vp://…) für die Wallet
     }
 
+    /**
+     * Maps the generated library request and persisted challenge to the API result DTO.
+     *
+     * @param request OID4VP presentation request created by the verifier library
+     * @param connectorDid connector DID for which the request was created
+     * @param challengeId persisted connector binding challenge id
+     * @return DTO returned to the connector
+     */
     private PresentationRequestResult toResult(
             de.eecc.oid4vc.oid4vp.request.PresentationRequest request,
             String connectorDid,
@@ -158,12 +191,25 @@ public class Oid4vpPresentationRequestService {
         );
     }
 
+    /**
+     * Adds a claim value to the extraction map if it was present in the credential.
+     *
+     * @param claims mutable claim map
+     * @param key normalized claim key
+     * @param value extracted value, or {@code null}
+     */
     private static void putIfPresent(Map<String, Object> claims, String key, Object value) {
         if (value != null) {
             claims.put(key, value);
         }
     }
 
+    /**
+     * Returns the first scalar value from a list of JSON paths.
+     *
+     * @param nodes candidate nodes in preference order
+     * @return first textual representation, or {@code null}
+     */
     private static String firstText(JsonNode... nodes) {
         for (JsonNode node : nodes) {
             if (node == null || node.isMissingNode() || node.isNull()) {
@@ -176,6 +222,12 @@ public class Oid4vpPresentationRequestService {
         return null;
     }
 
+    /**
+     * Returns the first boolean value from a list of JSON paths.
+     *
+     * @param nodes candidate nodes in preference order
+     * @return first boolean value, or {@code null}
+     */
     private static Boolean firstBoolean(JsonNode... nodes) {
         for (JsonNode node : nodes) {
             if (node == null || node.isMissingNode() || node.isNull()) {
@@ -191,6 +243,12 @@ public class Oid4vpPresentationRequestService {
         return null;
     }
 
+    /**
+     * Extracts the credential type from direct JWT-style or nested VC-style JSON structures.
+     *
+     * @param root credential root node
+     * @return credential type if present
+     */
     private static String credentialType(JsonNode root) {
         String direct = typeValue(root.at("/type"));
         if (direct != null) {
@@ -199,6 +257,12 @@ public class Oid4vpPresentationRequestService {
         return typeValue(root.at("/vc/type"));
     }
 
+    /**
+     * Normalizes a JSON-LD type value, preferring {@code MembershipCredential} in arrays.
+     *
+     * @param typeNode JSON node containing a type string or array
+     * @return selected type value, or {@code null}
+     */
     private static String typeValue(JsonNode typeNode) {
         if (typeNode == null || typeNode.isMissingNode() || typeNode.isNull()) {
             return null;
@@ -221,6 +285,15 @@ public class Oid4vpPresentationRequestService {
         return null;
     }
 
+    /**
+     * Presentation-claim adapter returned to the EECC OID4VP library.
+     *
+     * @param identifier stable identifier used by the library for the extracted credential
+     * @param name human-readable claim set name
+     * @param values flattened extracted claim values
+     * @param credentialType extracted credential type
+     * @param claimValues normalized extracted claim map
+     */
     private record ExtractedPresentationClaims(
             String identifier,
             String name,

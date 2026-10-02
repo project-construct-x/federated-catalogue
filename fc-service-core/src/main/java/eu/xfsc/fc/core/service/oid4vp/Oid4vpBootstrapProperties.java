@@ -24,6 +24,13 @@ import org.springframework.context.annotation.Configuration;
 import java.time.Duration;
 import java.util.List;
 
+/**
+ * Spring configuration properties for the catalogue-local OID4VP bootstrap flow.
+ *
+ * <p>The values under {@code federated-catalogue.oid4vp} configure the verifier endpoint,
+ * trusted membership issuers, token signing material and TTLs for requests, challenges and
+ * bootstrap tokens.
+ */
 @Data
 @Configuration
 @ConfigurationProperties(prefix = "federated-catalogue.oid4vp")
@@ -40,6 +47,11 @@ public class Oid4vpBootstrapProperties {
     private Duration tokenTtl = Duration.ofMinutes(5);
     private Duration challengeTtl = Duration.ofMinutes(10);
 
+    /**
+     * Returns the external verifier URL used by the OID4VP library.
+     *
+     * @return configured verifier URL
+     */
     public String getVerifierUrl() {
         return verifierUrl;
     }

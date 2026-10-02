@@ -23,13 +23,29 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Finalizes the OID4VP bootstrap flow by creating a durable connector binding.
+ *
+ * <p>The service consumes the challenge referenced by the bootstrap principal and inserts the
+ * connector binding in one transaction. A rollback must leave neither a consumed challenge nor a
+ * partially created binding behind.
+ */
 @Service
 @RequiredArgsConstructor
 public class ConnectorBindingService {
     private final ConnectorBindingRepository bindings;
     private final ConnectorBindingChallengeService challenges;
 
-    /** AK 6: Bei jedem Fehler wird zurückgerollt, es entsteht keine Bindung. */
+    /**
+     * Binds the connector DID from the path to the verified bootstrap principal.
+     *
+     * <p>AK 6: on every error the transaction is rolled back and no binding is created.
+     *
+     * @param p authenticated bootstrap principal from the dedicated filter
+     * @param connectorDid connector DID addressed by the request path
+     * @return persisted or already existing binding for the connector DID
+     * @throws AccessDeniedException if the token was issued for a different connector DID
+     */
     @Transactional
     public ConnectorBinding bind(BootstrapPrincipal p, String connectorDid) throws AccessDeniedException {
         if (!connectorDid.equals(p.connectorDid())) {

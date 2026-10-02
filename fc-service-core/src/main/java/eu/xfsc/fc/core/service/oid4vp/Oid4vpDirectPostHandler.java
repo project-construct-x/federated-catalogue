@@ -28,6 +28,13 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+/**
+ * Handles OID4VP direct-post responses from wallets during connector bootstrap.
+ *
+ * <p>The EECC OID4VP library validates protocol-level nonce, state and replay properties. This
+ * handler adds catalogue-specific membership policy validation and connector-binding authorization
+ * before allowing the library to issue a response code.
+ */
 @Service
 @RequiredArgsConstructor
 public class Oid4vpDirectPostHandler {
@@ -37,7 +44,16 @@ public class Oid4vpDirectPostHandler {
     private final ConnectorBindingAuthorizer authorizer;
     private final Oid4vpBootstrapProperties props;
 
-    /** Nicht neu implementieren: Nonce, State und Replay prüft die Bibliothek. */
+    /**
+     * Processes a wallet direct-post response and returns an OID4VP response code.
+     *
+     * <p>Nonce, state and replay handling are delegated to the OID4VP library; this method only
+     * performs catalogue policy checks on the parsed presentation.
+     *
+     * @param vpToken submitted {@code vp_token} form field
+     * @param state submitted OID4VP state form field
+     * @return direct-post response containing the response code
+     */
     public VpTokenResponse.DirectPostResponse handle(String vpToken, String state) {
         return oid4Vp.processDirectPost(vpToken, state, (request, parsedVpToken) -> {
             Challenge challenge = challenges.findActiveByState(request.getState())
@@ -51,6 +67,12 @@ public class Oid4vpDirectPostHandler {
         });
     }
 
+    /**
+     * Selects the presentation object from library-parsed {@code vp_token} JSON shapes.
+     *
+     * @param vpToken parsed VP token JSON
+     * @return first presentation node accepted by the membership policy evaluator
+     */
     private JsonNode firstPresentation(JsonNode vpToken) {
         if (vpToken == null || vpToken.isNull() || vpToken.isMissingNode()) {
             throw new IllegalArgumentException("vp_token must contain a presentation");
@@ -72,6 +94,12 @@ public class Oid4vpDirectPostHandler {
         throw new IllegalArgumentException("vp_token must contain a presentation");
     }
 
+    /**
+     * Returns the first item of a parsed VP token array.
+     *
+     * @param array VP token array
+     * @return first array element
+     */
     private JsonNode firstArrayElement(JsonNode array) {
         if (array.isEmpty()) {
             throw new IllegalArgumentException("vp_token must contain a presentation");
@@ -79,6 +107,12 @@ public class Oid4vpDirectPostHandler {
         return array.get(0);
     }
 
+    /**
+     * Extracts the expected membership holder DID from a JWT or JSON-LD presentation.
+     *
+     * @param presentation selected presentation node
+     * @return holder DID used as expected subject during policy validation
+     */
     private String holderDid(JsonNode presentation) {
         if (presentation.isTextual()) {
             try {
@@ -99,6 +133,12 @@ public class Oid4vpDirectPostHandler {
         return PresentationParser.extractSubjectId(presentation);
     }
 
+    /**
+     * Returns the first textual JSON node from a list of candidate paths.
+     *
+     * @param nodes candidate nodes in preference order
+     * @return first text value, or {@code null} if none exists
+     */
     private static String firstText(JsonNode... nodes) {
         for (JsonNode node : nodes) {
             if (node != null && !node.isMissingNode() && !node.isNull() && node.isTextual()) {

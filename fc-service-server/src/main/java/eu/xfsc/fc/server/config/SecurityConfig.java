@@ -37,6 +37,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
@@ -176,7 +177,7 @@ public class SecurityConfig {
         .requestMatchers(HttpMethod.GET, "/participants/*/users").authenticated()
 
         .anyRequest().denyAll()
-      ).addFilterBefore(new BootstrapTokenRejectingFilter(), AuthorizationFilter.class)
+      ).addFilterBefore(new BootstrapTokenRejectingFilter(), BearerTokenAuthenticationFilter.class)
       .exceptionHandling(c -> c
           .authenticationEntryPoint(
               new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
@@ -205,7 +206,7 @@ public class SecurityConfig {
       )
       .authorizeHttpRequests(authorization -> authorization
         .anyRequest().hasRole(ADMIN_ALL)
-      ).addFilterBefore(new BootstrapTokenRejectingFilter(), AuthorizationFilter.class)
+      ).addFilterBefore(new BootstrapTokenRejectingFilter(), BearerTokenAuthenticationFilter.class)
       .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()))
       .oauth2ResourceServer(c -> c
           .jwt(jc -> jc.jwtAuthenticationConverter(new CustomJwtAuthenticationConverter(resourceId))));

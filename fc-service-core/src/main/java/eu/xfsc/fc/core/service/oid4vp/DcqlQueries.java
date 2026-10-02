@@ -20,10 +20,23 @@ package eu.xfsc.fc.core.service.oid4vp;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Factory for DCQL query fragments used by the OID4VP bootstrap request.
+ */
 public final class DcqlQueries {
+    /**
+     * Prevents instantiation of this utility class.
+     */
     private DcqlQueries() {
     }
 
+    /**
+     * Builds the DCQL query map for requesting a membership credential from a wallet.
+     *
+     * @param trustedIssuers configured trusted issuers, reserved for future issuer constraints
+     * @param requireCredentialStatus whether credential status should be requested or enforced
+     * @return DCQL query structure accepted by the OID4VP library
+     */
     public static Map<String, Object> membership(List<String> trustedIssuers, boolean requireCredentialStatus) {
         return Map.of(
                 "credentials", List.of(

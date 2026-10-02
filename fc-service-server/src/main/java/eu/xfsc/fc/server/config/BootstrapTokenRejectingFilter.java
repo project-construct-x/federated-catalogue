@@ -21,15 +21,46 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.nimbusds.jwt.SignedJWT;
+import eu.xfsc.fc.core.service.oid4vp.BootstrapTokenService;
+
 import java.io.IOException;
+import java.text.ParseException;
 
 /** Wird in der DCP- und Admin-Chain vorgeschaltet: typ=bootstrap+jwt -> 401 (AK 5). */
 public class BootstrapTokenRejectingFilter extends OncePerRequestFilter {
+    private static final String BEARER_PREFIX = "Bearer ";
+
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Bootstrap tokens are not accepted here");
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+        if (isBootstrapToken(request)) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Bootstrap tokens are not accepted here");
+            return;
+        }
+        filterChain.doFilter(request, response);
     }
-    /* JWS-Header prüfen, typ vergleichen */
+
+    private boolean isBootstrapToken(HttpServletRequest request) {
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authorization == null || !authorization.regionMatches(
+                true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+            return false;
+        }
+
+        String token = authorization.substring(BEARER_PREFIX.length()).trim();
+        if (token.isBlank()) {
+            return false;
+        }
+
+        try {
+            var type = SignedJWT.parse(token).getHeader().getType();
+            return BootstrapTokenService.TOKEN_TYPE.equals(type == null ? null : type.toString());
+        } catch (ParseException e) {
+            return false;
+        }
+    }
 }

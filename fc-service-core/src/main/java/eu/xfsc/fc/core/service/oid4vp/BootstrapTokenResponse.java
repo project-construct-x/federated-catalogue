@@ -17,7 +17,16 @@ package eu.xfsc.fc.core.service.oid4vp;
  * ---license-end
  */
 
-/** Response returned by the catalogue-local OID4VP bootstrap token endpoint. */
+/**
+ * Response returned by the catalogue-local OID4VP bootstrap token endpoint.
+ *
+ * <p>The access token is scoped to connector binding and must only be accepted by the dedicated
+ * bootstrap security filter chain.
+ *
+ * @param accessToken signed catalogue-local bootstrap token
+ * @param tokenType HTTP authorization scheme, usually {@code Bearer}
+ * @param expiresIn token lifetime in seconds
+ */
 public record BootstrapTokenResponse(
     String accessToken,
     String tokenType,

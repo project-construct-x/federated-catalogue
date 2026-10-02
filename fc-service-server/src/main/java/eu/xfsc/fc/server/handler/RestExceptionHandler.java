@@ -227,4 +227,29 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     log.info("constraintViolationException; Constraint Violation error: {}", exception.getMessage());
     return new ResponseEntity<>(new Error("constraint_violation_error", exception.getMessage()), BAD_REQUEST);
   }
+
+  /**
+   * Handles invalid client input rejected by manually implemented controllers and services.
+   *
+   * @param exception Thrown illegal argument exception.
+   * @return The custom Federated Catalogue application error with status code 400.
+   */
+  @ExceptionHandler({IllegalArgumentException.class})
+  protected ResponseEntity<Error> illegalArgumentException(IllegalArgumentException exception) {
+    log.info("illegalArgumentException; Bad request error: {}", exception.getMessage());
+    return new ResponseEntity<>(new Error("bad_request_error", exception.getMessage()), BAD_REQUEST);
+  }
+
+  /**
+   * Handles authorization failures raised after application-level policy checks.
+   *
+   * @param exception Thrown access denied exception.
+   * @return The custom Federated Catalogue application error with status code 403.
+   */
+  @ExceptionHandler({java.nio.file.AccessDeniedException.class,
+      org.springframework.security.access.AccessDeniedException.class})
+  protected ResponseEntity<Error> accessDeniedException(Exception exception) {
+    log.info("accessDeniedException; Forbidden error: {}", exception.getMessage());
+    return new ResponseEntity<>(new Error("forbidden_error", exception.getMessage()), FORBIDDEN);
+  }
 }
