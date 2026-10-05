@@ -1017,7 +1017,8 @@ components:
       properties:
         participantId:
           type: string
-          description: Global ID of the associated participant
+          deprecated: true
+          description: Legacy field; ignored. Application administrators are not associated with catalogue participants.
           example: ExampleCompany
         firstName:
           type: string
@@ -1032,7 +1033,6 @@ components:
           items:
             $ref: '#/components/schemas/Role'
       required:
-        - participantId
         - firstName
         - lastName
         - email
@@ -1316,6 +1316,18 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: Keycloak token with the configured application client ADMIN_ALL role; administration only.
+    dcp:
+      type: http
+      scheme: bearer
+      description: >-
+        DCP authentication establishing a verified MembershipCredential identity; Keycloak and bootstrap tokens are not accepted.
+        General endpoint authentication is being integrated in work package D; currently only opt-in POST /assets has its DCP filter.
+    dcpSelfIssued:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Client Self-Issued ID Token validated by the DCP presentation endpoint; not a Keycloak access token.
   examples:
     LinkedDataJsonVc:
       summary: Linked Data JSON Verifiable Credential (VC 2.0)
@@ -1877,7 +1889,7 @@ paths:
       summary: Get the list of asset metadata in the Catalogue
       operationId: readAssets
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: uploadTimerange
           in: query
@@ -1996,7 +2008,7 @@ paths:
         `requireBaseClass=true` to enforce base-class resolution.
       operationId: addAsset
       security:
-        - jwt: []
+        - dcp: []
       requestBody:
         description: >-
           The asset content. For JSON-LD credentials, use application/json,
@@ -2115,7 +2127,7 @@ paths:
         is configurable via `federated-catalogue.validation.max-assets-per-request` (default: 20).
       operationId: validateAssets
       security:
-        - jwt: []
+        - dcp: []
       requestBody:
         required: true
         content:
@@ -2193,7 +2205,7 @@ paths:
             type: integer
             minimum: 1
       security:
-        - jwt: []
+        - dcp: []
       responses:
         '200':
           description: >
@@ -2218,7 +2230,6 @@ paths:
         Updates an existing asset identified by its IRI. The update is applied in-place;
         Envers records the previous state as a new revision in assets_aud automatically.
         If no asset exists for the given IRI, the asset is created as version 1.
-        Required permission: ASSET_UPDATE or ADMIN_ALL
       operationId: updateAsset
       parameters:
         - name: id
@@ -2234,7 +2245,7 @@ paths:
           schema:
             type: string
       security:
-        - jwt: []
+        - dcp: []
       requestBody:
         required: true
         content:
@@ -2286,9 +2297,6 @@ paths:
         transitions, last-modified bookkeeping) reuse an existing hash and do not produce a new
         version entry — so attaching a provenance credential or a human-readable companion never
         advances the version count.
-
-
-        Required permission: ASSET_READ or ADMIN_ALL
       operationId: readAssetVersions
       parameters:
         - name: id
@@ -2315,7 +2323,7 @@ paths:
             minimum: 1
             maximum: 100
       security:
-        - jwt: []
+        - dcp: []
       responses:
         '200':
           description: The version history of the asset.
@@ -2341,7 +2349,6 @@ paths:
       description: >
         Revokes the specified version of the asset. Only the current (latest) version can be revoked.
         Attempting to revoke a historical version returns 409 Conflict, because Envers snapshots are immutable.
-        Required permission: ASSET_UPDATE or ADMIN_ALL
       operationId: revokeAssetVersion
       parameters:
         - name: id
@@ -2358,7 +2365,7 @@ paths:
             type: integer
             minimum: 1
       security:
-        - jwt: []
+        - dcp: []
       responses:
         '200':
           description: Revoked
@@ -2421,10 +2428,9 @@ paths:
 
 
         Multipart uploads are handled by the server outside the generated delegate pattern.
-        Required permission: ASSET_CREATE or ADMIN_ALL
       operationId: uploadHumanReadable
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2477,10 +2483,9 @@ paths:
         Replaces the content of an existing human-readable document linked to the machine-readable asset
         identified by {id}. The human-readable asset must already be linked — use POST to create the
         initial link. The IRI of the human-readable asset is preserved.
-        Required permission: ASSET_UPDATE or ADMIN_ALL
       operationId: replaceHumanReadable
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2526,10 +2531,9 @@ paths:
       summary: Download the human-readable representation linked to a machine-readable asset
       description: >
         Returns the binary content of the human-readable document linked to the asset.
-        Required permission: ASSET_READ or ADMIN_ALL
       operationId: getHumanReadable
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2560,10 +2564,10 @@ paths:
       summary: Download the machine-readable asset linked to a human-readable representation
       description: >
         Returns the binary content of the machine-readable asset linked to this human-readable
-        representation. Required permission: ASSET_READ or ADMIN_ALL
+        representation.
       operationId: getMachineReadable
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2594,7 +2598,7 @@ paths:
       summary: Get stored validation results for an asset
       operationId: getAssetValidations
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2628,7 +2632,7 @@ paths:
       summary: Run a compliance check for an asset
       operationId: runComplianceCheck
       security:
-        - jwt: [ ]
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2678,7 +2682,7 @@ paths:
       summary: Get stored compliance check results for an asset
       operationId: getComplianceChecks
       security:
-        - jwt: [ ]
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2737,10 +2741,9 @@ paths:
         Attaching a provenance credential does not advance the asset version counter (the counter
         reflects distinct content hashes, not metadata events). VC 1.1 payloads and credentials
         using the CAT-internal namespace are rejected with 400. Duplicate credentialId returns 409.
-        Required permission: ASSET_UPDATE or ADMIN_ALL
       operationId: addProvenanceCredential
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2795,10 +2798,10 @@ paths:
       summary: List provenance credentials for an asset.
       description: >
         Returns a paginated list of provenance credentials sorted by issuedAt descending.
-        Optionally filter by version. Required permission: ASSET_READ or ADMIN_ALL
+        Optionally filter by version.
       operationId: listProvenanceCredentials
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2854,11 +2857,11 @@ paths:
       summary: Verify all provenance credentials for an asset.
       description: >
         Verifies all provenance credentials for the asset (optionally filtered by version).
-        Returns an aggregated result with per-credential status. Required permission: ASSET_UPDATE
+        Returns an aggregated result with per-credential status.
         or ADMIN_ALL
       operationId: verifyAllProvenanceCredentials
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2897,10 +2900,9 @@ paths:
       summary: Get a single provenance credential.
       description: >
         Returns the full provenance credential record including the raw VC content.
-        Required permission: ASSET_READ or ADMIN_ALL
       operationId: getProvenanceCredential
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2936,10 +2938,10 @@ paths:
       summary: Verify a single provenance credential.
       description: >
         Validates the signature and DID of the given provenance credential and persists the
-        extended verification result. Required permission: ASSET_UPDATE or ADMIN_ALL
+        extended verification result.
       operationId: verifyProvenanceCredential
       security:
-        - jwt: []
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -2984,7 +2986,7 @@ paths:
         provenance row), prefer DELETE /assets/by-id/{id}.
       operationId: deleteAsset
       security:
-        - jwt: [ ]
+        - dcp: []
       parameters:
         - name: asset_hash
           in: path
@@ -3025,7 +3027,7 @@ paths:
         catalogue's contents.
       operationId: deleteAssetById
       security:
-        - jwt: [ ]
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -3058,7 +3060,7 @@ paths:
         performance harness) have migrated. See ADR 7 — Delete Operation Exception.
       operationId: revokeAsset
       security:
-        - jwt: [ ]
+        - dcp: []
       parameters:
         - name: asset_hash
           in: path
@@ -3096,7 +3098,7 @@ paths:
       summary: Get a single stored validation result by ID
       operationId: getValidationResult
       security:
-        - jwt: [ ]
+        - dcp: []
       parameters:
         - name: id
           in: path
@@ -3125,10 +3127,10 @@ paths:
       tags:
         - Query
       summary: Retrieve an HTML website to send openCypher queries to the Catalogue
-      description: 'Required permission: QUERY_EXECUTE or ADMIN_ALL'
+      description: 'Requires a verified DCP identity; Keycloak tokens do not grant access'
       operationId: querywebsite
       security:
-        - jwt: []
+        - dcp: []
       responses:
         '200':
           description: HTML document that contains a query field for openCypher queries.
@@ -3145,7 +3147,7 @@ paths:
         - Query
       summary: Send a query to the Catalogue
       description: >
-        Required permission: QUERY_EXECUTE or ADMIN_ALL.
+        Requires a verified DCP identity; Keycloak tokens do not grant access.
 
 
         The SPARQL backend is RDF-star (SPARQL-Star) aware. Credential claims are projected as
@@ -3187,7 +3189,7 @@ paths:
             default: true
           required: false
       security:
-        - jwt: []
+        - dcp: []
       requestBody:
         description: >-
           Raw query text. Use Content-Type to indicate the query language:
@@ -3256,10 +3258,10 @@ paths:
       tags:
         - Query
       summary: Get information about the active query backend
-      description: 'Required permission: QUERY_EXECUTE or ADMIN_ALL'
+      description: 'Requires a verified DCP identity; Keycloak tokens do not grant access'
       operationId: queryInfo
       security:
-        - jwt: []
+        - dcp: []
       responses:
         '200':
           description: Query backend information
@@ -3274,10 +3276,10 @@ paths:
       tags:
         - Query
       summary: Run distributed search query in the Catalogue
-      description: 'Required permission: QUERY_EXECUTE or ADMIN_ALL'
+      description: 'Requires a verified DCP identity; Keycloak tokens do not grant access'
       operationId: search
       security:
-        - jwt: []
+        - dcp: []
       requestBody:
         description: JSON object containing query with parameters and annotations
         content:
@@ -3305,7 +3307,7 @@ paths:
       tags:
         - Schemas
       summary: 'Get the full list of schemas (ontologies, shapes, vocabularies, JSON schemas, XML schemas).'
-      description: 'The schema identifiers, returned by this endpoint can be used to download the schema files. Includes both RDF and non-RDF schema types. Required permission: SCHEMA_READ or ADMIN_ALL'
+      description: 'The schema identifiers, returned by this endpoint can be used to download the schema files. Includes both RDF and non-RDF schema types. Required permission: ADMIN_ALL'
       operationId: getSchemas
       security:
         - jwt: []
@@ -3326,7 +3328,7 @@ paths:
       tags:
         - Schemas
       summary: 'Add a new Schema to the catalogue.'
-      description: 'This endpoint accepts an ontology (OWL), shape (SHACL), controlled vocabulary (SKOS), JSON Schema, or XML Schema (XSD), which is added to the schemas of the catalogue. Required permission: SCHEMA_CREATE or ADMIN_ALL'
+      description: 'This endpoint accepts an ontology (OWL), shape (SHACL), controlled vocabulary (SKOS), JSON Schema, or XML Schema (XSD), which is added to the schemas of the catalogue. Required permission: ADMIN_ALL'
       operationId: addSchema
       security:
         - jwt: []
@@ -3452,7 +3454,7 @@ paths:
       tags:
         - Schemas
       summary: Get a specific schema.
-      description: 'Required permission: SCHEMA_READ or ADMIN_ALL'
+      description: 'Required permission: ADMIN_ALL'
       operationId: getSchema
       security:
         - jwt: []
@@ -3501,7 +3503,7 @@ paths:
       tags:
         - Schemas
       summary: 'Replace a schema. This is only allowed for ontologies with the same IRI.'
-      description: 'Required permission: SCHEMA_UPDATE or ADMIN_ALL'
+      description: 'Required permission: ADMIN_ALL'
       operationId: updateSchema
       parameters:
         - name: schemaId
@@ -3553,7 +3555,7 @@ paths:
       tags:
         - Schemas
       summary: 'Delete a Schema'
-      description: 'Required permission: SCHEMA_DELETE or ADMIN_ALL'
+      description: 'Required permission: ADMIN_ALL'
       operationId: deleteSchema
       security:
         - jwt: [ ]
@@ -3580,7 +3582,7 @@ paths:
       tags:
         - Schemas
       summary: 'Get version history for a schema.'
-      description: 'Returns an ordered list of all versions of the schema. Required permission: SCHEMA_READ or ADMIN_ALL'
+      description: 'Returns an ordered list of all versions of the schema. Required permission: ADMIN_ALL'
       operationId: getSchemaVersions
       security:
         - jwt: []
@@ -3611,7 +3613,7 @@ paths:
       summary: List enabled trust frameworks and their profiles (public discovery)
       operationId: getTrustFrameworksPublic
       security:
-        - jwt: [ ]
+        - dcp: []
       responses:
         '200':
           description: List of enabled trust framework families with their profile IDs
@@ -3633,7 +3635,7 @@ paths:
       summary: Show a HTML page to verify (portions of) a signed credential
       operationId: verifyPage
       security:
-        - jwt: [ ]
+        - dcp: []
       responses:
         '200':
           description: >-
@@ -3736,7 +3738,7 @@ paths:
             schema:
               type: string
       security:
-        - jwt: [ ]
+        - dcp: []
       responses:
         '200':
           description: Verification result
@@ -3756,7 +3758,8 @@ paths:
     get:
       tags:
         - Participants
-      summary: Get the registered participants
+      summary: Get the authenticated participant
+      description: Requires a verified DCP identity. Returns only its own participant record; pagination totals use that same scope.
       operationId: getParticipants
       parameters:
         - $ref: '#/components/parameters/OffsetParam'
@@ -3775,11 +3778,12 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - jwt: []
+        - dcp: []
     post:
       tags:
         - Participants
       summary: Register a new participant in the catalogue
+      description: Requires a verified DCP identity matching the credential subject. Existing participant IDs return 409; Keycloak admin roles do not grant ownership.
       operationId: addParticipant
       requestBody:
         description: Participant credential
@@ -3802,12 +3806,14 @@ paths:
                 type: string
         '400':
           $ref: '#/components/responses/ClientError'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '403':
           $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - jwt: []
+        - dcp: []
   /participants/{participantId}:
     get:
       tags:
@@ -3837,7 +3843,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - jwt: []
+        - dcp: []
     put:
       tags:
         - Participants
@@ -3873,7 +3879,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - jwt: []
+        - dcp: []
     delete:
       tags:
         - Participants
@@ -3902,12 +3908,14 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - jwt: []
+        - dcp: []
   /participants/{participantId}/users:
     get:
       tags:
         - Participants
-      summary: Get all users of the registered participant
+      deprecated: true
+      summary: Retired participant user association
+      description: Always returns 410 for authenticated administrators. Catalogue participants have no Keycloak users or groups.
       operationId: getParticipantUsers
       parameters:
         - in: path
@@ -3925,6 +3933,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfiles'
+        '410':
+          description: Participant user associations have been removed.
         '400':
           $ref: '#/components/responses/ClientError'
         '403':
@@ -4223,7 +4233,7 @@ paths:
         token `sub` (holder binding).
       operationId: pullDcpPresentations
       security:
-        - jwt: [ ]
+        - dcpSelfIssued: []
       parameters:
         - name: Authorization
           in: header

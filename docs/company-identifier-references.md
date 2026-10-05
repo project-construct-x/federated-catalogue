@@ -108,10 +108,10 @@ See [`examples/queries/verify-against-fuseki.hurl`](../examples/queries/verify-a
 
 | Concern | Catalogue behaviour |
 |---------|---------------------|
-| Who can publish? | Keycloak roles (`ASSET_CREATE`, `Ro-MU-CA`, …) gate `POST /assets` |
+| Who can publish? | Construct-X machine publishing is authorized by a trusted MembershipCredential presented over DCP; Keycloak is reserved for application administration |
 | Is the mapping authoritative? | Enable trust-framework validation + VC signatures; optional GXDCH compliance (`POST /assets/{id}/compliance-check`) |
 | Stale data | Revoke or supersede assets (`/assets/{id}/versions`, `prov:wasDerivedFrom` lineage) |
-| Sensitive fields (IBAN) | Prefer restricted credentials, separate assets, or off-catalogue vaults; the graph is readable by anyone with `QUERY_EXECUTE` |
+| Sensitive fields (IBAN) | Prefer restricted credentials, separate assets, or off-catalogue vaults; graph access must follow the applicable DCP/operator policy rather than a Keycloak catalogue role |
 
 The catalogue stores and indexes claims; **trust** comes from who issued the VC and which verification toggles the operator enables.
 

@@ -94,7 +94,7 @@ public class AdminDashboardService implements AdminApiDelegate {
         () -> participantDao.search(0, 0).getTotalCount(), -1L, "participant count"));
 
     stats.setTotalUsers(safeGet(
-        () -> userDao.search(null, 0, 0).getTotalCount(), -1L, "user count"));
+        () -> userDao.search(0, 0).getTotalCount(), -1L, "user count"));
 
     stats.setActiveTrustFrameworks(safeGet(
         trustFrameworkRepository::countByEnabledTrue, -1L, "trust framework count"));

@@ -222,6 +222,8 @@ federated-catalogue:
       prefix: "fcmeta"
   # DCP verifier pull (POST /dcp/presentations). Presentation request definitions stay in Postgres.
   dcp:
+    # Transitional opt-in for POST /assets only; Construct-X cutover must enable this.
+    asset-authentication-enabled: ${FEDERATED_CATALOGUE_DCP_ASSET_AUTHENTICATION_ENABLED:false}
     verifier-did: "${FEDERATED_CATALOGUE_DCP_VERIFIER_DID:}"
     audience: "${FEDERATED_CATALOGUE_DCP_AUDIENCE:}"
     # Private JWK JSON used to mint verifier Self-Issued ID Tokens for Credential Service calls
