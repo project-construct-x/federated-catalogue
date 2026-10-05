@@ -15,7 +15,7 @@
 # ---license-end
 ###
 
-{{- if .Values.did.enabled -}}
+{{- if .Values.did.enabled }}
 apiVersion: v1
 kind: Service
 metadata:

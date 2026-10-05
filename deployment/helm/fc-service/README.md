@@ -288,7 +288,7 @@ under [`../extra-stages/construct-x-dev.yaml`](../extra-stages/construct-x-dev.y
 helm dependency build deployment/helm/fc-service
 helm upgrade --install fc-service deployment/helm/fc-service \
   --kube-context construct-x-dev \
-  --namespace user-grp-03 --create-namespace \
+  --namespace dev-01 \
   -f deployment/helm/fc-service/values.yaml \
   -f deployment/helm/extra-stages/construct-x-dev.yaml \
   --server-side=true --force-conflicts
