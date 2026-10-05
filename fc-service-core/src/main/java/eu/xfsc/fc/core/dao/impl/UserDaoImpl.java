@@ -28,7 +28,6 @@ import static eu.xfsc.fc.core.util.KeycloakUtils.getErrorMessage;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import jakarta.ws.rs.NotFoundException;
@@ -37,13 +36,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpStatus;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.ClientsResource;
-import org.keycloak.admin.client.resource.GroupsResource;
 import org.keycloak.admin.client.resource.RoleScopeResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
-import org.keycloak.representations.idm.GroupRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,7 +56,6 @@ public class UserDaoImpl implements UserDao {
   // private static final String INITIAL_PASSWORD = "changeme";
   private static final String ACT_UPDATE_PASSWORD = "UPDATE_PASSWORD";
   private static final String ACT_VERIFY_EMAIL = "VERIFY_EMAIL";
-  private static final String ATR_PARTICIPANT_ID = "participantId";
 
   @Value("${keycloak.realm}")
   private String realm;
@@ -117,23 +113,15 @@ public class UserDaoImpl implements UserDao {
   /**
    * Implementation of get list of the users.
    *
-   * @param participantId Identifier of the participant
    * @param offset        The number of items to skip before starting to collect the result set
    * @param limit         The number of items to return
    * @return List of the user profiles.
    */
   @Override
-  public PaginatedResults<UserProfile> search(String participantId, Integer offset, Integer limit) {
+  public PaginatedResults<UserProfile> search(Integer offset, Integer limit) {
     UsersResource instance = keycloak.realm(realm).users();
-    List<UserRepresentation> userRepos;
+    List<UserRepresentation> userRepos = instance.list(offset, limit);
     int totalCount = instance.count();
-    if (participantId == null) {
-      userRepos = instance.list(offset, limit);
-    } else {
-      userRepos = instance.searchByAttributes(offset, limit, true, false,
-          ATR_PARTICIPANT_ID + " = " + participantId);
-      totalCount = instance.searchByAttributes(participantId).size();
-    }
     return new PaginatedResults<>(totalCount, userRepos.stream().map(
         user -> toUserProfile(user, getUserRoles(instance, user.getId()))
     ).collect(Collectors.toList()));
@@ -182,7 +170,6 @@ public class UserDaoImpl implements UserDao {
       userResource.update(userRepoOld);
       throw new ClientException("Please check that the sent roles are valid.");
     }
-    changeUserGroup(userResource, user.getParticipantId());
 
     // no Response ?
 
@@ -238,29 +225,10 @@ public class UserDaoImpl implements UserDao {
     userRepo.setLastName(user.getLastName());
     userRepo.setEmail(user.getEmail());
     userRepo.setUsername(user.getEmail());
-    userRepo.setAttributes(Map.of(ATR_PARTICIPANT_ID, List.of(user.getParticipantId())));
     userRepo.setEnabled(true);
     userRepo.setEmailVerified(false);
-    userRepo.setGroups(List.of(user.getParticipantId()));
     userRepo.setRequiredActions(List.of(ACT_UPDATE_PASSWORD, ACT_VERIFY_EMAIL));
     return userRepo;
-  }
-
-  private void changeUserGroup(UserResource userResource, String newParticipantId) {
-    GroupsResource groupsResource = keycloak.realm(realm).groups();
-    List<GroupRepresentation> userGroups = userResource.groups();
-
-    List<GroupRepresentation> groups = groupsResource.groups(newParticipantId, 0, 1, true);
-    if (groups.isEmpty()) {
-      throw new eu.xfsc.fc.core.exception.NotFoundException(
-          "The group with name " + newParticipantId + " not found");
-    } else {
-      // User must be only a member of 1 group or none + Groups with the same name are not duplicated
-      if (!userGroups.isEmpty()) {
-        userResource.leaveGroup(userGroups.getFirst().getId());
-      }
-      userResource.joinGroup(groups.getFirst().getId());
-    }
   }
 
   private List<RoleRepresentation> assignRolesToUser(UserResource userResource, List<String> roles) {
@@ -318,14 +286,11 @@ public class UserDaoImpl implements UserDao {
    * @return UserProfile of the user
    */
   public static UserProfile toUserProfile(UserRepresentation userRepo, List<RoleRepresentation> roles) {
-    List<String> partIds = userRepo.getAttributes() == null ? null
-        : userRepo.getAttributes().get(ATR_PARTICIPANT_ID);
-    String participantId = partIds == null ? null : partIds.getFirst();
     String firstName = Objects.toString(userRepo.getFirstName(), "");
     String lastName = Objects.toString(userRepo.getLastName(), "");
     String displayName = (firstName + " " + lastName).trim();
-    return new UserProfile(participantId, firstName, lastName, userRepo.getEmail(),
-        toRoleIds(roles), userRepo.getId(), displayName);
+    return new UserProfile().firstName(firstName).lastName(lastName).email(userRepo.getEmail())
+        .roleIds(toRoleIds(roles)).id(userRepo.getId()).username(displayName);
   }
 
   /**

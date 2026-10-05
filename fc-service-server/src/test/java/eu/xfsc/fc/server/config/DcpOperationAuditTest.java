@@ -36,7 +36,6 @@ import eu.xfsc.fc.core.dao.validatorcache.ValidatorCacheDao;
 import eu.xfsc.fc.core.pojo.AssetMetadata;
 import eu.xfsc.fc.core.pojo.ContentAccessorDirect;
 import eu.xfsc.fc.core.pojo.CredentialVerificationResult;
-import eu.xfsc.fc.core.pojo.PaginatedResults;
 import eu.xfsc.fc.core.pojo.ParticipantMetaData;
 import eu.xfsc.fc.core.security.DcpAuthenticationToken;
 import eu.xfsc.fc.core.security.DcpIdentity;
@@ -115,6 +114,7 @@ class DcpOperationAuditTest {
   private void existingParticipant() {
     ParticipantMetaData participant = new ParticipantMetaData(DID, "name", null, "secret-credential");
     when(participants.select(DID)).thenReturn(Optional.of(participant));
+    when(participants.selectForUpdate(DID)).thenReturn(Optional.of(participant));
     AssetMetadata asset = new AssetMetadata();
     asset.setContentAccessor(new ContentAccessorDirect("secret-credential"));
     when(store.getByHash(participant.getAssetHash())).thenReturn(asset);
@@ -137,7 +137,7 @@ class DcpOperationAuditTest {
   }
 
   @Test void collectionReadDoesNotInventActor() throws Exception {
-    when(participants.search(0, 100)).thenReturn(new PaginatedResults<>(List.of()));
+    when(participants.select(DID)).thenReturn(Optional.empty());
     mvc.perform(get("/participants").with(authentication(dcp(null)))).andExpect(status().isOk());
     JsonNode audit = event();
     assertEquals("/participants", audit.get("resource").asText());
@@ -215,7 +215,7 @@ class DcpOperationAuditTest {
   }
 
   @Test void failingOperationDoesNotReportSuccessOrLogExceptionContents() throws Exception {
-    when(participants.search(0, 100)).thenThrow(new IllegalStateException("secret-error-payload"));
+    when(participants.select(DID)).thenThrow(new IllegalStateException("secret-error-payload"));
     assertThrows(jakarta.servlet.ServletException.class,
         () -> mvc.perform(get("/participants").with(authentication(dcp(ACTOR)))));
     JsonNode audit = event();
@@ -224,7 +224,7 @@ class DcpOperationAuditTest {
   }
 
   @Test void identifiersAreJsonEscapedAndDoNotLeakIntoFollowingRequests() throws Exception {
-    when(participants.search(0, 100)).thenReturn(new PaginatedResults<>(List.of()));
+    when(participants.select(DID)).thenReturn(Optional.empty());
     mvc.perform(get("/participants").with(authentication(dcp("did:web:actor\ninjected-line"))))
         .andExpect(status().isOk());
     assertEquals("did:web:actor\ninjected-line", event().get("actorDid").asText());
@@ -235,10 +235,9 @@ class DcpOperationAuditTest {
   }
 
   @Test void adminUserListingIsOutsideMachineAudit() throws Exception {
-    when(participants.selectUsers(DID, 0, 100)).thenReturn(Optional.of(new PaginatedResults<>(List.of())));
     mvc.perform(get("/participants/" + DID + "/users")
         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN_ALL"))))
-        .andExpect(status().isOk());
+        .andExpect(status().isGone());
     assertTrue(events.list.isEmpty());
   }
 

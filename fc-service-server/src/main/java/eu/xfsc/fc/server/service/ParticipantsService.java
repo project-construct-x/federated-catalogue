@@ -19,18 +19,15 @@ package eu.xfsc.fc.server.service;
 
 import eu.xfsc.fc.api.generated.model.Participant;
 import eu.xfsc.fc.api.generated.model.Participants;
-import eu.xfsc.fc.api.generated.model.UserProfile;
 import eu.xfsc.fc.api.generated.model.UserProfiles;
 import eu.xfsc.fc.server.generated.controller.ParticipantsApiDelegate;
 import eu.xfsc.fc.core.dao.ParticipantDao;
 import eu.xfsc.fc.core.dao.validatorcache.ValidatorCacheDao;
 import eu.xfsc.fc.core.exception.ClientException;
+import eu.xfsc.fc.core.exception.ConflictException;
 import eu.xfsc.fc.core.exception.NotFoundException;
-import eu.xfsc.fc.core.pojo.ContentAccessor;
 import eu.xfsc.fc.core.pojo.ContentAccessorDirect;
-import eu.xfsc.fc.core.pojo.PaginatedResults;
 import eu.xfsc.fc.core.pojo.ParticipantMetaData;
-import eu.xfsc.fc.core.pojo.AssetFilter;
 import eu.xfsc.fc.core.pojo.AssetMetadata;
 import eu.xfsc.fc.core.pojo.Validator;
 import eu.xfsc.fc.core.pojo.CredentialVerificationResult;
@@ -43,8 +40,6 @@ import static eu.xfsc.fc.server.util.SessionUtils.requireApplicationAdmin;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,10 +82,19 @@ public class ParticipantsService implements ParticipantsApiDelegate {
     AssetMetadata assetMetadata = pairResult.getRight();
 
     checkParticipantAccess(verificationResult.getId());
-    assetStorePublisher.storeCredential(assetMetadata, verificationResult);
+    if (partDao.select(verificationResult.getId()).isPresent()) {
+      throw new ConflictException("Participant already exists: " + verificationResult.getId());
+    }
+    boolean reuseCredential = canReuseCredential(assetMetadata);
     ParticipantMetaData participantMetaData = toParticipantMetaData(verificationResult, assetMetadata);
 
+    // Reserve the DID before touching the graph/asset store. Concurrent registration
+    // loses at the unique key without publishing competing graph claims.
     participantMetaData = partDao.create(participantMetaData);
+    if (!reuseCredential) {
+      assetStorePublisher.storeCredential(assetMetadata, verificationResult);
+    }
+    participantMetaData.setAsset(body);
     setParticipantPublicKey(participantMetaData);
     return ResponseEntity.created(URI.create("/participants/" + participantMetaData.getId())).body(participantMetaData);
   }
@@ -112,7 +116,7 @@ public class ParticipantsService implements ParticipantsApiDelegate {
     requireDcpIdentity();
     log.debug("deleteParticipant.enter; got participant: {}", participantId);
     checkParticipantAccess(participantId);
-    ParticipantMetaData participant = partDao.select(participantId)
+    ParticipantMetaData participant = partDao.selectForUpdate(participantId)
         .orElseThrow(() -> new NotFoundException("Participant not found: " + participantId));
     String credentialContent = assetStorePublisher.getByHash(participant.getAssetHash()).getContentAccessor().getContentAsString();
     assetStorePublisher.deleteAsset(participant.getAssetHash());
@@ -148,25 +152,11 @@ public class ParticipantsService implements ParticipantsApiDelegate {
     return ResponseEntity.ok(part);
   }
 
-  /**
-   * GET /participants/{participantId}/users : Get all users of the registered participant.
-   *
-   * @param participantId The participant Id (required)
-   * @return Users of the participant (status code 200)
-   *         or May contain hints how to solve the error or indicate what was wrong in the request. (status code 400)
-   *         or Forbidden. The user does not have the permission to execute this request. (status code 403)
-   *         or The specified resource was not found (status code 404)
-   *         or May contain hints how to solve the error or indicate what went wrong at the server.
-   *         Must not outline any information about the internal structure of the server. (status code 500)
-   */
+  /** Retired participant/account association; application administrators receive HTTP 410. */
   @Override
   public ResponseEntity<UserProfiles> getParticipantUsers(String participantId, Integer offset, Integer limit) {
     requireApplicationAdmin();
-    log.debug("getParticipantUsers.enter; got participantId: {}, offset :{}, limit:{}", participantId, offset, limit);
-    PaginatedResults<UserProfile> profiles = partDao.selectUsers(participantId, offset, limit)
-        .orElseThrow(() -> new NotFoundException("Participant not found: " + participantId));
-    log.debug("getParticipantUsers.exit; returning: {}", profiles.getTotalCount());
-    return ResponseEntity.ok(new UserProfiles((int) profiles.getTotalCount(), profiles.getResults()));
+    return ResponseEntity.status(410).build();
   }
 
   /**
@@ -181,33 +171,23 @@ public class ParticipantsService implements ParticipantsApiDelegate {
    */
   @Override
   public ResponseEntity<Participants> getParticipants(Integer offset, Integer limit) {
-    requireDcpIdentity();
-    // sorting is not supported yet by keycloak admin API
-    log.debug("getParticipants.enter; got offset: {}, limit: {}", offset, limit);
-    PaginatedResults<ParticipantMetaData> results = partDao.search(offset, limit);
-    int total = (int) results.getTotalCount();
-    if (total > 0) {
-      //Adding actual asset from asset-store for each hash present in keycloak
-      AssetFilter filter = new AssetFilter();
-      filter.setLimit(results.getResults().size());
-      filter.setOffset(0);
-      filter.setHashes(results.getResults().stream().map(ParticipantMetaData::getAssetHash).collect(Collectors.toList()));
-      PaginatedResults<AssetMetadata> page = assetStorePublisher.getByFilter(filter, true, true);
-      if (page.getTotalCount() > 0) {
-        Map<String, ContentAccessor> assetsMap = page.getResults().stream().collect(
-    		  Collectors.toMap(AssetMetadata::getAssetHash, AssetMetadata::getContentAccessor));
-        results.getResults().forEach(part -> {
-          part.setAsset(assetsMap.get(part.getAssetHash()).getContentAsString());
-          setParticipantPublicKey(part);
-        });
-      } else {
-    	results.getResults().clear();
-    	total = 0;
-      }
+    String did = requireDcpIdentity().participantDid();
+    if (offset == null || offset < 0 || limit == null || limit < 1) {
+      throw new ClientException("Offset must be non-negative and limit must be positive");
     }
-    List parts = results.getResults();
-    log.debug("getParticipants.exit; returning parts: {} from total: {}", parts.size(), total);
-    return ResponseEntity.ok(new Participants(total, parts));
+    // Listing must not bypass the ownership check on GET /participants/{id}.
+    var own = partDao.select(did);
+    if (own.isEmpty()) {
+      return ResponseEntity.ok(new Participants(0, List.of()));
+    }
+    if (offset > 0) {
+      return ResponseEntity.ok(new Participants(1, List.of()));
+    }
+    ParticipantMetaData participant = own.get();
+    participant.setAsset(assetStorePublisher.getByHash(participant.getAssetHash())
+        .getContentAccessor().getContentAsString());
+    setParticipantPublicKey(participant);
+    return ResponseEntity.ok(new Participants(1, List.of(participant)));
   }
 
   /**
@@ -230,7 +210,7 @@ public class ParticipantsService implements ParticipantsApiDelegate {
 
     checkParticipantAccess(participantId);
 
-    ParticipantMetaData participantExisted = partDao.select(participantId)
+    ParticipantMetaData participantExisted = partDao.selectForUpdate(participantId)
         .orElseThrow(() -> new NotFoundException("Participant not found: " + participantId));
 
     Pair<CredentialVerificationResult, AssetMetadata> pairResult = validateCredential(body);
@@ -281,6 +261,27 @@ public class ParticipantsService implements ParticipantsApiDelegate {
     log.debug("validateCredential; asset metadata is: {}", assetMetadata);
 
     return Pair.of(verificationResult, assetMetadata);
+  }
+
+  /** Re-registration can reuse identical active content, but only after fresh verification and DCP ownership. */
+  private boolean canReuseCredential(AssetMetadata metadata) {
+    AssetMetadata existing;
+    try {
+      existing = assetStorePublisher.getByHash(metadata.getAssetHash());
+    } catch (NotFoundException ex) {
+      existing = null;
+    }
+    if (existing == null) {
+      return false;
+    }
+    if (!metadata.getId().equals(existing.getId())
+        || existing.getStatus() != eu.xfsc.fc.api.generated.model.AssetStatus.ACTIVE
+        || existing.getContentAccessor() == null
+        || !metadata.getContentAccessor().getContentAsString()
+            .equals(existing.getContentAccessor().getContentAsString())) {
+      throw new ConflictException("Existing participant credential is not reusable");
+    }
+    return true;
   }
 
   private void setParticipantPublicKey(ParticipantMetaData participant) {

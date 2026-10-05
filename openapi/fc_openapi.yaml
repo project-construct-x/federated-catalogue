@@ -1017,7 +1017,8 @@ components:
       properties:
         participantId:
           type: string
-          description: Global ID of the associated participant
+          deprecated: true
+          description: Legacy field; ignored. Application administrators are not associated with catalogue participants.
           example: ExampleCompany
         firstName:
           type: string
@@ -1032,7 +1033,6 @@ components:
           items:
             $ref: '#/components/schemas/Role'
       required:
-        - participantId
         - firstName
         - lastName
         - email
@@ -3746,7 +3746,8 @@ paths:
     get:
       tags:
         - Participants
-      summary: Get the registered participants
+      summary: Get the authenticated participant
+      description: Requires a verified DCP identity. Returns only its own participant record; pagination totals use that same scope.
       operationId: getParticipants
       parameters:
         - $ref: '#/components/parameters/OffsetParam'
@@ -3770,6 +3771,7 @@ paths:
       tags:
         - Participants
       summary: Register a new participant in the catalogue
+      description: Requires a verified DCP identity matching the credential subject. Existing participant IDs return 409; Keycloak admin roles do not grant ownership.
       operationId: addParticipant
       requestBody:
         description: Participant credential
@@ -3792,6 +3794,8 @@ paths:
                 type: string
         '400':
           $ref: '#/components/responses/ClientError'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '403':
           $ref: '#/components/responses/Forbidden'
         '500':
@@ -3897,7 +3901,9 @@ paths:
     get:
       tags:
         - Participants
-      summary: Get all users of the registered participant
+      deprecated: true
+      summary: Retired participant user association
+      description: Always returns 410 for authenticated administrators. Catalogue participants have no Keycloak users or groups.
       operationId: getParticipantUsers
       parameters:
         - in: path
@@ -3915,6 +3921,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfiles'
+        '410':
+          description: Participant user associations have been removed.
         '400':
           $ref: '#/components/responses/ClientError'
         '403':

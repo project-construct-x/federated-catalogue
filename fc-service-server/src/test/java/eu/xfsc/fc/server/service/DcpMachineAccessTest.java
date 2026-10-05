@@ -135,8 +135,18 @@ class DcpMachineAccessTest {
     Jwt token = Jwt.withTokenValue("token").header("alg", "RS256").subject("admin").build();
     SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(token,
         List.of(new SimpleGrantedAuthority("ROLE_ADMIN_ALL"))));
-    when(userDao.search(null, 0, 10)).thenReturn(new PaginatedResults<>(0, List.of()));
+    when(userDao.search(0, 10)).thenReturn(new PaginatedResults<>(0, List.of()));
     assertEquals(200, users.getUsers(0, 10).getStatusCode().value());
+    verifyNoInteractions(participantDao);
+  }
+
+  @Test void applicationAdminCanCreateAccountWithoutParticipantAssociation() {
+    jwt("ROLE_ADMIN_ALL");
+    var user = new eu.xfsc.fc.api.generated.model.User().firstName("Admin").lastName("User")
+        .email("admin@example.org").roleIds(List.of());
+    when(userDao.create(user)).thenReturn(new eu.xfsc.fc.api.generated.model.UserProfile().id("new-admin"));
+    assertEquals(201, users.addUser(user).getStatusCode().value());
+    verify(userDao).create(user);
     verifyNoInteractions(participantDao);
   }
 
