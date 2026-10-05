@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -58,6 +59,8 @@ import eu.xfsc.fc.api.generated.model.AssetStatus;
 import eu.xfsc.fc.api.generated.model.Assets;
 import eu.xfsc.fc.api.generated.model.Error;
 import eu.xfsc.fc.core.dao.validation.ValidationResult;
+import eu.xfsc.fc.core.security.DcpAuthenticationToken;
+import eu.xfsc.fc.core.security.DcpIdentity;
 import eu.xfsc.fc.core.dao.validation.ValidationResultRepository;
 import eu.xfsc.fc.core.dao.validation.ValidatorType;
 import eu.xfsc.fc.core.exception.NotFoundException;
@@ -788,7 +791,6 @@ public class AssetControllerTest {
     }
 
     @Test
-    @Disabled("Keycloak Reduction")
     @WithMockUser
     public void readAssets_noPermission_returnsForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets")
@@ -798,9 +800,9 @@ public class AssetControllerTest {
     }
 
     @Test
-    @WithMockUser
-    public void readAssets_withAuth_returnsOk() throws Exception {
+    public void readAssets_withDcpIdentity_returnsOk() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets")
+                        .with(authentication(new DcpAuthenticationToken(new DcpIdentity(PARTICIPANT_ISSUER, null))))
                         .with(csrf())
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
