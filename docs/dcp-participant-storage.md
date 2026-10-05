@@ -67,7 +67,7 @@ part of normal deployment or branch switching.
 
 ## Review boundaries
 
-OID4VP, the general machine filter chain, the legacy JWT role mapping from B and portal
-login redesign are unchanged. The targeted tests isolate PostgreSQL/Liquibase/Envers from
+OID4VP, general DCP protocol integration and portal login redesign remain in D.
+The admin/data authorization boundary is described in [strip B](keycloak-admin-boundary.md). The targeted tests isolate PostgreSQL/Liquibase/Envers from
 Neo4j, and exercise real MVC/security/service ownership with mocked credential verification
 and asset persistence. They do not constitute an end-to-end wallet/credential-service test.
