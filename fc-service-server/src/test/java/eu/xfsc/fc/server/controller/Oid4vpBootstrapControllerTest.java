@@ -50,6 +50,7 @@ import eu.xfsc.fc.core.dao.oid4vp.ConnectorBindingRepository;
 import eu.xfsc.fc.core.pojo.CredentialVerificationResult;
 import eu.xfsc.fc.core.pojo.Validator;
 import eu.xfsc.fc.core.service.oid4vp.BootstrapTokenService;
+import eu.xfsc.fc.core.service.oid4vp.ConnectorBindingChallengeService;
 import eu.xfsc.fc.core.service.resolve.DidDocumentResolver;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 import foundation.identity.did.DIDDocument;
@@ -112,6 +113,9 @@ class Oid4vpBootstrapControllerTest {
     private NamedParameterJdbcTemplate jdbc;
     @Autowired
     private ConnectorBindingRepository bindings;
+
+    @Autowired
+    private ConnectorBindingChallengeService challenges;
 
     @MockitoBean
     private Oid4Vp oid4Vp;
@@ -181,6 +185,8 @@ class Oid4vpBootstrapControllerTest {
         stubGeneratedRequest("state-untrusted");
         stubDirectPost("state-untrusted", "code-untrusted",
             membershipPresentation("did:web:untrusted.example", HOLDER, true), true);
+
+        // TODO challenges.findAll
 
         mockMvc.perform(post("/api/auth/oid4vp/direct-post")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)

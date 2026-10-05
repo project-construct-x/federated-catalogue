@@ -22,11 +22,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.DataClassRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -86,6 +88,15 @@ public class ConnectorBindingChallengeRepository {
     } catch (EmptyResultDataAccessException e) {
       return Optional.empty();
     }
+  }
+
+  public List<Challenge> findAll() {
+    return jdbc.query("""
+            SELECT challenge_id, connector_did, nonce, state, created_at, expires_at
+            FROM oid4vp_binding_challenge
+            """,
+            Map.of(),
+            DataClassRowMapper.newInstance(Challenge.class));
   }
 
   /**
