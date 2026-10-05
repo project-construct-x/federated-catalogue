@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.validation;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.api.generated.model.ValidationReport;
 import eu.xfsc.fc.api.generated.model.ValidationRequest;
 import eu.xfsc.fc.api.generated.model.ValidationResponse;
@@ -28,6 +45,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Default implementation of {@link AssetValidationService}.
@@ -38,8 +56,10 @@ import java.util.Map;
  * {@link ValidationResultStore}.</p>
  *
  * <p>Multi-asset requests are restricted to SHACL validation. Single-asset requests support
- * all registered strategies (SHACL for RDF assets, JSON Schema for non-RDF JSON,
- * XML Schema for non-RDF XML). Each applicable strategy stores an independent
+ * all registered strategies whose {@link ValidationStrategy#appliesTo(AssetMetadata)} the asset
+ * matches: SHACL for any RDF asset, JSON Schema for non-RDF JSON assets and for RDF assets
+ * serialised in JSON-LD, and XML Schema for non-RDF XML assets and for RDF assets serialised in
+ * RDF/XML (SRS §3.1.6). Each applicable strategy stores an independent
  * {@link eu.xfsc.fc.core.dao.validation.ValidationResult}.</p>
  */
 @Service
@@ -172,8 +192,7 @@ public class AssetValidationServiceImpl implements AssetValidationService {
       if (!strategy.appliesTo(asset)) {
         throw new ClientException(
             "Schema type " + records.get(0).type() + " is not applicable to asset " + asset.getId()
-                + ". RDF assets must be validated via SHACL (SHAPE schema type)."
-                + " Non-RDF assets use JSON or XML schemas.");
+                + ". Applicable schema types for this asset: " + describeApplicableTypes(asset) + ".");
       }
       requireModuleEnabled(strategy.moduleType());
 
@@ -206,6 +225,15 @@ public class AssetValidationServiceImpl implements AssetValidationService {
         continue;
       }
       if (!strategy.appliesTo(asset)) {
+        continue;
+      }
+
+      // For RDF assets (JSON-LD, RDF/XML), only SHACL auto-selects a schema here: its composite
+      // is a principled union of all stored shapes, but JSON/XML Schema has no equivalent notion
+      // of "the applicable one" - getLatestSchemaByType would apply an arbitrary, possibly
+      // unrelated schema to the asset. JSON/XML Schema for an RDF asset requires an explicit
+      // schemaId instead (see planExplicit).
+      if (strategy.type() != ValidatorType.SHACL && asset.getContentAccessor() != null) {
         continue;
       }
 
@@ -306,6 +334,24 @@ public class AssetValidationServiceImpl implements AssetValidationService {
                 + " which is not supported for on-demand validation. Supported types: SHAPE, JSON, XML."));
   }
 
+  /**
+   * Lists the validator types applicable to the given asset, for use in error messages.
+   *
+   * <p>Every RDF asset has at least SHACL applicable, and every non-RDF asset is rejected by
+   * the caller before this method is reached, so the empty-list branch below is not expected to
+   * be hit today — it exists only to keep this message well-formed if that invariant is ever
+   * broken by a future change to strategy applicability.</p>
+   *
+   * @return comma-separated {@link ValidatorType} names, or {@code "none"} if none apply
+   */
+  private String describeApplicableTypes(AssetMetadata asset) {
+    String applicable = strategies.stream()
+        .filter(s -> s.appliesTo(asset))
+        .map(s -> s.type().toString())
+        .collect(Collectors.joining(", "));
+    return applicable.isEmpty() ? "none" : applicable;
+  }
+
   private SchemaType resolveSchemaStoreType(ValidationStrategy strategy) {
     return switch (strategy.type()) {
       case SHACL -> SchemaType.SHAPE;
@@ -337,7 +383,8 @@ public class AssetValidationServiceImpl implements AssetValidationService {
         validatorType,
         report.getConforms(),
         validatedAt,
-        rawReport));
+        rawReport,
+        null));
   }
 
 

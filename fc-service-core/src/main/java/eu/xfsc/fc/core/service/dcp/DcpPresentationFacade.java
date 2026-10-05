@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.dcp;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,8 +28,8 @@ import de.eecc.dcp.exception.DcpException;
 import de.eecc.dcp.message.PresentationResponseMessage;
 import de.eecc.dcp.query.PresentationQueryDefinition;
 import de.eecc.dcp.vp.PresentationParser;
+import eu.xfsc.fc.api.FcMediaTypes;
 import eu.xfsc.fc.core.exception.ClientException;
-import eu.xfsc.fc.core.service.verification.VerificationConstants;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -114,14 +131,14 @@ public class DcpPresentationFacade {
     if (presentation.isTextual()) {
       String text = presentation.asText();
       String mediaType = PresentationParser.isCompactJwt(text)
-          ? VerificationConstants.MEDIA_TYPE_VP_JWT
-          : VerificationConstants.MEDIA_TYPE_VP_LD_JSON;
+          ? FcMediaTypes.VP_JWT_VALUE
+          : FcMediaTypes.VP_LD_JSON_VALUE;
       return new ValidatedDcpPresentation.PresentationPayload(
           text.getBytes(StandardCharsets.UTF_8), mediaType, presentation);
     }
     byte[] bytes = objectMapper.writeValueAsBytes(presentation);
     return new ValidatedDcpPresentation.PresentationPayload(
-        bytes, VerificationConstants.MEDIA_TYPE_VP_LD_JSON, presentation);
+        bytes, FcMediaTypes.VP_LD_JSON_VALUE, presentation);
   }
 
   /** Exposed for diagnostics / tests. */

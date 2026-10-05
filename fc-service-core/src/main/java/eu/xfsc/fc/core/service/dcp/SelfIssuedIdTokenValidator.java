@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.dcp;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.nimbusds.jose.JOSEException;
@@ -71,7 +88,6 @@ public class SelfIssuedIdTokenValidator {
     verifyTimeClaims(claims);
     verifyAudience(claims);
     String jti = requireClaim(claims.getJWTID(), "jti");
-    rememberJti(jti);
 
     DIDDocument didDoc = didResolver.resolveDidDocument(iss);
     List<VerificationMethod> methods = didDoc.getCapabilityInvocationVerificationMethodsDereferenced();
@@ -84,6 +100,7 @@ public class SelfIssuedIdTokenValidator {
       kid = iss + kid;
     }
     verifySignature(signedJwt, header, kid, iss, methods);
+    rememberJti(jti);
 
     String opaqueToken = claimAsString(claims, "token");
     String aud = firstAudience(claims);
@@ -104,7 +121,7 @@ public class SelfIssuedIdTokenValidator {
 
   private void verifyTimeClaims(JWTClaimsSet claims) {
     try {
-      new DefaultJWTClaimsVerifier<>(null, Set.of()).verify(claims, null);
+      new DefaultJWTClaimsVerifier<>(null, Set.of("exp")).verify(claims, null);
     } catch (BadJWTException ex) {
       throw invalid("JWT claims validation failed: " + ex.getMessage());
     }

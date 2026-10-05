@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.provenance;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.api.generated.model.ProvenanceCredential;
 import eu.xfsc.fc.api.generated.model.ProvenanceCredentials;
 import eu.xfsc.fc.api.generated.model.ProvenanceVerificationResult;
@@ -87,6 +104,12 @@ public interface ProvenanceService {
    * <p>Each credential is verified individually; results are aggregated into a single
    * {@link ProvenanceVerificationResult}. The aggregated result is {@code isValid=true} only when
    * all credentials pass. Per-credential errors are collected in {@code errors}.</p>
+   *
+   * <p>When the asset (or the requested version) has no provenance credentials at all, this
+   * returns {@code isValid=false} with a reason in {@code errors} rather than a vacuous
+   * {@code isValid=true} — nothing was verified, so this is distinguishable from a genuine
+   * verified-and-invalid result by {@code verificationTimestamp} staying {@code null} instead of
+   * being stamped.</p>
    *
    * @param assetId logical asset IRI
    * @param version 1-based Envers ordinal to scope the batch, or {@code null} for all versions

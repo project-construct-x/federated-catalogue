@@ -1,8 +1,26 @@
 package eu.xfsc.fc.server.service;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.core.util.HashUtils.calculateSha256AsHex;
 import static eu.xfsc.fc.server.util.SessionUtils.checkParticipantAccess;
 import static eu.xfsc.fc.server.util.SessionUtils.getSessionParticipantId;
+import static eu.xfsc.fc.server.util.SessionUtils.requireDcpIdentity;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -11,6 +29,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -21,7 +40,6 @@ import org.apache.jena.rdf.model.StmtIterator;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RiotException;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -30,6 +48,7 @@ import org.xml.sax.SAXException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import eu.xfsc.fc.api.FcMediaTypes;
 import eu.xfsc.fc.api.generated.model.AssetEnrichmentResponse;
 import eu.xfsc.fc.api.generated.model.AssetStatus;
 import eu.xfsc.fc.core.pojo.ContentAccessorBinary;
@@ -46,13 +65,10 @@ import eu.xfsc.fc.core.service.verification.ProtectedNamespaceFilter;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 import eu.xfsc.fc.core.service.verification.VerificationConstants;
 import eu.xfsc.fc.core.service.dcp.DcpPresentationFacade;
-import eu.xfsc.fc.core.service.dcp.DcpPurposes;
-import eu.xfsc.fc.core.service.dcp.ValidatedDcpPresentation;
 import eu.xfsc.fc.core.service.graphdb.GraphStore;
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.GraphStoreDisabledException;
 import eu.xfsc.fc.core.pojo.GraphBackendType;
-import de.eecc.dcp.message.PresentationResponseMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -82,7 +98,6 @@ public class AssetUploadService {
     private final ProtectedNamespaceFilter protectedNamespaceFilter;
     private final GraphStore graphStore;
     private final ObjectMapper objectMapper;
-    private final ObjectProvider<DocumentBuilderFactory> secureDocumentBuilderFactoryProvider;
     private final DcpPresentationFacade dcpPresentationFacade;
 
     public UploadResult processUpload(byte[] content, String contentType, String originalFilename) {
@@ -96,16 +111,20 @@ public class AssetUploadService {
      *                   when null, a fresh asset is created with a generated IRI
      */
     public UploadResult processUpload(byte[] content, String contentType, String originalFilename, String existingId) {
+        requireDcpIdentity();
+        if (existingId != null) {
+            checkParticipantAccess(assetStorePublisher.getById(existingId).getIssuer());
+        }
         if (content == null || content.length == 0) {
             throw new ClientException("Upload content must not be empty");
         }
 
         String normalizedContentType = normalizeContentType(contentType);
 
-        // DCP PresentationResponseMessage shares POST /assets with ordinary VC/VP/RDF uploads.
+        // Authentication presentations are not catalogue asset payloads.
         var dcpResponse = dcpPresentationFacade.tryParsePresentationResponse(content, normalizedContentType);
         if (dcpResponse.isPresent()) {
-            return handleDcpPresentation(dcpResponse.get());
+            throw new ClientException("Upload the asset separately from the DCP authentication presentation");
         }
 
         if (!rdfDetector.isRdf(normalizedContentType, content)) {
@@ -125,27 +144,6 @@ public class AssetUploadService {
 
         // Not an enrichment case; process as new RDF asset
         return new UploadResult.AssetCreated(handleCredential(content, normalizedContentType));
-    }
-
-    /**
-     * Validates a DCP {@link PresentationResponseMessage} against the Postgres-backed request
-     * definition and access whitelist for {@link DcpPurposes#POST_ASSETS}, then ingests each
-     * {@code presentation[]} entry through the existing credential pipeline.
-     */
-    private UploadResult handleDcpPresentation(PresentationResponseMessage response) {
-        log.debug("handleDcpPresentation; validating DCP PresentationResponseMessage for POST_ASSETS");
-        ValidatedDcpPresentation validated =
-            dcpPresentationFacade.validateForPurpose(response, DcpPurposes.POST_ASSETS);
-
-        AssetMetadata last = null;
-        for (ValidatedDcpPresentation.PresentationPayload payload : validated.presentations()) {
-            last = handleCredential(payload.content(), payload.contentType());
-            log.debug("handleDcpPresentation; stored presentation asset hash={}", last.getAssetHash());
-        }
-        if (last == null) {
-            throw new ClientException("DCP PresentationResponseMessage produced no assets");
-        }
-        return new UploadResult.AssetCreated(last);
     }
 
     /**
@@ -169,7 +167,8 @@ public class AssetUploadService {
         String text = new String(content, StandardCharsets.UTF_8);
         ContentAccessorDirect contentAccessor = new ContentAccessorDirect(text, contentType);
 
-        CredentialVerificationResult verificationResult = verificationService.verifyCredential(contentAccessor);
+        CredentialVerificationResult verificationResult =
+                verificationService.verifyCredential(contentAccessor, true, true, true, false);
 
         // Non-credential RDF: ID and issuer are null — resolve both from local context.
         String assetId = verificationResult.getId() != null
@@ -183,7 +182,12 @@ public class AssetUploadService {
         assetMetadata.setContentType(contentType);
         assetMetadata.setFileSize((long) content.length);
 
+        // Explicit first DCP policy: self-publishing only. Issuer-owned storage has no separate
+        // participant owner yet; third-party issuance/delegated publishing requires that migration.
         checkParticipantAccess(assetMetadata.getIssuer());
+        if (assetStorePublisher.existsById(assetMetadata.getId())) {
+            checkParticipantAccess(assetStorePublisher.getById(assetMetadata.getId()).getIssuer());
+        }
         assetStorePublisher.storeCredential(assetMetadata, verificationResult);
 
         if (verificationResult.getWarnings() != null && !verificationResult.getWarnings().isEmpty()) {
@@ -218,7 +222,7 @@ public class AssetUploadService {
         String subjectId = record.getId();
         log.debug("enrichAsset.enter; assetId={}, contentType={}", subjectId, contentType);
 
-        // Only the asset's issuer (or a catalogue admin) may enrich its metadata.
+        // Only the DCP participant owning the asset may enrich its metadata.
         checkParticipantAccess(record.getIssuer());
 
         // Fail-fast: no point parsing the payload if the graph backend can't accept it.
@@ -343,12 +347,23 @@ public class AssetUploadService {
         return sequence.toArray(new Lang[0]);
     }
 
+    /**
+     * Rejects RDF/XML that uses a DOCTYPE or external entities before Jena parses it.
+     * Features are applied on the factory in this method so static analyzers can see
+     * the XXE guard on this user-controlled sink (CodeQL cannot follow Spring beans).
+     */
     private void assertSecureRdfXml(String rdfPayload, Lang lang) {
         if (lang != Lang.RDFXML) {
             return;
         }
         try {
-            DocumentBuilderFactory dbf = secureDocumentBuilderFactoryProvider.getObject();
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setNamespaceAware(true);
+            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            dbf.setExpandEntityReferences(false);
             dbf.newDocumentBuilder().parse(new InputSource(new StringReader(rdfPayload)));
         } catch (SAXException | ParserConfigurationException | IOException ex) {
             throw new RiotException("RDF/XML failed XXE-hardened pre-validation: " + ex.getMessage(), ex);
@@ -363,9 +378,9 @@ public class AssetUploadService {
             return Lang.JSONLD;
         }
         return switch (contentType.strip().toLowerCase()) {
-            case VerificationConstants.MEDIA_TYPE_TURTLE -> Lang.TURTLE;
-            case VerificationConstants.MEDIA_TYPE_NTRIPLES -> Lang.NTRIPLES;
-            case VerificationConstants.MEDIA_TYPE_RDF_XML -> Lang.RDFXML;
+            case FcMediaTypes.TURTLE_VALUE -> Lang.TURTLE;
+            case FcMediaTypes.NTRIPLES_VALUE -> Lang.NTRIPLES;
+            case FcMediaTypes.RDF_XML_VALUE -> Lang.RDFXML;
             default -> Lang.JSONLD;
         };
     }

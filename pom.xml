@@ -68,6 +68,8 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- dependencies -->
         <spring.version>6.2.18</spring.version>
+        <!-- overrides Boot's inherited default for spring-webmvc/spring-expression/spring-web/spring-core (fixes CVE-2026-41842, CVE-2026-41845, CVE-2026-41850) -->
+        <spring-framework.version>6.2.19</spring-framework.version>
         <spring-boot.version>3.5.14</spring-boot.version>
         <spring.security.version>6.5.10</spring.security.version>
         <springdoc.version>2.8.14</springdoc.version>
@@ -76,6 +78,14 @@
         <!-- most recent 5.x.x version 5.6.0 caused problems with neosemantics 5.18 fat-jar that bundles a conflicting apache-commons-lang3 version -->
         <jena.version>5.5.0</jena.version>
         <topbraid.version>1.4.4</topbraid.version>
+        <!-- Neo4j: only the Bolt driver (Apache-2.0) is used by production code, and its version
+             is managed by the Spring Boot BOM. The embedded server stack (harness/neosemantics/apoc)
+             is test scope only — the harness pulls in Neo4j Community, which is GPL-3.0-or-later and
+             must not be redistributed inside this Apache-2.0 project's artifacts. -->
+        <neo4j.neosemantics.version>5.18.0</neo4j.neosemantics.version>
+        <neo4j.apoc.version>5.18.0</neo4j.apoc.version>
+        <neo4j.test-harness.version>5.19.0</neo4j.test-harness.version>
+        <neo4j.test-spring.version>4.3.6.0</neo4j.test-spring.version>
         <vc.version>1.29.0</vc.version>
         <key-format.version>1.32.0</key-format.version>
         <did.version>1.20.0</did.version>
@@ -85,7 +95,8 @@
         <caffeine.version>3.2.3</caffeine.version>
         <bcpkix-jdk18on.version>1.84</bcpkix-jdk18on.version>
         <jnats.version>2.23.0</jnats.version>
-        <jackson-bom.version>2.21.2</jackson-bom.version>
+        <!-- fixes GHSA-r7wm-3cxj-wff9 (jackson-core), CVE-2026-54512/54513 (jackson-databind) -->
+        <jackson-bom.version>2.21.4</jackson-bom.version>
         <json-schema-validator.version>2.0.1</json-schema-validator.version>
         <!-- test libs -->
         <junit-platform.version>1.14.1</junit-platform.version>
@@ -125,9 +136,10 @@
         <plugin.openapi-generator.version>7.12.0</plugin.openapi-generator.version>
         <plugin.jib.version>3.4.0</plugin.jib.version>
         <plugin.maven-license.version>2.4.0</plugin.maven-license.version>
-        <plugin.checkstyle.version>3.1.2</plugin.checkstyle.version>
-        <plugin.checkstyle.puppycrawl.version>10.3.1</plugin.checkstyle.puppycrawl.version>
+        <plugin.checkstyle.version>3.6.0</plugin.checkstyle.version>
+        <plugin.checkstyle.puppycrawl.version>14.1.0</plugin.checkstyle.puppycrawl.version>
         <plugin.dependency-check.version>12.2.2</plugin.dependency-check.version>
+        <plugin.enforcer.version>3.5.0</plugin.enforcer.version>
         <!-- OWASP scan: CVSS threshold and NVD API key (supply via -Dnvd.api.key=... or NVD_API_KEY env in CI) -->
         <dependency-check.failBuildOnCVSS>7</dependency-check.failBuildOnCVSS>
         <nvd.api.key></nvd.api.key>
@@ -178,6 +190,54 @@
                 <groupId>eu.xfsc.cat</groupId>
                 <artifactId>fc-graphdb-fuseki</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <!-- Test fixtures of the Neo4j adapter (embedded-server configuration). -->
+            <dependency>
+                <groupId>eu.xfsc.cat</groupId>
+                <artifactId>fc-graphdb-neo4j</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Embedded Neo4j test stack. Scope test is managed here on purpose: the harness
+                 pulls Neo4j Community (GPL-3.0-or-later), so it must never widen to compile or
+                 runtime scope. neosemantics and apoc-core are only needed to register the n10s.*
+                 and apoc.* procedures in the embedded server; in production those plugins are
+                 installed in the external Neo4j server. -->
+            <dependency>
+                <groupId>org.neo4j</groupId>
+                <artifactId>neosemantics</artifactId>
+                <version>${neo4j.neosemantics.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.neo4j.procedure</groupId>
+                <artifactId>apoc-core</artifactId>
+                <version>${neo4j.apoc.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.neo4j.test</groupId>
+                <artifactId>neo4j-harness</artifactId>
+                <version>${neo4j.test-harness.version}</version>
+                <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-nop</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.neo4j</groupId>
+                        <artifactId>neo4j-slf4j-provider</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.neo4j.driver</groupId>
+                <artifactId>neo4j-java-driver-test-harness-spring-boot-autoconfigure</artifactId>
+                <version>${neo4j.test-spring.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>
@@ -449,6 +509,11 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                 </plugin>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>${plugin.enforcer.version}</version>
+                </plugin>
+                <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>license-maven-plugin</artifactId>
                     <version>${plugin.maven-license.version}</version>
@@ -466,19 +531,6 @@
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot.version}</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.owasp</groupId>
-                    <artifactId>dependency-check-maven</artifactId>
-                    <version>${plugin.dependency-check.version}</version>
-                    <configuration>
-                        <!-- Gate threshold for explicit manual runs (`mvn dependency-check:check`).
-                             NOT bound to the build lifecycle: the scan must never block CI, because it
-                             requires an NVD API key (NVD_API_KEY / -Dnvd.api.key) and would otherwise fail
-                             on NVD rate-limiting (HTTP 429) when no key is available. -->
-                        <failBuildOnCVSS>${dependency-check.failBuildOnCVSS}</failBuildOnCVSS>
-                        <nvdApiKey>${nvd.api.key}</nvdApiKey>
-                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.openapitools</groupId>
@@ -519,6 +571,59 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-copyleft-neo4j-outside-test-scope</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <!-- The embedded Neo4j server stack is GPL-3.0-or-later and must never be
+                                         redistributed inside this Apache-2.0 project's jars or container images.
+                                         Test scope stays allowed: it is not packaged.
+
+                                         Only the entry points of that stack are listed. The rule resolves
+                                         transitively, and the GPL kernel/cypher tree is only reachable through
+                                         org.neo4j:neo4j or a direct neo4j-kernel dependency, so banning those two
+                                         plus the harness covers the whole tree. A blanket org.neo4j:neo4j* glob
+                                         would also hit org.neo4j:neo4j-cypher-dsl, which is Apache-2.0 and comes in
+                                         via spring-boot-starter-data-neo4j.
+
+                                         Unaffected: org.neo4j.driver:* (Apache-2.0, the only Neo4j code production
+                                         links against) and org.neo4j:neosemantics.
+
+                                         Exclude pattern: groupId:artifactId:version:type:scope:classifier -->
+                                    <excludes>
+                                        <exclude>org.neo4j.gds:*:*:*:compile</exclude>
+                                        <exclude>org.neo4j.gds:*:*:*:runtime</exclude>
+                                        <exclude>org.neo4j.gds:*:*:*:provided</exclude>
+                                        <exclude>org.neo4j.test:*:*:*:compile</exclude>
+                                        <exclude>org.neo4j.test:*:*:*:runtime</exclude>
+                                        <exclude>org.neo4j.test:*:*:*:provided</exclude>
+                                        <exclude>org.neo4j:neo4j:*:*:compile</exclude>
+                                        <exclude>org.neo4j:neo4j:*:*:runtime</exclude>
+                                        <exclude>org.neo4j:neo4j:*:*:provided</exclude>
+                                        <exclude>org.neo4j:neo4j-kernel:*:*:compile</exclude>
+                                        <exclude>org.neo4j:neo4j-kernel:*:*:runtime</exclude>
+                                        <exclude>org.neo4j:neo4j-kernel:*:*:provided</exclude>
+                                    </excludes>
+                                    <message>
+                                        GPL-3.0 Neo4j content outside test scope. The embedded Neo4j server
+                                        (neo4j-harness, Neo4j Community kernel) and Graph Data Science are
+                                        GPL-licensed and must not be packaged into this Apache-2.0 project.
+                                        Production code must use org.neo4j.driver:neo4j-java-driver only.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <annotationProcessorPaths>
@@ -535,16 +640,125 @@
                 <artifactId>license-maven-plugin</artifactId>
                 <configuration>
                     <includes>**/*.java</includes>
-                    <copyrightOwners>${project.organization.name} and all other contributors</copyrightOwners>
+                    <!-- Custom repo-local resolver: the plugin's bundled "apache_v2" template has no
+                         SPDX line (confirmed by extracting the plugin jar), so a project-local
+                         license-template/ directory (licenses.properties + eclipse_apache_v2/header.txt)
+                         supplies the Eclipse Foundation SPDX header text instead. The license name is
+                         deliberately NOT "apache_v2": that name collides with the plugin's bundled
+                         classpath template, which takes priority over the external resolver and would
+                         silently defeat this custom header.
+                         ${maven.multiModuleProjectDirectory} is anchored by the .mvn/ directory at the
+                         repo root; without it Maven resolves the property to the invocation directory,
+                         and a build started from a module directory would not find license-template/. -->
+                    <licenseResolver>file:${maven.multiModuleProjectDirectory}/license-template</licenseResolver>
+                    <licenseName>eclipse_apache_v2</licenseName>
+                    <copyrightOwners>Contributors to the Eclipse Foundation</copyrightOwners>
+                    <copyrightStringFormat>Copyright (c) %1$s %2$s</copyrightStringFormat>
                     <processStartTag>---license-start</processStartTag>
                     <processEndTag>---license-end</processEndTag>
                     <sectionDelimiter>---</sectionDelimiter>
-                    <addJavaLicenseAfterPackage>false</addJavaLicenseAfterPackage>
+                    <addJavaLicenseAfterPackage>true</addJavaLicenseAfterPackage>
                     <trimHeaderLine>true</trimHeaderLine>
                     <emptyLineAfterHeader>true</emptyLineAfterHeader>
+                    <!-- lineSeparator intentionally left unset: it defaults to the JVM's
+                         line.separator (LF on the build machines used for this project), which
+                         matches the dominant convention in this codebase. A handful of pre-existing
+                         files use CRLF; those are normalized to LF as a side effect of the plugin
+                         rewriting the file, with no logic or content change. -->
                     <outputDirectory>.</outputDirectory>
                     <thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
+                    <!-- Restrict to src only: the default roots also include
+                         target/generated-sources, which would header-stamp OpenAPI-generated
+                         classes on every build. -->
+                    <roots>
+                        <root>${project.basedir}/src</root>
+                    </roots>
                 </configuration>
+                <executions>
+                    <!-- Dry-run validation gate: fails the build if a source file under src/ is
+                         missing the header entirely. Does not rewrite files here (dryRun=true); the
+                         actual header sweep is applied out-of-band via `mvn license:update-file-header`
+                         and committed, so this execution only guards against future regressions
+                         (e.g. a new file added without running the sweep first).
+                         failOnNotUptodateHeader is intentionally NOT set: the copyright line renders
+                         as an inceptionYear-currentYear range ("2022 - 2026"), so every header would
+                         flip to "not up to date", failing every build, the moment the calendar year
+                         rolls over, until someone re-runs the sweep. failOnMissingHeader alone
+                         already covers the regression this gate exists for. -->
+                    <execution>
+                        <id>validate-license-headers</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>update-file-header</goal>
+                        </goals>
+                        <configuration>
+                            <dryRun>true</dryRun>
+                            <failOnMissingHeader>true</failOnMissingHeader>
+                        </configuration>
+                    </execution>
+                    <!-- Manual, unbound sweep for this module's web static assets (fc-demo-portal
+                         only; harmless no-op elsewhere since the include patterns won't match).
+                         Invoke explicitly: `mvn -pl fc-demo-portal license:update-file-header@sweep-web-assets`.
+                         Vendored third-party scripts are excluded, since they are not project IP:
+                         those under .../static/**/lib/** by directory, and minified vendor scripts
+                         elsewhere (e.g. fc-service-server's jquery-3.6.3.min.js, jquery-ui.min.js)
+                         by the **/*.min.js pattern. -->
+                    <execution>
+                        <id>sweep-web-assets</id>
+                        <goals>
+                            <goal>update-file-header</goal>
+                        </goals>
+                        <configuration>
+                            <includes combine.self="override">
+                                <include>**/*.html</include>
+                                <include>**/*.js</include>
+                            </includes>
+                            <excludes combine.self="override">
+                                <exclude>**/lib/**</exclude>
+                                <exclude>**/*.min.js</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <!-- Manual, unbound sweep for repo-root assets that live outside any module's
+                         src/ tree: shell scripts and docker-compose files under docker/, and Helm
+                         chart YAML under deployment/helm/. Run once from the repo root (module -N):
+                         `mvn -N license:update-file-header@sweep-docker-and-helm`.
+                         .claude/hooks/ is a different subtree entirely (not under docker/ or
+                         deployment/), so it is never reached by this execution's roots.
+                         Third-party files and files the properties transformer cannot handle
+                         are listed in the execution's <excludes> below. -->
+                    <execution>
+                        <id>sweep-docker-and-helm</id>
+                        <goals>
+                            <goal>update-file-header</goal>
+                        </goals>
+                        <configuration>
+                            <roots combine.self="override">
+                                <root>${maven.multiModuleProjectDirectory}/docker</root>
+                                <root>${maven.multiModuleProjectDirectory}/deployment/helm</root>
+                            </roots>
+                            <includes combine.self="override">
+                                <include>**/*.sh</include>
+                                <include>**/*.yaml</include>
+                                <include>**/*.yml</include>
+                            </includes>
+                            <excludes combine.self="override">
+                                <!-- Third-party Apache Software Foundation files (Jena Fuseki image build):
+                                     not project IP, already carry the ASF header. -->
+                                <exclude>**/fuseki/**</exclude>
+                                <!-- Helm configmap embedding a shell script with a shebang inside a YAML literal
+                                     block. The properties transformer treats any "#!" in the file as a shebang
+                                     prolog and inserts the header after it, mid-block, producing invalid YAML.
+                                     The header for this file is maintained by hand. -->
+                                <exclude>**/postgres-configmap.yaml</exclude>
+                            </excludes>
+                            <extraExtensions>
+                                <yaml>properties</yaml>
+                                <yml>properties</yml>
+                            </extraExtensions>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

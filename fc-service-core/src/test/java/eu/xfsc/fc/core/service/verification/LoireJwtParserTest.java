@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.verification;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEObjectType;
@@ -181,6 +198,43 @@ class LoireJwtParserTest {
     ContentAccessor result = parser.unwrap(new ContentAccessorDirect(jwt));
 
     assertNotNull(result.getContentAsString());
+  }
+
+  @Test
+  void unwrap_extraIssProtectedHeaderParam_stillSucceeds() throws Exception {
+    // Fixtures may carry an 'iss' protected-header param (in addition
+    // to the payload's 'iss' claim) — a JOSE header parameter registered by
+    // RFC 7519 for JWE, replicated here into a JWS purely as an informational
+    // hint, not as something the parser or verifier is expected to consume.
+    // validateHeaders only inspects 'typ'/'cty' — any unrecognized custom
+    // header param must not be rejected.
+    JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.EdDSA)
+        .keyID("did:web:example.com#test-key")
+        .type(new JOSEObjectType("vc+ld+json+jwt"))
+        .contentType("vc+ld+json")
+        .customParam("iss", "did:web:example.com")
+        .build();
+    JWTClaimsSet claims = new JWTClaimsSet.Builder()
+        .issuer("did:web:example.com")
+        .claim("@context", List.of(VC_20_CONTEXT, GAIAX_2511_CONTEXT))
+        .claim("type", List.of("VerifiableCredential", "gx:LegalPerson"))
+        .claim("credentialSubject", Map.of("id", "did:web:example.com"))
+        .claim("validFrom", "2026-01-01T00:00:00Z")
+        .build();
+    SignedJWT signedJwt = new SignedJWT(header, claims);
+    signedJwt.sign(signer);
+    String jwt = signedJwt.serialize();
+
+    ContentAccessor result = parser.unwrap(new ContentAccessorDirect(jwt));
+
+    String json = result.getContentAsString();
+    JsonNode root = MAPPER.readTree(json);
+    assertNotNull(root.get("@context"), "unwrapped payload must have @context");
+    assertNotNull(root.get("credentialSubject"), "unwrapped payload must have credentialSubject");
+    // Round-trip through the wire format (not the in-memory header object) to prove the
+    // extra param actually survives serialization, not just the local Builder state.
+    assertEquals("did:web:example.com", SignedJWT.parse(jwt).getHeader().getCustomParam("iss"),
+        "protected header must retain the extra 'iss' param");
   }
 
   // --- isVpJwt ---

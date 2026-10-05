@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.service;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.api.generated.model.Asset;
 import eu.xfsc.fc.api.generated.model.AssetEnrichmentResponse;
 import eu.xfsc.fc.api.generated.model.AssetResult;
@@ -13,6 +30,7 @@ import eu.xfsc.fc.api.generated.model.ProvenanceVerificationResult;
 import eu.xfsc.fc.api.generated.model.StoredValidationResult;
 import eu.xfsc.fc.api.generated.model.ValidationRequest;
 import eu.xfsc.fc.api.generated.model.ValidationResponse;
+import eu.xfsc.fc.core.dao.assets.ContentKind;
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.ConflictException;
 import eu.xfsc.fc.core.exception.NotFoundException;
@@ -67,6 +85,7 @@ import java.util.stream.Collectors;
 
 import static eu.xfsc.fc.server.util.AssetHelper.parseTimeRange;
 import static eu.xfsc.fc.server.util.SessionUtils.checkParticipantAccess;
+import static eu.xfsc.fc.server.util.SessionUtils.requireDcpIdentity;
 
 /**
  * Implementation of the {@link eu.xfsc.fc.server.generated.controller.AssetsApiDelegate} interface.
@@ -117,6 +136,7 @@ public class AssetService implements AssetsApiDelegate {
   public ResponseEntity<Assets> readAssets(String uploadTr, String statusTr,
           List<String> issuers, List<String> validators, List<AssetStatus> statuses, List<String> ids,
           List<String> hashes, Boolean withMeta, Boolean withContent, Integer offset, Integer limit) {
+    requireDcpIdentity();
     log.debug("readAssets.enter; got uploadTimeRange: {}, statusTimeRange: {}, issuers: {}, validators: {}, "
           + "statuses: {}, ids: {}, hashes: {}, withMeta: {}, withContent: {}, offset: {}, limit: {}",
         uploadTr, statusTr, issuers, validators, statuses, ids, hashes, withMeta, withContent, offset, limit);
@@ -136,16 +156,14 @@ public class AssetService implements AssetsApiDelegate {
     if (withMeta) {
         if (withContent) {
             results = assets.getResults().stream().map((AssetMetadata asset) ->
-                new AssetResult(asset, asset.getContentAccessor() != null
-                    ? asset.getContentAccessor().getContentAsString() : null)).collect(Collectors.toList());
+                new AssetResult(asset, resolveRawContentForListItem(asset))).collect(Collectors.toList());
         } else {
             results = assets.getResults().stream().map((AssetMetadata asset) ->
                 new AssetResult(asset, null)).collect(Collectors.toList());
         }
     } else if (withContent) {
         results = assets.getResults().stream().map((AssetMetadata asset) ->
-            new AssetResult(null, asset.getContentAccessor() != null
-                ? asset.getContentAccessor().getContentAsString() : null)).collect(Collectors.toList());
+            new AssetResult(null, resolveRawContentForListItem(asset))).collect(Collectors.toList());
     }
     return ResponseEntity.ok(new Assets((int) assets.getTotalCount(), results));
   }
@@ -163,20 +181,109 @@ public class AssetService implements AssetsApiDelegate {
    */
   @Override
   public ResponseEntity<Asset> readAssetById(String id, Integer version) {
+    requireDcpIdentity();
     final String decodedId = UriUtils.decode(id, StandardCharsets.UTF_8);
     AssetMetadata assetMetadata = version != null
         ? assetStorePublisher.getByIdAndVersion(decodedId, version)
         : assetStorePublisher.getById(decodedId);
 
-    ContentAccessor content = assetMetadata.getContentAccessor();
-    if (content != null) {
-      // RDF asset: embed raw JSON-LD in rawContent field so all paths return AssetMetadata.
-      assetMetadata.setRawContent(content.getContentAsString());
-    }
+    assetMetadata.setRawContent(resolveRawContent(assetMetadata));
 
     populateLinkFields(decodedId, assetMetadata);
     log.debug("readAssetById; returning metadata for id: {}", decodedId);
     return ResponseEntity.ok(assetMetadata);
+  }
+
+  /**
+   * Resolves the raw content to report for the given asset metadata, choosing the source that
+   * matches what the persisted content field actually holds.
+   *
+   * <p>For an RDF asset, the persisted content field is the asset's own payload and is returned
+   * as-is, or {@code null} if there is none. For a non-RDF asset, the original payload always
+   * lives in the file store, keyed by content hash — the persisted content field, when present,
+   * instead holds the most recent metadata-enrichment RDF document (kept there so a graph rebuild
+   * can replay it), so it is never consulted here. This holds for any asset version, not only the
+   * current one: a version's own persisted content field is null until that specific version is
+   * itself enriched, but its file store entry exists from the moment it was uploaded, so gating the
+   * file store read on that field being non-null would wrongly report no content for every version
+   * that predates a later enrichment.</p>
+   *
+   * <p>A file store read fault is not swallowed here: it surfaces as a {@link ServerException} so
+   * a response is never returned whose reported size and hash describe content that could not
+   * actually be read — the same inconsistency this content sourcing exists to remove. Reporting
+   * that fault, or degrading gracefully for it, is a decision left to the caller.</p>
+   *
+   * @param assetMetadata metadata identifying the asset whose content is resolved
+   * @return the resolved content, or {@code null} if there is none to report
+   * @throws ServerException if the asset is non-RDF and its file store content could not be read
+   */
+  private String resolveRawContent(AssetMetadata assetMetadata) {
+    if (assetMetadata instanceof AssetRecord record && record.getContentKind() == ContentKind.NON_RDF) {
+      // readNonRdfFileContent performs a lossy UTF-8 conversion; report no content rather than
+      // corrupted content for a binary payload.
+      return isTextualContentType(assetMetadata.getContentType()) ? readNonRdfFileContent(assetMetadata) : null;
+    }
+    ContentAccessor content = assetMetadata.getContentAccessor();
+    return content == null ? null : content.getContentAsString();
+  }
+
+  /**
+   * Determines whether a MIME type denotes textual content safe to decode as a UTF-8 string.
+   *
+   * @param contentType MIME type to check, or {@code null}
+   * @return {@code true} for a text, JSON, or XML type; {@code false} otherwise, including for an
+   *         absent or unparseable type
+   */
+  private static boolean isTextualContentType(String contentType) {
+    if (contentType == null) {
+      return false;
+    }
+    try {
+      final MediaType mediaType = MediaType.parseMediaType(contentType);
+      return "text".equalsIgnoreCase(mediaType.getType())
+          || "json".equalsIgnoreCase(mediaType.getSubtype())
+          || "xml".equalsIgnoreCase(mediaType.getSubtype())
+          || mediaType.getSubtype().endsWith("+json")
+          || mediaType.getSubtype().endsWith("+xml");
+    } catch (IllegalArgumentException ex) {
+      return false;
+    }
+  }
+
+  /**
+   * Resolves the raw content for one asset in a paginated list response.
+   *
+   * <p>Unlike resolving content for a single requested asset, a file store read fault here is
+   * logged and yields no content for that asset only, rather than propagating: one unreadable
+   * asset must not fail an entire page of otherwise-readable results.</p>
+   *
+   * @param assetMetadata metadata identifying the asset whose content is resolved
+   * @return the resolved content, or {@code null} if there is none to report or it could not be read
+   */
+  private String resolveRawContentForListItem(AssetMetadata assetMetadata) {
+    try {
+      return resolveRawContent(assetMetadata);
+    } catch (ServerException ex) {
+      log.warn("resolveRawContentForListItem; omitting content for asset hash {} after a file store"
+          + " read failure", assetMetadata.getAssetHash(), ex);
+      return null;
+    }
+  }
+
+  /**
+   * Reads a non-RDF asset's original payload from the file store by content hash.
+   *
+   * @param assetMetadata metadata identifying the asset whose file store content is read
+   * @return the original content as a string
+   * @throws ServerException if the file store read fails
+   */
+  private String readNonRdfFileContent(AssetMetadata assetMetadata) {
+    try {
+      return assetFileStore.readFile(assetMetadata.getAssetHash()).getContentAsString();
+    } catch (IOException ex) {
+      throw new ServerException(
+          "Failed to read asset file for hash: " + assetMetadata.getAssetHash(), ex);
+    }
   }
 
   /**
@@ -212,6 +319,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   @Transactional
   public ResponseEntity<Void> deleteAsset(String assetHash) {
+    requireDcpIdentity();
     AssetMetadata assetMetadata = assetStorePublisher.getByHash(assetHash);
     checkParticipantAccess(assetMetadata.getIssuer());
     assetStorePublisher.deleteAsset(assetHash);
@@ -227,6 +335,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   @Transactional
   public ResponseEntity<Void> deleteAssetById(String id) {
+    requireDcpIdentity();
     String decodedId = UriUtils.decode(id, StandardCharsets.UTF_8);
     if (assetStorePublisher.existsById(decodedId)) {
       AssetMetadata live = assetStorePublisher.getById(decodedId);
@@ -250,6 +359,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public ResponseEntity<AssetEnrichmentResponse> addAsset(String body) {
+    requireDcpIdentity();
     log.debug("addAsset.enter; got asset of length: {}", body.length());
 
     // Route through the enrichment-aware upload service so that JSON-body POSTs share the same
@@ -304,6 +414,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   @Transactional
   public ResponseEntity<Asset> revokeAsset(String assetHash) {
+    requireDcpIdentity();
     AssetMetadata assetMetadata = assetStorePublisher.getByHash(assetHash);
 
     checkParticipantAccess(assetMetadata.getIssuer());
@@ -330,6 +441,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public ResponseEntity<Asset> updateAsset(String id, String body, String changeComment) {
+    requireDcpIdentity();
     log.debug("updateAsset.enter; id: {}, changeComment: {}", id, changeComment);
     AssetMetadata assetMetadata = verifyAndStore(body, changeComment, id);
     log.debug("updateAsset.exit; returning asset with id: {}", id);
@@ -346,6 +458,7 @@ public class AssetService implements AssetsApiDelegate {
    */
   @Override
   public ResponseEntity<AssetVersionList> readAssetVersions(String id, Integer page, Integer size) {
+    requireDcpIdentity();
     log.debug("readAssetVersions.enter; id: {}, page: {}, size: {}", id, page, size);
     int pageNum = page != null ? page : 0;
     int pageSize = size != null ? size : DEFAULT_VERSION_PAGE_SIZE;
@@ -378,6 +491,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   @Transactional
   public ResponseEntity<AssetVersion> revokeAssetVersion(String id, Integer version) {
+    requireDcpIdentity();
     log.debug("revokeAssetVersion.enter; id: {}, version: {}", id, version);
 
     // Load snapshot first (throws 404 if version unknown) so we can auth-check before disclosing state.
@@ -416,6 +530,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   @Transactional
   public ResponseEntity<Asset> uploadHumanReadable(String id, MultipartFile file) {
+    requireDcpIdentity();
     if (file == null) {
       throw new ClientException("No file was provided in the upload request");
     }
@@ -452,6 +567,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   @Transactional
   public ResponseEntity<Asset> replaceHumanReadable(String id, MultipartFile file) {
+    requireDcpIdentity();
     if (file == null) {
       throw new ClientException("No file was provided in the upload request");
     }
@@ -505,6 +621,7 @@ public class AssetService implements AssetsApiDelegate {
    */
   @Override
   public ResponseEntity<Resource> getHumanReadable(String id) {
+    requireDcpIdentity();
     final String decodedId = UriUtils.decode(id, StandardCharsets.UTF_8);
     log.debug("getHumanReadable.enter; id: {}", decodedId);
 
@@ -524,6 +641,7 @@ public class AssetService implements AssetsApiDelegate {
    */
   @Override
   public ResponseEntity<Resource> getMachineReadable(String id) {
+    requireDcpIdentity();
     final String decodedId = UriUtils.decode(id, StandardCharsets.UTF_8);
     log.debug("getMachineReadable.enter; id: {}", decodedId);
 
@@ -597,6 +715,7 @@ public class AssetService implements AssetsApiDelegate {
    */
   @Override
   public ResponseEntity<ValidationResponse> validateAssets(ValidationRequest validationRequest) {
+    requireDcpIdentity();
     if (validationRequest == null) {
       throw new ClientException("Request body is required");
     }
@@ -628,6 +747,9 @@ public class AssetService implements AssetsApiDelegate {
           verificationResult.getValidators(), contentAccessor);
       assetMetadata.setChangeComment(changeComment);
       checkParticipantAccess(assetMetadata.getIssuer());
+      if (assetStorePublisher.existsById(assetMetadata.getId())) {
+        checkParticipantAccess(assetStorePublisher.getById(assetMetadata.getId()).getIssuer());
+      }
       assetStorePublisher.storeCredential(assetMetadata, verificationResult);
 
       if (verificationResult.getWarnings() != null && !verificationResult.getWarnings().isEmpty()) {
@@ -648,6 +770,7 @@ public class AssetService implements AssetsApiDelegate {
    */
   @Override
   public ResponseEntity<ProvenanceCredential> addProvenanceCredential(String id, String body, Integer version) {
+    requireDcpIdentity();
     log.debug("addProvenanceCredential; id={}, version={}", id, version);
     final String decodedId = UriUtils.decode(id, StandardCharsets.UTF_8);
     final String format = httpServletRequest.getHeader(HttpHeaders.CONTENT_TYPE);
@@ -670,6 +793,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   public ResponseEntity<ProvenanceCredentials> listProvenanceCredentials(
       String id, Integer version, Integer page, Integer size) {
+    requireDcpIdentity();
     log.debug("listProvenanceCredentials; id={}, version={}, page={}, size={}", id, version, page, size);
     final String decodedId = UriUtils.decode(id, StandardCharsets.UTF_8);
     int pageNum = page != null ? page : 0;
@@ -687,6 +811,7 @@ public class AssetService implements AssetsApiDelegate {
    */
   @Override
   public ResponseEntity<ProvenanceCredential> getProvenanceCredential(String id, String credentialId) {
+    requireDcpIdentity();
     log.debug("getProvenanceCredential; id={}, credentialId={}", id, credentialId);
     final String decodedId = UriUtils.decode(id, StandardCharsets.UTF_8);
     final String decodedCredentialId = UriUtils.decode(credentialId, StandardCharsets.UTF_8);
@@ -703,6 +828,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   public ResponseEntity<ProvenanceVerificationResult> verifyProvenanceCredential(
       String id, String credentialId) {
+    requireDcpIdentity();
     log.debug("verifyProvenanceCredential; id={}, credentialId={}", id, credentialId);
     final String decodedId = UriUtils.decode(id, StandardCharsets.UTF_8);
     final String decodedCredentialId = UriUtils.decode(credentialId, StandardCharsets.UTF_8);
@@ -719,6 +845,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   public ResponseEntity<ProvenanceVerificationResult> verifyAllProvenanceCredentials(
       String id, Integer version) {
+    requireDcpIdentity();
     log.debug("verifyAllProvenanceCredentials; id={}, version={}", id, version);
     final String decodedId = UriUtils.decode(id, StandardCharsets.UTF_8);
     ProvenanceVerificationResult result = provenanceService.verifyAll(decodedId, version);
@@ -771,6 +898,7 @@ public class AssetService implements AssetsApiDelegate {
   @Override
   public ResponseEntity<List<StoredValidationResult>> getAssetValidations(
       String id, Integer offset, Integer limit) {
+    requireDcpIdentity();
     log.debug("getAssetValidations; id={}, offset={}, limit={}", id, offset, limit);
     if (!assetStorePublisher.existsById(id)) {
       throw new NotFoundException("no active asset found for id %s".formatted(id));

@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.util;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -23,6 +40,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 
+import eu.xfsc.fc.api.FcMediaTypes;
 import eu.xfsc.fc.core.dao.assets.AssetRepository;
 import eu.xfsc.fc.core.dao.validation.ValidationResult;
 import eu.xfsc.fc.core.pojo.AssetMetadata;
@@ -35,7 +53,6 @@ import eu.xfsc.fc.core.service.validation.ValidationResultStore;
 import eu.xfsc.fc.core.service.verification.CredentialFormatDetector;
 import eu.xfsc.fc.core.service.verification.EnvelopedCredentialResolver;
 import eu.xfsc.fc.core.service.verification.ProtectedNamespaceFilter;
-import eu.xfsc.fc.core.service.verification.VerificationConstants;
 import eu.xfsc.fc.core.service.verification.claims.ClaimExtractionService;
 
 /**
@@ -80,7 +97,7 @@ class GraphRebuilderTest {
     lenient().when(assetStore.getByHash(ASSET_HASH)).thenReturn(assetMetadata);
     lenient().when(assetMetadata.getContentAccessor()).thenReturn(contentAccessor);
     lenient().when(assetMetadata.getId()).thenReturn(SUBJECT_ID);
-    lenient().when(assetMetadata.getContentType()).thenReturn(VerificationConstants.MEDIA_TYPE_TURTLE);
+    lenient().when(assetMetadata.getContentType()).thenReturn(FcMediaTypes.TURTLE_VALUE);
 
     // Claim extraction path — turtle goes through extractAllTriples directly (no unwrap).
     lenient().when(claimExtractionService.extractAllTriples(contentAccessor)).thenReturn(claims);

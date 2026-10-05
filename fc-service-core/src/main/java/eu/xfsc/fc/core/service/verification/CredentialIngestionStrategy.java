@@ -1,10 +1,27 @@
 package eu.xfsc.fc.core.service.verification;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
+import static eu.xfsc.fc.api.FcMediaTypes.VC_JWT_VALUE;
+import static eu.xfsc.fc.api.FcMediaTypes.VC_LD_JSON_VALUE;
+import static eu.xfsc.fc.api.FcMediaTypes.VP_JWT_VALUE;
+import static eu.xfsc.fc.api.FcMediaTypes.VP_LD_JSON_VALUE;
 import static eu.xfsc.fc.core.service.verification.VerificationConstants.JWT_PREFIX;
-import static eu.xfsc.fc.core.service.verification.VerificationConstants.MEDIA_TYPE_VC_JWT;
-import static eu.xfsc.fc.core.service.verification.VerificationConstants.MEDIA_TYPE_VC_LD_JSON;
-import static eu.xfsc.fc.core.service.verification.VerificationConstants.MEDIA_TYPE_VP_JWT;
-import static eu.xfsc.fc.core.service.verification.VerificationConstants.MEDIA_TYPE_VP_LD_JSON;
 import static eu.xfsc.fc.core.service.verification.VerificationConstants.RDF_CONTEXT_KEY;
 import static eu.xfsc.fc.core.service.verification.VerificationConstants.VC_20_CONTEXT;
 import static eu.xfsc.fc.core.service.verification.VerificationConstants.VERIFIABLE_CREDENTIAL_KEY;
@@ -209,9 +226,9 @@ public class CredentialIngestionStrategy implements RdfIngestionStrategy {
       return;
     }
     String ct = contentType.strip().toLowerCase();
-    boolean ctExpectsJwt = ct.equals(MEDIA_TYPE_VC_JWT) || ct.equals(MEDIA_TYPE_VP_JWT);
+    boolean ctExpectsJwt = ct.equals(VC_JWT_VALUE) || ct.equals(VP_JWT_VALUE);
     boolean ctExpectsJsonLd =
-        ct.equals(MEDIA_TYPE_VC_LD_JSON) || ct.equals(MEDIA_TYPE_VP_LD_JSON);
+        ct.equals(VC_LD_JSON_VALUE) || ct.equals(VP_LD_JSON_VALUE);
     if (!ctExpectsJwt && !ctExpectsJsonLd) {
       return;
     }
