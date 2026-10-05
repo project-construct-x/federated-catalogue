@@ -32,6 +32,7 @@ import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.neo4j.Neo4jAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -50,7 +51,7 @@ import org.springframework.test.context.ContextConfiguration;
 class ParticipantTransactionTest {
   static final String DID = "did:web:company.example";
   @Autowired ParticipantsService service;
-  @Autowired ParticipantDao dao;
+  @Autowired @Qualifier("participantDaoImpl") ParticipantDao dao;
   @Autowired AssetStore store;
   @Autowired VerificationService verification;
   @Autowired JdbcTemplate jdbc;
