@@ -228,6 +228,7 @@ class Oid4vpBootstrapControllerTest {
 
     /**
      * Tests that a connector DID that is not controlled by the holder DID in the membership credential is rejected.
+     * connectorDid does not equal holderDid
      * @throws Exception
      */
     @Test
@@ -253,6 +254,10 @@ class Oid4vpBootstrapControllerTest {
         assertTrue(bindingsRepo.findActiveByConnectorDid(CONNECTOR_A).isEmpty());
     }
 
+    /**
+     * Tests that replaying a vp_token or response_code is rejected, and that a bootstrap token can only be used once.
+     * @throws Exception
+     */
     @Test
     void replayVpTokenResponseCodeAndBootstrapToken() throws Exception {
         stubGeneratedRequest("state-replay-vp");
@@ -296,6 +301,10 @@ class Oid4vpBootstrapControllerTest {
         assertEquals(firstBindingId, bindingsRepo.findActiveByConnectorDid(HOLDER).orElseThrow().id());
     }
 
+    /**
+     * Tests that an expired bootstrap token is rejected and does not create a connector binding.
+     * @throws Exception
+     */
     @Test
     void expiredToken() throws Exception {
         String expired = signedBootstrapToken(HOLDER, HOLDER, "expired-challenge", Instant.now().minusSeconds(60));
