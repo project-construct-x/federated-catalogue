@@ -90,13 +90,17 @@ public class ConnectorBindingChallengeRepository {
     }
   }
 
+  /**
+   * Finds all challenges without applying active-state predicates.
+   * @return List<Challenge> of all challenges in the database
+   */
   public List<Challenge> findAll() {
     return jdbc.query("""
             SELECT challenge_id, connector_did, nonce, state, created_at, expires_at
             FROM oid4vp_binding_challenge
             """,
             Map.of(),
-            DataClassRowMapper.newInstance(Challenge.class));
+            this::mapChallenge);
   }
 
   /**

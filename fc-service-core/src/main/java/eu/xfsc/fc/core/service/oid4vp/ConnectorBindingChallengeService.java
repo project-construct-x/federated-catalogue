@@ -21,6 +21,7 @@ import eu.xfsc.fc.core.dao.oid4vp.ConnectorBindingChallengeRepository;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -124,6 +125,11 @@ public class ConnectorBindingChallengeService {
         }
         return repository.findActiveByChallengeIdAndConnectorDid(
                 challengeId, connectorDid, Instant.now());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Challenge> findAll() {
+        return repository.findAll();
     }
 
     /**

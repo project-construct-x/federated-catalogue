@@ -46,11 +46,12 @@ import de.eecc.oid4vc.oid4vp.api.DirectPostHandler;
 import de.eecc.oid4vc.oid4vp.api.Oid4Vp;
 import de.eecc.oid4vc.oid4vp.request.PresentationRequest;
 import de.eecc.oid4vc.oid4vp.request.PresentationRequestDefinition;
+import eu.xfsc.fc.core.dao.oid4vp.ConnectorBindingChallengeRepository;
 import eu.xfsc.fc.core.dao.oid4vp.ConnectorBindingRepository;
 import eu.xfsc.fc.core.pojo.CredentialVerificationResult;
 import eu.xfsc.fc.core.pojo.Validator;
 import eu.xfsc.fc.core.service.oid4vp.BootstrapTokenService;
-import eu.xfsc.fc.core.service.oid4vp.ConnectorBindingChallengeService;
+import eu.xfsc.fc.core.service.oid4vp.Challenge;
 import eu.xfsc.fc.core.service.resolve.DidDocumentResolver;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 import foundation.identity.did.DIDDocument;
@@ -112,10 +113,10 @@ class Oid4vpBootstrapControllerTest {
     @Autowired
     private NamedParameterJdbcTemplate jdbc;
     @Autowired
-    private ConnectorBindingRepository bindings;
+    private ConnectorBindingRepository bindingsRepo;
 
     @Autowired
-    private ConnectorBindingChallengeService challenges;
+    private ConnectorBindingChallengeRepository challengesRepo;
 
     @MockitoBean
     private Oid4Vp oid4Vp;
@@ -149,7 +150,7 @@ class Oid4vpBootstrapControllerTest {
             .andExpect(jsonPath("$.connectorDid").value(HOLDER))
             .andExpect(jsonPath("$.holderDid").value(HOLDER));
 
-        assertTrue(bindings.findActiveByConnectorDid(HOLDER).isPresent()); // test persistence of binding in database
+        assertTrue(bindingsRepo.findActiveByConnectorDid(HOLDER).isPresent()); // test persistence of binding in database
     }
 
     /**
@@ -171,22 +172,27 @@ class Oid4vpBootstrapControllerTest {
     }
 
     /**
-     * This is a negative test for the direct-post endpoint. It verifies that the application rejects two types of invalid membership credentials:
+     * This is a negative test for the direct-post endpoint. It verifies that the application rejects 1 type of invalid membership credentials:
      *
-     * 1. a credential from an untrusted issuer,
-     * 2. a credential with a status of REVOKED instead of ACTIVE.
+     * 1. a credential from an untrusted issuer
      *
      * In both cases, the response must be a 400 Bad Request, containing an appropriate error message and omitting the response_code.
      * Without a response_code, no token exchange takes place.
      * @throws Exception
      */
     @Test
-    void untrustedIssuerAndRevokedStatusRejectDirectPostWithoutResponseCode() throws Exception {
+    void untrustedIssuerRejectDirectPostWithoutResponseCode() throws Exception {
         stubGeneratedRequest("state-untrusted");
         stubDirectPost("state-untrusted", "code-untrusted",
             membershipPresentation("did:web:untrusted.example", HOLDER, true), true);
 
-        // TODO challenges.findAll
+        mockMvc.perform(post("/api/auth/oid4vp/requests")
+                .param("connectorDid", HOLDER));
+
+//        List<Challenge> challenges = challengesRepo.findAll();
+//        System.out.println("---------challenges---------------");
+//        System.out.println(challenges);
+//        System.out.println("----------------------------------");
 
         mockMvc.perform(post("/api/auth/oid4vp/direct-post")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -195,31 +201,45 @@ class Oid4vpBootstrapControllerTest {
             .andExpect(status().isBadRequest())
            .andExpect(jsonPath("$.message", startsWith("Signed membership issuer")));
 
-        assertTrue(bindings.findActiveByConnectorDid(HOLDER).isEmpty());
-
-        stubGeneratedRequest("state-revoked");
-        stubDirectPost("state-revoked", "code-revoked", membershipPresentation(ISSUER, HOLDER, true), false);
-        when(verification.verifyCredential(any(), eq(true), eq(true), eq(true), eq(false)))
-            .thenReturn(verified("REVOKED", HOLDER, ISSUER));
-
-        mockMvc.perform(post("/api/auth/oid4vp/requests")
-                .param("connectorDid", HOLDER))
-            .andExpect(status().isOk());
-        mockMvc.perform(post("/api/auth/oid4vp/direct-post")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("vp_token", "vp-token-revoked")
-                .param("state", "state-revoked"))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").value("Membership credential status must be ACTIVE"));
+        assertTrue(bindingsRepo.findActiveByConnectorDid(HOLDER).isEmpty());
     }
 
-    //@Test
+    /**
+     *  * a credential with a status of REVOKED instead of ACTIVE.
+     * @throws Exception
+     */
+    @Test
+    void revokedStatusRejectDirectPostWithoutResponseCode() throws Exception {
+        stubGeneratedRequest("state-revoked");
+        stubDirectPost("state-revoked", "code-revoked", membershipPresentation(ISSUER, HOLDER, true), true);
+        when(verification.verifyCredential(any(), eq(true), eq(true), eq(true), eq(false)))
+                .thenReturn(verified("REVOKED", HOLDER, ISSUER));
+
+        mockMvc.perform(post("/api/auth/oid4vp/requests")
+                        .param("connectorDid", HOLDER))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/auth/oid4vp/direct-post")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("vp_token", "vp-token-revoked")
+                        .param("state", "state-revoked"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Membership credential status must be ACTIVE"));
+    }
+
+    /**
+     * Tests that a connector DID that is not controlled by the holder DID in the membership credential is rejected.
+     * @throws Exception
+     */
+    @Test
     void unauthorizedConnector() throws Exception {
         stubGeneratedRequest("state-unauthorized");
         stubDirectPost("state-unauthorized", "code-unauthorized",
             membershipPresentation(ISSUER, HOLDER, true), true);
         DIDDocument unauthorizedConnectorDocument = didDocument(CONNECTOR_A, "did:web:other-holder.example");
         doReturn(unauthorizedConnectorDocument).when(didDocumentResolver).resolveDidDocument(CONNECTOR_A);
+
+        when(verification.verifyCredential(any(), eq(true), eq(true), eq(true), eq(false)))
+                .thenReturn(verified("ACTIVE", HOLDER, ISSUER));
 
         mockMvc.perform(post("/api/auth/oid4vp/requests")
                 .param("connectorDid", CONNECTOR_A))
@@ -230,7 +250,7 @@ class Oid4vpBootstrapControllerTest {
                 .param("state", "state-unauthorized"))
             .andExpect(status().isForbidden());
 
-        assertTrue(bindings.findActiveByConnectorDid(CONNECTOR_A).isEmpty());
+        assertTrue(bindingsRepo.findActiveByConnectorDid(CONNECTOR_A).isEmpty());
     }
 
     @Test
@@ -268,12 +288,12 @@ class Oid4vpBootstrapControllerTest {
         mockMvc.perform(post("/api/auth/oid4vp/connectors/{connectorDid}/bind", HOLDER)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + bootstrapToken))
             .andExpect(status().isCreated());
-        String firstBindingId = bindings.findActiveByConnectorDid(HOLDER).orElseThrow().id();
+        String firstBindingId = bindingsRepo.findActiveByConnectorDid(HOLDER).orElseThrow().id();
 
         mockMvc.perform(post("/api/auth/oid4vp/connectors/{connectorDid}/bind", HOLDER)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + bootstrapToken))
             .andExpect(status().isBadRequest());
-        assertEquals(firstBindingId, bindings.findActiveByConnectorDid(HOLDER).orElseThrow().id());
+        assertEquals(firstBindingId, bindingsRepo.findActiveByConnectorDid(HOLDER).orElseThrow().id());
     }
 
     @Test
@@ -284,7 +304,7 @@ class Oid4vpBootstrapControllerTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + expired))
             .andExpect(status().isUnauthorized());
 
-        assertTrue(bindings.findActiveByConnectorDid(HOLDER).isEmpty());
+        assertTrue(bindingsRepo.findActiveByConnectorDid(HOLDER).isEmpty());
     }
 
     @Test
@@ -305,7 +325,7 @@ class Oid4vpBootstrapControllerTest {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("No connector binding challenge found for OID4VP state"));
 
-        assertTrue(bindings.findActiveByConnectorDid(HOLDER).isEmpty());
+        assertTrue(bindingsRepo.findActiveByConnectorDid(HOLDER).isEmpty());
     }
 
     @Test
@@ -331,7 +351,7 @@ class Oid4vpBootstrapControllerTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
             .andExpect(status().isForbidden());
 
-        assertTrue(bindings.findActiveByConnectorDid(CONNECTOR_B).isEmpty());
+        assertTrue(bindingsRepo.findActiveByConnectorDid(CONNECTOR_B).isEmpty());
     }
 
     /**
