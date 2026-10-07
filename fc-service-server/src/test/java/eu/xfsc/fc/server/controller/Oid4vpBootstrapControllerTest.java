@@ -154,7 +154,7 @@ class Oid4vpBootstrapControllerTest {
     }
 
     /**
-     *
+     * Tests that a bootstrap token can be used to bind a connector DID without Keycloak.
      * @throws Exception
      */
     @Test
@@ -172,9 +172,9 @@ class Oid4vpBootstrapControllerTest {
     }
 
     /**
-     * This is a negative test for the direct-post endpoint. It verifies that the application rejects 1 type of invalid membership credentials:
+     * This is a negative test for the direct-post endpoint. It verifies that the application rejects first type of invalid membership credentials:
      *
-     * 1. a credential from an untrusted issuer
+     *  a credential from an untrusted issuer
      *
      * In both cases, the response must be a 400 Bad Request, containing an appropriate error message and omitting the response_code.
      * Without a response_code, no token exchange takes place.
@@ -189,11 +189,6 @@ class Oid4vpBootstrapControllerTest {
         mockMvc.perform(post("/api/auth/oid4vp/requests")
                 .param("connectorDid", HOLDER));
 
-//        List<Challenge> challenges = challengesRepo.findAll();
-//        System.out.println("---------challenges---------------");
-//        System.out.println(challenges);
-//        System.out.println("----------------------------------");
-
         mockMvc.perform(post("/api/auth/oid4vp/direct-post")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .param("vp_token", "vp-token-untrusted")
@@ -205,6 +200,7 @@ class Oid4vpBootstrapControllerTest {
     }
 
     /**
+     * This is a negative test for the direct-post endpoint. It verifies that the application rejects second type of invalid membership credentials:
      *  * a credential with a status of REVOKED instead of ACTIVE.
      * @throws Exception
      */
@@ -316,6 +312,10 @@ class Oid4vpBootstrapControllerTest {
         assertTrue(bindingsRepo.findActiveByConnectorDid(HOLDER).isEmpty());
     }
 
+    /**
+     * Tests that an expired OID4VP challenge is rejected and does not create a connector binding.
+     * @throws Exception
+     */
     @Test
     void expiredChallenge() throws Exception {
         stubGeneratedRequest("state-expired-challenge");
@@ -337,6 +337,10 @@ class Oid4vpBootstrapControllerTest {
         assertTrue(bindingsRepo.findActiveByConnectorDid(HOLDER).isEmpty());
     }
 
+    /**
+     * Tests that a bootstrap token cannot be used to access machine endpoints (assets, participants, presentations, users).
+     * @throws Exception
+     */
     @Test
     void bootstrapTokenRejectedOnMachineEndpoints() throws Exception {
         String token = signedBootstrapToken(HOLDER, HOLDER, "machine-challenge", Instant.now().plusSeconds(300));
@@ -351,6 +355,10 @@ class Oid4vpBootstrapControllerTest {
             .andExpect(status().isUnauthorized());
     }
 
+    /**
+     * Tests that a bootstrap token issued for one connector DID cannot be used to bind a different connector DID.
+     * @throws Exception
+     */
     @Test
     void connectorMismatch() throws Exception {
         stubConnectorDocument(CONNECTOR_A, HOLDER);
