@@ -470,12 +470,12 @@ class Oid4vpBootstrapControllerTest {
 
     private Path membershipFixture() {
         Path current = Path.of(System.getProperty("user.dir"));
-        Path fromModule = current.resolve("../examples/membership-credential-v1.jsonld")
+        Path fromModule = current.resolve("../examples/construct-x-registry-demo/membership-credential-v1.jsonld")
             .normalize();
         if (Files.exists(fromModule)) {
             return fromModule;
         }
-        return current.resolve("examples/membership-credential-v1.jsonld").normalize();
+        return current.resolve("examples/construct-x-registry-demo/membership-credential-v1.jsonld").normalize();
     }
 
     private void expireChallenge(String state) {
