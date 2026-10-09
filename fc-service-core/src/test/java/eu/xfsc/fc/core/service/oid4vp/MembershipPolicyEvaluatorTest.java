@@ -55,6 +55,10 @@ class MembershipPolicyEvaluatorTest {
         evaluator = new MembershipPolicyEvaluator(verification);
     }
 
+    /**
+     * Tests that the MembershipPolicyEvaluator correctly accepts a DCP-compatible membership presentation shape.
+     * @throws Exception
+     */
     @Test
     void acceptsDcpCompatibleMembershipPresentationShape() throws Exception {
         JsonNode presentation = presentation(ISSUER, HOLDER, true, false, "MembershipCredential");
@@ -69,6 +73,19 @@ class MembershipPolicyEvaluatorTest {
         assertTrue(membership.provider());
     }
 
+    /**
+     * Tests whether the `MembershipPolicyEvaluator` correctly rejects a verifiable presentation
+     * when its membership credential is issued by an untrusted issuer, before proceeding with any
+     * further validation steps.
+     *
+     * The test constructs a verifiable presentation with a credential issued by an untrusted
+     * issuer and ensures that evaluating such a presentation results in an {@link IllegalArgumentException}.
+     * Additionally, it verifies that the evaluation process terminates before any interactions with
+     * the verification service occur.
+     *
+     * @throws Exception if any unexpected errors occur during test execution
+     *
+     */
     @Test
     void rejectsUntrustedIssuerBeforeVerification() throws Exception {
         JsonNode presentation = presentation("did:web:untrusted.example", HOLDER, true, false,
@@ -79,6 +96,10 @@ class MembershipPolicyEvaluatorTest {
         verifyNoInteractions(verification);
     }
 
+    /**
+     * Tests whether the `MembershipPolicyEvaluator` correctly rejects a verifiable presentation
+     * @throws Exception
+     */
     @Test
     void rejectsSubjectMismatchBeforeVerification() throws Exception {
         JsonNode presentation = presentation(ISSUER, "did:web:other.example", true, false,
@@ -89,6 +110,10 @@ class MembershipPolicyEvaluatorTest {
         verifyNoInteractions(verification);
     }
 
+    /**
+     * Tests whether the `MembershipPolicyEvaluator` correctly rejects a verifiable presentation
+     * @throws Exception
+     */
     @Test
     void rejectsMissingConnectorRole() throws Exception {
         JsonNode presentation = presentation(ISSUER, HOLDER, false, false, "MembershipCredential");
@@ -99,6 +124,11 @@ class MembershipPolicyEvaluatorTest {
             () -> evaluator.evaluate(presentation, HOLDER, List.of(ISSUER)));
     }
 
+    /**
+     * Tests whether the `MembershipPolicyEvaluator` correctly rejects a verifiable presentation
+     * when Membership
+     * @throws Exception
+     */
     @Test
     void rejectsVerificationResultThatDoesNotMatchMembership() throws Exception {
         JsonNode presentation = presentation(ISSUER, HOLDER, true, false, "MembershipCredential");
