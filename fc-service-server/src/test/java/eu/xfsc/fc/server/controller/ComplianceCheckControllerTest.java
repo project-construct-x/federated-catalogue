@@ -328,11 +328,10 @@ public class ComplianceCheckControllerTest {
         .andExpect(status().isUnauthorized());
   }
 
-  // Security: wrong role for POST → 403
   @Test
   @Disabled("Keycloak Reduction")
   @WithMockUser
-  void runComplianceCheck_insufficientRole_returns403() throws Exception {
+  void runComplianceCheck_noPermission_returns403() throws Exception {
     String body = """
         {"frameworkProfileId": "%s", "credential": "%s"}
         """.formatted(MOCK_PROFILE_ID, TEST_VP_JWT);

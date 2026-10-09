@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -58,6 +59,8 @@ import eu.xfsc.fc.api.generated.model.AssetStatus;
 import eu.xfsc.fc.api.generated.model.Assets;
 import eu.xfsc.fc.api.generated.model.Error;
 import eu.xfsc.fc.core.dao.validation.ValidationResult;
+import eu.xfsc.fc.core.security.DcpAuthenticationToken;
+import eu.xfsc.fc.core.security.DcpIdentity;
 import eu.xfsc.fc.core.dao.validation.ValidationResultRepository;
 import eu.xfsc.fc.core.dao.validation.ValidatorType;
 import eu.xfsc.fc.core.exception.NotFoundException;
@@ -788,20 +791,6 @@ public class AssetControllerTest {
     }
 
     @Test
-    @Disabled("Keycloak Reduction")
-    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-        @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
-    public void addAsset_withReadOnlyPermission_returnsForbidden() throws Exception {
-        mockMvc.perform(MockMvcRequestBuilders.post("/assets")
-                        .content(getMockFileDataAsString(ASSET_FILE_NAME))
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @Disabled("Keycloak Reduction")
     @WithMockUser
     public void readAssets_noPermission_returnsForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets")
@@ -811,27 +800,9 @@ public class AssetControllerTest {
     }
 
     @Test
-    @Disabled("Keycloak Reduction")
-    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-        @StringClaim(name = "participant_id", value = "admin-participant")})))
-    public void addAsset_withAdminAllRole_returnsCreated() throws Exception {
-        MvcResult result = mockMvc.perform(MockMvcRequestBuilders.post("/assets")
-                .content(getMockFileDataAsString(ASSET_FILE_NAME))
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isCreated())
-            .andReturn();
-
-        Asset asset = objectMapper.readValue(result.getResponse().getContentAsString(), Asset.class);
-        assetStorePublisher.deleteAsset(asset.getAssetHash());
-    }
-
-    @Test
-    @Disabled("Keycloak Reduction")
-    @WithMockUser(roles = {"ADMIN_ALL"})
-    public void readAssets_withAdminAllRole_returnsOk() throws Exception {
+    public void readAssets_withDcpIdentity_returnsOk() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets")
+                        .with(authentication(new DcpAuthenticationToken(new DcpIdentity(PARTICIPANT_ISSUER, null))))
                         .with(csrf())
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
@@ -850,7 +821,7 @@ public class AssetControllerTest {
     @Test
     @Disabled("Keycloak Reduction")
     @WithMockUser
-    public void getAssetValidations_withoutRequiredRole_shouldReturnForbidden() throws Exception {
+    public void getAssetValidations_noPermission_shouldReturnForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets/did:web:example.org:asset1/validations")
                         .with(csrf())
                         .accept(MediaType.APPLICATION_JSON))
@@ -931,7 +902,7 @@ public class AssetControllerTest {
     @Test
     @Disabled("Keycloak Reduction")
     @WithMockUser
-    public void getValidationResult_withoutRequiredRole_shouldReturnForbidden() throws Exception {
+    public void getValidationResult_noPermission_shouldReturnForbidden() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/validations/1")
                         .with(csrf())
                         .accept(MediaType.APPLICATION_JSON))

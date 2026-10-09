@@ -181,18 +181,14 @@ class DcpOperationAuditTest {
     mvc.perform(get("/participants/" + DID).with(jwt().jwt(jwt -> jwt.claim("participant_id", DID))
         .authorities(new SimpleGrantedAuthority("ROLE_ADMIN_ALL"))))
         .andExpect(status().isForbidden());
-    JsonNode audit = event();
-    assertEquals("DENIED", audit.get("outcome").asText());
-    assertTrue(audit.get("participantDid").isNull());
-    assertTrue(audit.get("actorDid").isNull());
-    assertTrue(audit.get("authenticationMethod").isNull());
+    assertTrue(events.list.isEmpty(), "Rejected by the security chain before the MVC audit interceptor");
     verifyNoInteractions(participants, store);
   }
 
   @Test void identityWrappedInAnotherAuthenticationDoesNotEstablishTrust() throws Exception {
     var fake = UsernamePasswordAuthenticationToken.authenticated(new DcpIdentity(DID, ACTOR), "secret", List.of());
     mvc.perform(get("/participants/" + DID).with(authentication(fake))).andExpect(status().isForbidden());
-    assertTrue(event().get("participantDid").isNull());
+    assertTrue(events.list.isEmpty());
   }
 
   @Test void unsuccessfulLookupIsNotReportedAsSuccess() throws Exception {
@@ -230,8 +226,8 @@ class DcpOperationAuditTest {
     assertEquals("did:web:actor\ninjected-line", event().get("actorDid").asText());
     events.list.clear();
     mvc.perform(get("/participants").with(jwt())).andExpect(status().isForbidden());
-    assertTrue(event().get("participantDid").isNull());
-    assertTrue(event().get("actorDid").isNull());
+    assertTrue(events.list.isEmpty());
+
   }
 
   @Test void adminUserListingIsOutsideMachineAudit() throws Exception {

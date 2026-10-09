@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import eu.xfsc.fc.api.generated.model.Error;
 import eu.xfsc.fc.core.service.oid4vp.BootstrapTokenService;
+import eu.xfsc.fc.core.security.DcpAuthenticationToken;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -34,6 +35,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -54,6 +60,11 @@ public class SecurityConfig {
   private static final ObjectMapper mapper = new ObjectMapper();
 
   private static final String COMMON_FORBIDDEN_ERROR_MESSAGE = "User does not have permission to execute this request.";
+
+  private static final AuthorizationManager<RequestAuthorizationContext> DCP_ONLY = (authentication, context) -> {
+    var caller = authentication.get();
+    return new AuthorizationDecision(caller instanceof DcpAuthenticationToken && caller.isAuthenticated());
+  };
 
   private final String resourceId;
 
@@ -90,34 +101,25 @@ public class SecurityConfig {
   @Bean
   @Order(1)
   public SecurityFilterChain oid4vpFilterChain(HttpSecurity http, BootstrapTokenService tokens) throws Exception {
-//    http
-//      .securityMatcher(
-//        "/api/auth/oid4vp/**"
-//      )
-//      .authorizeHttpRequests(authorization -> authorization
-//        .anyRequest().authenticated()
-//      )
-//      .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()));
-//      // TODO: Implement OID4VP authentication
-//      return http.build();
-
-    http.securityMatcher("/api/auth/oid4vp/**")
-            .csrf(c -> c.disable())
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(a -> a
-                    .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/requests",
-                            "/api/auth/oid4vp/direct-post", "/api/auth/oid4vp/token").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/connectors/*/bind").hasAuthority("SCOPE_connector:bind")
-                    .anyRequest().denyAll())
-            .addFilterBefore(new BootstrapTokenAuthenticationFilter(tokens), AuthorizationFilter.class)
-            .exceptionHandling(c -> c.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-                    .accessDeniedHandler(accessDeniedHandler()));
-    return http.build();
-  }
+     http.securityMatcher("/api/auth/oid4vp/**")
+              .csrf(c -> c.disable())
+              .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+              .authorizeHttpRequests(a -> a
+                      .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/requests",
+                              "/api/auth/oid4vp/direct-post", "/api/auth/oid4vp/token").permitAll()
+                      .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/connectors/*/bind").hasAuthority("SCOPE_connector:bind")
+                      .anyRequest().denyAll())
+              .addFilterBefore(new BootstrapTokenAuthenticationFilter(tokens), AuthorizationFilter.class)
+              .exceptionHandling(c -> c.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                      .accessDeniedHandler(accessDeniedHandler()));
+      return http.build();
 
   @Bean
   @Order(2)
   public SecurityFilterChain dcpFilterChain(HttpSecurity http) throws Exception {
+    http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .requestCache(cache -> cache.disable())
+        .csrf(csrf -> csrf.disable());
     http
       .securityMatcher(
         "/verification",
@@ -127,56 +129,58 @@ public class SecurityConfig {
         "/trust-frameworks",
         "/validations/**",
         "/participants",
-        "/participants/**"
+        "/participants/**",
+        "/query",
+        "/query/**"
       )
       .authorizeHttpRequests(authorization -> authorization
-        // .requestMatchers(HttpMethod.GET, "/api/**").permitAll()
-        // .requestMatchers(HttpMethod.GET, "/swagger-ui/**").permitAll()
-        // .requestMatchers(HttpMethod.GET, "/actuator", "/actuator/**").permitAll()
-        // .requestMatchers(HttpMethod.GET, "/js/**", "/css/**").permitAll()
+
+        // Query/discovery is a machine data API, not an administrative capability.
+        .requestMatchers(HttpMethod.POST, "/query", "/query/search").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/query", "/query/info").access(DCP_ONLY)
 
         // Verification APIs
-        .requestMatchers("/verification").authenticated()
+        .requestMatchers("/verification").access(DCP_ONLY)
 
         // DCP verifier pull — auth is the client Self-Issued ID Token (not Keycloak)
         .requestMatchers(HttpMethod.POST, "/dcp/presentations").permitAll()
         
         // Asset APIs
-        .requestMatchers(HttpMethod.PUT, "/assets/*").authenticated()
-        .requestMatchers(HttpMethod.POST, "/assets/*/versions/*/revoke").authenticated()
-        .requestMatchers(HttpMethod.GET, "/assets/*/versions").authenticated()
-        .requestMatchers(HttpMethod.POST, "/assets/*/revoke").authenticated()
+        .requestMatchers(HttpMethod.PUT, "/assets/*").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.POST, "/assets/*/versions/*/revoke").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/assets/*/versions").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.POST, "/assets/*/revoke").access(DCP_ONLY)
         // Asset-linking sub-resource endpoints — must appear before the broader /assets/* GET matcher
-        .requestMatchers(HttpMethod.POST, "/assets/*/human-readable").authenticated()
-        .requestMatchers(HttpMethod.PUT, "/assets/*/human-readable").authenticated()
-        .requestMatchers(HttpMethod.GET, "/assets/*/human-readable").authenticated()
-        .requestMatchers(HttpMethod.GET, "/assets/*/machine-readable").authenticated()
-        .requestMatchers(HttpMethod.GET, "/assets/*/validations").authenticated()
-        .requestMatchers(HttpMethod.POST, "/assets/validate").authenticated()
-        .requestMatchers(HttpMethod.POST, "/assets/*/provenance").authenticated()
-        .requestMatchers(HttpMethod.GET, "/assets/*/provenance", "/assets/*/provenance/*").authenticated()
-        .requestMatchers(HttpMethod.POST, "/assets/*/provenance/*/verify", "/assets/*/provenance/verify").authenticated()
-        .requestMatchers(HttpMethod.GET, "/assets", "/assets/*").authenticated()
-        .requestMatchers(HttpMethod.POST, "/assets").authenticated()
-        .requestMatchers(HttpMethod.DELETE, "/assets/*").authenticated()
-        .requestMatchers(HttpMethod.DELETE, "/assets/by-id/**").authenticated()
+        .requestMatchers(HttpMethod.POST, "/assets/*/human-readable").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.PUT, "/assets/*/human-readable").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/assets/*/human-readable").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/assets/*/machine-readable").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/assets/*/validations").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.POST, "/assets/validate").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.POST, "/assets/*/provenance").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/assets/*/provenance", "/assets/*/provenance/*").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.POST, "/assets/*/provenance/*/verify", "/assets/*/provenance/verify").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/assets", "/assets/*").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.POST, "/assets").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.DELETE, "/assets/*").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.DELETE, "/assets/by-id/**").access(DCP_ONLY)
 
         // Compliance check APIs
-        .requestMatchers(HttpMethod.POST, "/assets/*/compliance-check").authenticated()
-        .requestMatchers(HttpMethod.GET, "/assets/*/compliance-checks").authenticated()
-        .requestMatchers(HttpMethod.GET, "/trust-frameworks").authenticated()
+        .requestMatchers(HttpMethod.POST, "/assets/*/compliance-check").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/assets/*/compliance-checks").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/trust-frameworks").access(DCP_ONLY)
 
         // Validation result read APIs
-        .requestMatchers(HttpMethod.GET, "/validations/**").authenticated()
+        .requestMatchers(HttpMethod.GET, "/validations/**").access(DCP_ONLY)
 
-        .requestMatchers(HttpMethod.POST, "/participants").authenticated()
-        .requestMatchers(HttpMethod.GET, "/participants").authenticated()
-        .requestMatchers(HttpMethod.PUT, "/participants/*").authenticated()
-        .requestMatchers(HttpMethod.DELETE, "/participants/*").authenticated()
-        .requestMatchers(HttpMethod.GET, "/participants/*").authenticated()
+        .requestMatchers(HttpMethod.POST, "/participants").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/participants").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.PUT, "/participants/*").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.DELETE, "/participants/*").access(DCP_ONLY)
+        .requestMatchers(HttpMethod.GET, "/participants/*").access(DCP_ONLY)
 
         .anyRequest().denyAll()
-      ).addFilterBefore(new BootstrapTokenRejectingFilter(), BearerTokenAuthenticationFilter.class)
+      )  
       .exceptionHandling(c -> c
           .authenticationEntryPoint(
               new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
@@ -189,6 +193,9 @@ public class SecurityConfig {
   @Bean
   @Order(1)
   public SecurityFilterChain adminFilterChain(HttpSecurity http) throws Exception {
+    http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .requestCache(cache -> cache.disable())
+        .csrf(csrf -> csrf.disable());
     http
       .securityMatcher(
         "/admin/**", 
@@ -200,14 +207,18 @@ public class SecurityConfig {
         "/users/**",
         "/participants/*/users",
         "/roles",
-        "/session",
-        "/query", 
-        "/query/**"
+        "/session"
       )
       .authorizeHttpRequests(authorization -> authorization
-        .anyRequest().hasRole(ADMIN_ALL)
+        .anyRequest()
+      .hasRole(ADMIN_ALL)
       ).addFilterBefore(new BootstrapTokenRejectingFilter(), BearerTokenAuthenticationFilter.class)
-      .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()))
+            .access((authentication, context) -> {
+                var caller = authentication.get();
+                return new AuthorizationDecision(caller instanceof JwtAuthenticationToken && caller.isAuthenticated()
+                        && caller.getAuthorities().stream().anyMatch(role -> ("ROLE_" + ADMIN_ALL).equals(role.getAuthority())));
+            })
+      ).exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()))
       .oauth2ResourceServer(c -> c
           .jwt(jc -> jc.jwtAuthenticationConverter(new CustomJwtAuthenticationConverter(resourceId))));
       return http.build();

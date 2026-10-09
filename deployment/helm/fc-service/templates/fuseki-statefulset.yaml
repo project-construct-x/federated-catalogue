@@ -32,11 +32,16 @@ spec:
       labels:
         {{- include "fc-service.fuseki.selectorLabels" . | nindent 8 }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         fsGroup: 1000
       initContainers:
       - name: init-tdb-dir
         image: {{ .Values.fuseki.image.repository }}:{{ .Values.fuseki.image.tag }}
+        imagePullPolicy: {{ .Values.fuseki.image.pullPolicy | default "IfNotPresent" }}
         command: ["sh", "-c", "mkdir -p /fuseki/databases/{{ .Values.fuseki.dataset }}"]
         volumeMounts:
         - name: fuseki-data
@@ -44,7 +49,7 @@ spec:
       containers:
       - name: fuseki
         image: {{ .Values.fuseki.image.repository }}:{{ .Values.fuseki.image.tag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.fuseki.image.pullPolicy | default "IfNotPresent" }}
         ports:
         - containerPort: 3030
           name: http
