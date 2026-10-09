@@ -125,8 +125,8 @@ class MembershipPolicyEvaluatorTest {
     }
 
     /**
-     * Tests whether the `MembershipPolicyEvaluator` correctly rejects a verifiable presentation
-     * when Membership
+     * Tests whether the `MembershipPolicyEvaluator` rejects a verifiable presentation
+     * when verification results (verified issuer) do not match the expected membership issuer.
      * @throws Exception
      */
     @Test
