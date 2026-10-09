@@ -17,8 +17,8 @@ package eu.xfsc.fc.server.controller;
  * ---license-end
  */
 
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_READ;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_UPDATE;
+import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ;
+import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_UPDATE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -117,7 +117,7 @@ public class ComplianceCheckControllerTest {
   private ValidationResultGraphWriter graphWriter;
 
   @Test
-  @WithMockUser(roles = {ASSET_UPDATE})
+  @WithMockUser
   void runComplianceCheck_unknownProfileId_returns400() throws Exception {
     when(orchestrator.check(any(), eq(UNKNOWN_PROFILE_ID), any()))
         .thenThrow(new ClientException("Unknown trust-framework profile: " + UNKNOWN_PROFILE_ID));
@@ -134,7 +134,7 @@ public class ComplianceCheckControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {ASSET_UPDATE})
+  @WithMockUser
   void runComplianceCheck_familyDisabled_returns409() throws Exception {
     when(orchestrator.check(any(), eq(MOCK_PROFILE_ID), any()))
         .thenThrow(new ConflictException("Trust-framework family is disabled: mock"));
@@ -151,7 +151,7 @@ public class ComplianceCheckControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {ASSET_UPDATE})
+  @WithMockUser
   void runComplianceCheck_compliantOutcome_returns200WithConformsTrue() throws Exception {
     when(orchestrator.check(any(), eq(MOCK_PROFILE_ID), any()))
         .thenReturn(new IssuedAttestation(CANNED_VC_JWT, null));
@@ -170,7 +170,7 @@ public class ComplianceCheckControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {ASSET_READ})
+  @WithMockUser
   void getComplianceChecks_authenticated_returns200WithArray() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/assets/{id}/compliance-checks", ASSET_ID)
             .accept(MediaType.APPLICATION_JSON))
@@ -225,7 +225,7 @@ public class ComplianceCheckControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {ASSET_UPDATE})
+  @WithMockUser
   void runComplianceCheck_serviceTimeout_returns504() throws Exception {
     when(orchestrator.check(any(), eq(MOCK_PROFILE_ID), any()))
         .thenThrow(new TimeoutException("Compliance service timed out"));
@@ -331,7 +331,7 @@ public class ComplianceCheckControllerTest {
   // Security: wrong role for POST → 403
   @Test
   @Disabled("Keycloak Reduction")
-  @WithMockUser(roles = {ASSET_READ})
+  @WithMockUser
   void runComplianceCheck_insufficientRole_returns403() throws Exception {
     String body = """
         {"frameworkProfileId": "%s", "credential": "%s"}

@@ -20,9 +20,6 @@ package eu.xfsc.fc.server.controller;
 import static eu.xfsc.fc.api.FcMediaTypes.RDF_XML_VALUE;
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
-import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_CREATE;
-import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_READ;
-import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_UPDATE;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -183,8 +180,8 @@ class SchemaVersioningControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
-  void updateSchema_withoutUpdateRole_returns403() throws Exception {
+  @WithMockUser
+  void updateSchema_withoutAdminRole_returns403() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.put("/schemas/{schemaId}", "some-id")
             .content("content")
             .with(csrf())

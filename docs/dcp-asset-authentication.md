@@ -39,9 +39,74 @@ requires a separate ownership/delegation design; do not remove the ownership che
 Strict signature and semantic verification is also requested for uploaded credentials.
 Existing support for non-credential RDF/binary assets remains available.
 
+## Database audit attribution
+
+Committed Envers revisions record the verified membership subject in `revinfo.participant_did`,
+the authentication method `DCP` in `authentication_method`, and the separately authenticated
+actor in `actor_did` when available. The actor is never inferred from the participant DID.
+Only an authenticated `DcpAuthenticationToken` supplies these values; JWT claims and a
+`DcpIdentity` wrapped in another authentication type cannot supply DCP attribution.
+
+Join the revision to its audit rows to obtain the affected resource and mutation. For assets:
+
+```sql
+SELECT r.rev, r.revtstmp, r.participant_did, r.actor_did, r.authentication_method,
+       a.subjectid, a.asset_hash,
+       CASE a.revtype WHEN 0 THEN 'CREATE' WHEN 1 THEN 'UPDATE' WHEN 2 THEN 'DELETE' END AS operation
+FROM revinfo r
+JOIN assets_aud a ON a.rev = r.rev
+WHERE r.authentication_method = 'DCP';
+```
+
+Revision identity describes the caller performing the mutation, including deletion; an entity's
+`modified_by` snapshot can instead describe its last editor. Revocation is an UPDATE with the
+resulting asset status in the snapshot. A revision may contain changes to several resources.
+Rollbacks leave no committed revision. The new metadata stores identifiers only, with no bearer
+token, credential or presentation contents and no additional authentication-payload logging.
+Existing asset version snapshots retain their existing content-storage behavior.
+
+The additive migration leaves historical and non-DCP revision attribution null; it does not
+guess authentication methods from existing `created_by`/`modified_by` values. Admin JWT
+subjects remain available through the existing entity auditing fields.
+
+This is a database mutation audit, not a complete HTTP access log: reads and rejected requests do not create Envers revisions.
+Participant mutations now use the catalogue database and create their own audited revisions;
+see [catalogue participant storage](dcp-participant-storage.md).
+
+## HTTP operation audit
+
+The `eu.xfsc.fc.server.audit.DcpOperationAudit` logger emits one JSON event at INFO on MVC
+completion for authenticated DCP operations under `/assets` and `/participants`, including their
+subresources. `/participants/{id}/users` remains admin-only and is excluded. These events cover
+reads and participant operations regardless of whether they create an Envers revision. They use
+the existing application logging infrastructure; retention and collection are deployment concerns.
+
+Each event contains `event=dcp_operation`, a timestamp, `operation` (HTTP method and matched route),
+`resource` (request path or local created-resource Location), `outcome`, `httpStatus`,
+`participantDid`, `actorDid` and `authenticationMethod`. Collection operations identify the
+collection rather than logging every returned object. `SUCCESS` requires a completed 2xx response;
+401/403 and escaping authentication/access exceptions are `DENIED`, other errors are `FAILED`.
+If an exception escapes MVC, `httpStatus` is null: the outer filter/container has not yet selected
+the final response status. An escaping exception is never recorded as success.
+
+Only a verified DCP token present when MVC starts supplies participant and actor identities.
+An authenticated caller denied access to another participant retains its own verified identity;
+the requested participant appears only in `resource`. JWT claims, fake DCP principals and missing
+or unauthenticated contexts never supply participant attribution. Non-DCP denials reaching MVC
+have null identity and authentication-method fields. Rejections before MVC (for example a failed
+DCP authentication or a security-chain rejection) produce no operation event and cannot produce
+an authenticated success event. This is not a complete log of all rejected HTTP traffic.
+
+Events do not serialize request/response bodies, query strings, path parameters such as
+`jsessionid`, authorization headers, credentials, presentations or exception messages. Identifiers
+are JSON-escaped. The interceptor does not authenticate requests or extend the HTTP DCP cutover
+beyond its existing scope. Internal service calls without MVC are outside this operation audit;
+their committed database mutations remain covered by Envers.
+
 ## Review scope
 
 The model/access commits are independent of the cutover switch. Unit tests cover strict
 authentication-policy rejection and the existing upload pipeline; HTTP security tests cover
-DCP-only routing and context cleanup. A deployment acceptance test with a real wallet/Credential
+DCP-only routing, context cleanup and operation audit attribution for success, denial and failure.
+A deployment acceptance test with a real wallet/Credential
 Service and trusted issuer is still required before enabling this in production.

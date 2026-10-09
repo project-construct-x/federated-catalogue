@@ -92,6 +92,36 @@ class DcpAssetSecurityTest {
   }
 
   @Test
+  void successfulUploadAuditsIdentityBeforeAuthenticationContextIsCleared() throws Exception {
+    var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(
+        "eu.xfsc.fc.server.audit.DcpOperationAudit");
+    var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+    var previousLevel = logger.getLevel();
+    logger.setLevel(ch.qos.logback.classic.Level.INFO);
+    appender.start();
+    logger.addAppender(appender);
+    try {
+      mvc.perform(post("/assets").header("Authorization", "Bearer dcp")
+          .contentType("application/octet-stream").content("secret-asset-content"))
+          .andExpect(status().isCreated());
+      assertEquals(1, appender.list.size());
+      String message = appender.list.getFirst().getFormattedMessage();
+      var audit = new ObjectMapper().readTree(message);
+      assertEquals("SUCCESS", audit.get("outcome").asText());
+      assertEquals("POST /assets", audit.get("operation").asText());
+      assertEquals(PARTICIPANT, audit.get("participantDid").asText());
+      assertEquals("DCP", audit.get("authenticationMethod").asText());
+      assertFalse(message.contains("secret-asset-content"));
+      assertFalse(message.contains("Bearer dcp"));
+      assertNull(SecurityContextHolder.getContext().getAuthentication());
+    } finally {
+      logger.detachAppender(appender);
+      logger.setLevel(previousLevel);
+      appender.stop();
+    }
+  }
+
+  @Test
   void keycloakAdminAndMissingDcpCannotUpload() throws Exception {
     mvc.perform(post("/assets").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN_ALL")))
         .header("Authorization", "Bearer keycloak").content("asset"))
@@ -107,6 +137,33 @@ class DcpAssetSecurityTest {
         .andExpect(status().isOk());
     mvc.perform(get("/admin/me").with(jwt())).andExpect(status().isForbidden());
     verifyNoInteractions(authentication);
+  }
+
+  @Test
+  void participantUserManagementUsesAdminChain() throws Exception {
+    mvc.perform(get("/participants/example/users").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN_ALL"))))
+        .andExpect(status().isOk());
+    mvc.perform(get("/participants/example/users").with(jwt())).andExpect(status().isForbidden());
+    mvc.perform(get("/participants/example/users")).andExpect(status().isUnauthorized());
+    mvc.perform(get("/participants/example/users").with(
+        org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication(
+            new eu.xfsc.fc.core.security.DcpAuthenticationToken(new DcpIdentity(PARTICIPANT, null)))))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void selfIssuedCredentialCannotOverwriteAnotherParticipantsAsset() throws Exception {
+    when(detector.isRdf(any(), any())).thenReturn(true);
+    when(verification.verifyCredential(any(), eq(true), eq(true), eq(true), eq(false)))
+        .thenReturn(result(PARTICIPANT));
+    when(store.existsById("urn:asset:1")).thenReturn(true);
+    AssetMetadata existing = new AssetMetadata();
+    existing.setIssuer("did:web:other.example");
+    when(store.getById("urn:asset:1")).thenReturn(existing);
+    mvc.perform(post("/assets").header("Authorization", "Bearer dcp")
+        .contentType("application/vc+jwt").content("eyJ.asset.signature"))
+        .andExpect(status().isForbidden());
+    verify(store, never()).storeCredential(any(), any());
   }
 
   @Test
@@ -144,7 +201,7 @@ class DcpAssetSecurityTest {
 
   @Configuration
   @EnableWebMvc
-  @Import({DcpAssetSecurityConfig.class, SecurityConfig.class})
+  @Import({DcpAssetSecurityConfig.class, SecurityConfig.class, DcpOperationAuditConfig.class})
   static class Config {
     @Bean DcpMachineAuthenticationService authentication() { return mock(DcpMachineAuthenticationService.class); }
     @Bean AssetStore store() { return mock(AssetStore.class); }
@@ -169,6 +226,7 @@ class DcpAssetSecurityTest {
       return ResponseEntity.status(201).build();
     }
     @GetMapping("/admin/me") String admin() { return "admin"; }
+    @GetMapping("/participants/{id}/users") String participantUsers() { return "users"; }
     @GetMapping({"/actuator/health", "/api/docs"}) String publicResource() { return "public"; }
   }
 }

@@ -17,13 +17,11 @@ package eu.xfsc.fc.server.config;
  * ---license-end
  */
 
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_CREATE;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_DELETE;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_READ;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_UPDATE;
-import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX;
+import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE;
+import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_DELETE;
+import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ;
+import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_UPDATE;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_DELETE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
@@ -137,14 +135,13 @@ class CustomJwtAuthenticationConverterTest {
   }
 
   @Test
-  void convert_realmLevelRolesClaim_whenResourceAccessAbsent_mapsKnownRealmRolesToLegacyAuthorities() {
+  void convert_realmLevelRolesClaim_whenResourceAccessAbsent_mapsKnownRealmRolesToAdminAuthority() {
     Jwt jwt = jwtWithClaims(Map.of("roles", List.of("gaia-x-admin", "gaia-x-notar", "gaia-x-business-owner")));
 
     AbstractAuthenticationToken token = converter.convert(jwt);
 
     assertEquals(
-        Set.of(CATALOGUE_ADMIN_ROLE_WITH_PREFIX, PARTICIPANT_ADMIN_ROLE_WITH_PREFIX,
-            PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX),
+        Set.of(ADMIN_ALL_WITH_PREFIX),
         authorityStrings(token));
   }
 

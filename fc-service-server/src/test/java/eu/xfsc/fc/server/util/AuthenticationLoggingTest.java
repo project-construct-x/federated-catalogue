@@ -65,7 +65,8 @@ class AuthenticationLoggingTest {
       var authentication = new CustomJwtAuthenticationConverter("federated-catalogue").convert(jwt);
       SecurityContextHolder.getContext().setAuthentication(authentication);
 
-      assertThat(SessionUtils.getSessionParticipantId()).isEqualTo("participant");
+      org.junit.jupiter.api.Assertions.assertThrows(
+          org.springframework.security.access.AccessDeniedException.class, SessionUtils::getSessionParticipantId);
       assertThat(SessionUtils.getSessionUserId()).isEqualTo("actor");
       assertThat(authentication.getAuthorities()).extracting(GrantedAuthority::getAuthority)
           .contains("ROLE_ASSET_READ");

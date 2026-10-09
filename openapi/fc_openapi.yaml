@@ -1017,7 +1017,8 @@ components:
       properties:
         participantId:
           type: string
-          description: Global ID of the associated participant
+          deprecated: true
+          description: Legacy field; ignored. Application administrators are not associated with catalogue participants.
           example: ExampleCompany
         firstName:
           type: string
@@ -1032,7 +1033,6 @@ components:
           items:
             $ref: '#/components/schemas/Role'
       required:
-        - participantId
         - firstName
         - lastName
         - email
@@ -2218,7 +2218,6 @@ paths:
         Updates an existing asset identified by its IRI. The update is applied in-place;
         Envers records the previous state as a new revision in assets_aud automatically.
         If no asset exists for the given IRI, the asset is created as version 1.
-        Required permission: ASSET_UPDATE or ADMIN_ALL
       operationId: updateAsset
       parameters:
         - name: id
@@ -2286,9 +2285,6 @@ paths:
         transitions, last-modified bookkeeping) reuse an existing hash and do not produce a new
         version entry — so attaching a provenance credential or a human-readable companion never
         advances the version count.
-
-
-        Required permission: ASSET_READ or ADMIN_ALL
       operationId: readAssetVersions
       parameters:
         - name: id
@@ -2341,7 +2337,6 @@ paths:
       description: >
         Revokes the specified version of the asset. Only the current (latest) version can be revoked.
         Attempting to revoke a historical version returns 409 Conflict, because Envers snapshots are immutable.
-        Required permission: ASSET_UPDATE or ADMIN_ALL
       operationId: revokeAssetVersion
       parameters:
         - name: id
@@ -2421,7 +2416,6 @@ paths:
 
 
         Multipart uploads are handled by the server outside the generated delegate pattern.
-        Required permission: ASSET_CREATE or ADMIN_ALL
       operationId: uploadHumanReadable
       security:
         - jwt: []
@@ -2477,7 +2471,6 @@ paths:
         Replaces the content of an existing human-readable document linked to the machine-readable asset
         identified by {id}. The human-readable asset must already be linked — use POST to create the
         initial link. The IRI of the human-readable asset is preserved.
-        Required permission: ASSET_UPDATE or ADMIN_ALL
       operationId: replaceHumanReadable
       security:
         - jwt: []
@@ -2526,7 +2519,6 @@ paths:
       summary: Download the human-readable representation linked to a machine-readable asset
       description: >
         Returns the binary content of the human-readable document linked to the asset.
-        Required permission: ASSET_READ or ADMIN_ALL
       operationId: getHumanReadable
       security:
         - jwt: []
@@ -2560,7 +2552,7 @@ paths:
       summary: Download the machine-readable asset linked to a human-readable representation
       description: >
         Returns the binary content of the machine-readable asset linked to this human-readable
-        representation. Required permission: ASSET_READ or ADMIN_ALL
+        representation.
       operationId: getMachineReadable
       security:
         - jwt: []
@@ -2737,7 +2729,6 @@ paths:
         Attaching a provenance credential does not advance the asset version counter (the counter
         reflects distinct content hashes, not metadata events). VC 1.1 payloads and credentials
         using the CAT-internal namespace are rejected with 400. Duplicate credentialId returns 409.
-        Required permission: ASSET_UPDATE or ADMIN_ALL
       operationId: addProvenanceCredential
       security:
         - jwt: []
@@ -2795,7 +2786,7 @@ paths:
       summary: List provenance credentials for an asset.
       description: >
         Returns a paginated list of provenance credentials sorted by issuedAt descending.
-        Optionally filter by version. Required permission: ASSET_READ or ADMIN_ALL
+        Optionally filter by version.
       operationId: listProvenanceCredentials
       security:
         - jwt: []
@@ -2854,7 +2845,7 @@ paths:
       summary: Verify all provenance credentials for an asset.
       description: >
         Verifies all provenance credentials for the asset (optionally filtered by version).
-        Returns an aggregated result with per-credential status. Required permission: ASSET_UPDATE
+        Returns an aggregated result with per-credential status.
         or ADMIN_ALL
       operationId: verifyAllProvenanceCredentials
       security:
@@ -2897,7 +2888,6 @@ paths:
       summary: Get a single provenance credential.
       description: >
         Returns the full provenance credential record including the raw VC content.
-        Required permission: ASSET_READ or ADMIN_ALL
       operationId: getProvenanceCredential
       security:
         - jwt: []
@@ -2936,7 +2926,7 @@ paths:
       summary: Verify a single provenance credential.
       description: >
         Validates the signature and DID of the given provenance credential and persists the
-        extended verification result. Required permission: ASSET_UPDATE or ADMIN_ALL
+        extended verification result.
       operationId: verifyProvenanceCredential
       security:
         - jwt: []
@@ -3125,7 +3115,7 @@ paths:
       tags:
         - Query
       summary: Retrieve an HTML website to send openCypher queries to the Catalogue
-      description: 'Required permission: QUERY_EXECUTE or ADMIN_ALL'
+      description: 'Required permission: ADMIN_ALL'
       operationId: querywebsite
       security:
         - jwt: []
@@ -3145,7 +3135,7 @@ paths:
         - Query
       summary: Send a query to the Catalogue
       description: >
-        Required permission: QUERY_EXECUTE or ADMIN_ALL.
+        Required permission: ADMIN_ALL.
 
 
         The SPARQL backend is RDF-star (SPARQL-Star) aware. Credential claims are projected as
@@ -3256,7 +3246,7 @@ paths:
       tags:
         - Query
       summary: Get information about the active query backend
-      description: 'Required permission: QUERY_EXECUTE or ADMIN_ALL'
+      description: 'Required permission: ADMIN_ALL'
       operationId: queryInfo
       security:
         - jwt: []
@@ -3274,7 +3264,7 @@ paths:
       tags:
         - Query
       summary: Run distributed search query in the Catalogue
-      description: 'Required permission: QUERY_EXECUTE or ADMIN_ALL'
+      description: 'Required permission: ADMIN_ALL'
       operationId: search
       security:
         - jwt: []
@@ -3305,7 +3295,7 @@ paths:
       tags:
         - Schemas
       summary: 'Get the full list of schemas (ontologies, shapes, vocabularies, JSON schemas, XML schemas).'
-      description: 'The schema identifiers, returned by this endpoint can be used to download the schema files. Includes both RDF and non-RDF schema types. Required permission: SCHEMA_READ or ADMIN_ALL'
+      description: 'The schema identifiers, returned by this endpoint can be used to download the schema files. Includes both RDF and non-RDF schema types. Required permission: ADMIN_ALL'
       operationId: getSchemas
       security:
         - jwt: []
@@ -3326,7 +3316,7 @@ paths:
       tags:
         - Schemas
       summary: 'Add a new Schema to the catalogue.'
-      description: 'This endpoint accepts an ontology (OWL), shape (SHACL), controlled vocabulary (SKOS), JSON Schema, or XML Schema (XSD), which is added to the schemas of the catalogue. Required permission: SCHEMA_CREATE or ADMIN_ALL'
+      description: 'This endpoint accepts an ontology (OWL), shape (SHACL), controlled vocabulary (SKOS), JSON Schema, or XML Schema (XSD), which is added to the schemas of the catalogue. Required permission: ADMIN_ALL'
       operationId: addSchema
       security:
         - jwt: []
@@ -3452,7 +3442,7 @@ paths:
       tags:
         - Schemas
       summary: Get a specific schema.
-      description: 'Required permission: SCHEMA_READ or ADMIN_ALL'
+      description: 'Required permission: ADMIN_ALL'
       operationId: getSchema
       security:
         - jwt: []
@@ -3501,7 +3491,7 @@ paths:
       tags:
         - Schemas
       summary: 'Replace a schema. This is only allowed for ontologies with the same IRI.'
-      description: 'Required permission: SCHEMA_UPDATE or ADMIN_ALL'
+      description: 'Required permission: ADMIN_ALL'
       operationId: updateSchema
       parameters:
         - name: schemaId
@@ -3553,7 +3543,7 @@ paths:
       tags:
         - Schemas
       summary: 'Delete a Schema'
-      description: 'Required permission: SCHEMA_DELETE or ADMIN_ALL'
+      description: 'Required permission: ADMIN_ALL'
       operationId: deleteSchema
       security:
         - jwt: [ ]
@@ -3580,7 +3570,7 @@ paths:
       tags:
         - Schemas
       summary: 'Get version history for a schema.'
-      description: 'Returns an ordered list of all versions of the schema. Required permission: SCHEMA_READ or ADMIN_ALL'
+      description: 'Returns an ordered list of all versions of the schema. Required permission: ADMIN_ALL'
       operationId: getSchemaVersions
       security:
         - jwt: []
@@ -3756,7 +3746,8 @@ paths:
     get:
       tags:
         - Participants
-      summary: Get the registered participants
+      summary: Get the authenticated participant
+      description: Requires a verified DCP identity. Returns only its own participant record; pagination totals use that same scope.
       operationId: getParticipants
       parameters:
         - $ref: '#/components/parameters/OffsetParam'
@@ -3780,6 +3771,7 @@ paths:
       tags:
         - Participants
       summary: Register a new participant in the catalogue
+      description: Requires a verified DCP identity matching the credential subject. Existing participant IDs return 409; Keycloak admin roles do not grant ownership.
       operationId: addParticipant
       requestBody:
         description: Participant credential
@@ -3802,6 +3794,8 @@ paths:
                 type: string
         '400':
           $ref: '#/components/responses/ClientError'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '403':
           $ref: '#/components/responses/Forbidden'
         '500':
@@ -3907,7 +3901,9 @@ paths:
     get:
       tags:
         - Participants
-      summary: Get all users of the registered participant
+      deprecated: true
+      summary: Retired participant user association
+      description: Always returns 410 for authenticated administrators. Catalogue participants have no Keycloak users or groups.
       operationId: getParticipantUsers
       parameters:
         - in: path
@@ -3925,6 +3921,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfiles'
+        '410':
+          description: Participant user associations have been removed.
         '400':
           $ref: '#/components/responses/ClientError'
         '403':

@@ -51,4 +51,14 @@ class SessionUtilsDcpTest {
         new TestingAuthenticationToken(identity, null, "ROLE_ADMIN_ALL", "ROLE_Ro-MU-CA"));
     assertThrows(AccessDeniedException.class, () -> SessionUtils.checkParticipantAccess(identity.participantDid()));
   }
+
+  @Test
+  void rejectsUnauthenticatedDcpAndDcpOnAdminPath() {
+    DcpAuthenticationToken token = new DcpAuthenticationToken(identity);
+    SecurityContextHolder.getContext().setAuthentication(token);
+    assertThrows(AccessDeniedException.class, SessionUtils::requireApplicationAdmin);
+    token.setAuthenticated(false);
+    assertThrows(AccessDeniedException.class, SessionUtils::getSessionParticipantId);
+    assertThrows(AccessDeniedException.class, () -> SessionUtils.checkParticipantAccess(identity.participantDid()));
+  }
 }

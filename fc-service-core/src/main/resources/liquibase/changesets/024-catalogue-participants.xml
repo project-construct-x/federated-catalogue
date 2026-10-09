@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
+  <changeSet id="2026-09-29-catalogue-participants" author="construct-x">
+    <comment>Catalogue-owned participant identities. No implicit trust or import of Keycloak groups.</comment>
+    <createTable tableName="catalogue_participants">
+      <column name="did" type="TEXT">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="name" type="TEXT">
+      </column>
+      <column name="public_key" type="TEXT">
+      </column>
+      <column name="asset_hash" type="VARCHAR(64)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="created_by" type="TEXT">
+      </column>
+      <column name="modified_by" type="TEXT">
+      </column>
+      <column name="version" type="BIGINT" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </createTable>
+    <createTable tableName="catalogue_participants_aud">
+      <column name="did" type="TEXT"/>
+      <column name="name" type="TEXT"/>
+      <column name="public_key" type="TEXT"/>
+      <column name="asset_hash" type="VARCHAR(64)"/>
+      <column name="created_by" type="TEXT"/>
+      <column name="modified_by" type="TEXT"/>
+      <column name="rev" type="INTEGER"><constraints nullable="false"/></column>
+      <column name="revtype" type="SMALLINT"/>
+    </createTable>
+    <addPrimaryKey tableName="catalogue_participants_aud" columnNames="did,rev" constraintName="catalogue_participants_aud_pk"/>
+    <addForeignKeyConstraint baseTableName="catalogue_participants_aud" baseColumnNames="rev"
+        referencedTableName="revinfo" referencedColumnNames="rev" constraintName="catalogue_participants_aud_rev_fk"/>
+    <rollback>
+      <dropTable tableName="catalogue_participants_aud"/>
+      <dropTable tableName="catalogue_participants"/>
+    </rollback>
+  </changeSet>
+</databaseChangeLog>
