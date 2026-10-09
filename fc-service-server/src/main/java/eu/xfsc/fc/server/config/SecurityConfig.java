@@ -101,18 +101,19 @@ public class SecurityConfig {
   @Bean
   @Order(1)
   public SecurityFilterChain oid4vpFilterChain(HttpSecurity http, BootstrapTokenService tokens) throws Exception {
-     http.securityMatcher("/api/auth/oid4vp/**")
-              .csrf(c -> c.disable())
-              .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-              .authorizeHttpRequests(a -> a
-                      .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/requests",
-                              "/api/auth/oid4vp/direct-post", "/api/auth/oid4vp/token").permitAll()
-                      .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/connectors/*/bind").hasAuthority("SCOPE_connector:bind")
-                      .anyRequest().denyAll())
-              .addFilterBefore(new BootstrapTokenAuthenticationFilter(tokens), AuthorizationFilter.class)
-              .exceptionHandling(c -> c.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-                      .accessDeniedHandler(accessDeniedHandler()));
-      return http.build();
+    http.securityMatcher("/api/auth/oid4vp/**")
+            .csrf(c -> c.disable())
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(a -> a
+                    .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/requests",
+                            "/api/auth/oid4vp/direct-post", "/api/auth/oid4vp/token").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/connectors/*/bind").hasAuthority("SCOPE_connector:bind")
+                    .anyRequest().denyAll())
+            .addFilterBefore(new BootstrapTokenAuthenticationFilter(tokens), AuthorizationFilter.class)
+            .exceptionHandling(c -> c.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                    .accessDeniedHandler(accessDeniedHandler()));
+    return http.build();
+  }
 
   @Bean
   @Order(2)
@@ -208,17 +209,15 @@ public class SecurityConfig {
         "/participants/*/users",
         "/roles",
         "/session"
-      )
-      .authorizeHttpRequests(authorization -> authorization
+      ).authorizeHttpRequests(authorization -> authorization
         .anyRequest()
-      .hasRole(ADMIN_ALL)
-      ).addFilterBefore(new BootstrapTokenRejectingFilter(), BearerTokenAuthenticationFilter.class)
             .access((authentication, context) -> {
                 var caller = authentication.get();
                 return new AuthorizationDecision(caller instanceof JwtAuthenticationToken && caller.isAuthenticated()
                         && caller.getAuthorities().stream().anyMatch(role -> ("ROLE_" + ADMIN_ALL).equals(role.getAuthority())));
             })
-      ).exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()))
+      ).addFilterBefore(new BootstrapTokenRejectingFilter(), BearerTokenAuthenticationFilter.class)
+            .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()))
       .oauth2ResourceServer(c -> c
           .jwt(jc -> jc.jwtAuthenticationConverter(new CustomJwtAuthenticationConverter(resourceId))));
       return http.build();
@@ -250,4 +249,5 @@ public class SecurityConfig {
       response.getWriter().write(ow.writeValueAsString(forbiddenError));
     };
   }
+
 }
