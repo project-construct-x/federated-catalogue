@@ -52,6 +52,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,6 +68,11 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -172,11 +178,22 @@ class DcpMachineSecurityTest {
     verify(verification).verifyCredential(any(), eq(true), eq(true), eq(true), eq(false));
     assertNull(SecurityContextHolder.getContext().getAuthentication());
     mvc.perform(request(verb, path)).andExpect(status().isUnauthorized());
+    String keycloak = nonDcpToken("https://keycloak.example/realms/catalogue", "admin");
+    String bootstrap = nonDcpToken("did:web:catalogue.example", "connector-bootstrap");
     mvc.perform(request(verb, path).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN_ALL")))
-        .header("Authorization", "Bearer keycloak")).andExpect(status().isUnauthorized());
+        .header("Authorization", "Bearer " + keycloak)).andExpect(status().isUnauthorized())
+        .andExpect(header().doesNotExist("X-Participant"));
     mvc.perform(request(verb, path).with(jwt().jwt(j -> j.claim("purpose", "connector-bootstrap")))
-        .header("Authorization", "Bearer bootstrap")).andExpect(status().isUnauthorized());
-    // No second membership pull: all three rejected requests failed before CS access.
+        .header("Authorization", "Bearer " + bootstrap)).andExpect(status().isUnauthorized())
+        .andExpect(header().doesNotExist("X-Participant"));
+    // Both bearer-token and browser OIDC logins can be persisted in a session. Neither is DCP.
+    mvc.perform(request(verb, path).session(adminSession())).andExpect(status().isUnauthorized())
+        .andExpect(header().doesNotExist("X-Participant"));
+    mvc.perform(request(verb, path).session(portalSession())).andExpect(status().isUnauthorized())
+        .andExpect(header().doesNotExist("X-Participant"));
+    mvc.perform(request(verb, path).session(adminSession()).header("Authorization", "Bearer " + bootstrap))
+        .andExpect(status().isUnauthorized()).andExpect(header().doesNotExist("X-Participant"));
+    // No second membership pull: rejected requests failed before CS access despite prior DCP success.
     verifyNoMoreInteractions(client, verification);
     verifyNoInteractions(decoder);
     assertNull(SecurityContextHolder.getContext().getAuthentication());
@@ -204,6 +221,54 @@ class DcpMachineSecurityTest {
     mvc.perform(get("/participants/did:web:other.example").header("Authorization", "Bearer " + token(Instant.now().plusSeconds(300))))
         .andExpect(status().isForbidden());
     assertNull(SecurityContextHolder.getContext().getAuthentication());
+  }
+
+  @Test void freshDcpProofSuppliesIdentityEvenWithAnAdministratorSession() throws Exception {
+    var session = portalSession();
+    Object original = session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+    mvc.perform(get("/participants").session(session)
+        .header("Authorization", "Bearer " + token(Instant.now().plusSeconds(300))))
+        .andExpect(status().isOk()).andExpect(header().string("X-Participant", HOLDER));
+    assertSame(original, session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY));
+    mvc.perform(get("/participants").session(session)).andExpect(status().isUnauthorized());
+    verify(client, times(1)).queryPresentations(any(), any(), any());
+    verifyNoInteractions(decoder);
+    assertNull(SecurityContextHolder.getContext().getAuthentication());
+  }
+
+  private MockHttpSession adminSession() {
+    var jwt = Jwt.withTokenValue("keycloak-session-token").header("alg", "RS256")
+        .issuer("https://keycloak.example/realms/catalogue").subject("administrator")
+        .claim("participant_id", HOLDER).build();
+    var session = new MockHttpSession();
+    session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+        new SecurityContextImpl(new JwtAuthenticationToken(jwt,
+            List.of(new SimpleGrantedAuthority("ROLE_ADMIN_ALL")))));
+    return session;
+  }
+
+  private MockHttpSession portalSession() {
+    var roles = List.of(new SimpleGrantedAuthority("ROLE_ADMIN_ALL"));
+    var idToken = new OidcIdToken("keycloak-id-token", Instant.now(), Instant.now().plusSeconds(300),
+        Map.of("sub", "administrator", "iss", "https://keycloak.example/realms/catalogue", "participant_id", HOLDER));
+    var user = new DefaultOidcUser(roles, idToken);
+    var session = new MockHttpSession();
+    session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+        new SecurityContextImpl(new OAuth2AuthenticationToken(user, roles, "keycloak")));
+    return session;
+  }
+
+  // Valid signed JWT fixtures with catalogue audience and participant claims, but NOT self-issued DCP proofs.
+  // The bootstrap issuer is a DID to exercise iss != sub independently of the Keycloak issuer check.
+  private String nonDcpToken(String issuer, String purpose) throws Exception {
+    var issuerKey = new OctetKeyPairGenerator(Curve.Ed25519).keyID(issuer + "#key").generate();
+    var claims = new JWTClaimsSet.Builder().issuer(issuer).subject(HOLDER).audience(AUDIENCE)
+        .jwtID(UUID.randomUUID().toString()).expirationTime(Date.from(Instant.now().plusSeconds(300)))
+        .claim("purpose", purpose).claim("participant_id", HOLDER)
+        .claim("realm_access", Map.of("roles", List.of("ADMIN_ALL"))).build();
+    var jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.EdDSA).keyID(issuerKey.getKeyID()).build(), claims);
+    jwt.sign(new Ed25519Signer(issuerKey));
+    return jwt.serialize();
   }
 
   @Test void failedMembershipVerificationNeverReachesHandler() throws Exception {
