@@ -29,6 +29,30 @@ The first policy accepts exactly one presentation containing exactly one Members
 delegation and multiple membership subjects are rejected. The authenticated actor is the SI holder.
 Credential-status-list revocation policy is not added by this change and requires separate work.
 
+## Separation from Keycloak and connector bootstrap
+
+Machine operations always run through the incoming DCP filter. It discards any pre-existing
+authentication and verifies the current request's DCP proof. Keycloak access tokens,
+Keycloak administrator sessions (JWT or browser OIDC login), and catalogue-issued bootstrap
+tokens cannot substitute for that proof. Administrator roles and `participant_id` claims
+do not grant machine access. An existing browser session is neither used for DCP authentication
+nor updated with the resulting DCP identity. A valid DCP request can coexist with an admin
+session; ownership and audit attribution still use only the DCP identity.
+
+The machine authentication path does not consult a connector binding or cache a successful
+bootstrap as authorization. Every subsequent operation requires fresh DCP authentication,
+even after earlier successful machine access. The OID4VP bootstrap and connector binding
+implementation is not present in this branch. Its later integration must preserve this
+boundary and add tests using its actual issued tokens and persisted bindings.
+
+`DcpMachineSecurityTest` checks all 35 machine operations against signed non-DCP JWT fixtures
+(Keycloak-style and catalogue-DID-issued bootstrap-style), authenticated administrator contexts,
+JWT/OIDC administrator sessions, and an admin-session/bootstrap-token combination. These are
+local fixtures, not tokens issued by a running Keycloak or the future bootstrap implementation.
+The tests also check that a fresh DCP proof works alongside an admin session without granting
+access to a subsequent request lacking DCP. The Keycloak decoder and membership service are
+not used as fallbacks for rejected non-DCP requests.
+
 ## Proof validity and replay protection
 
 The implemented Construct-X membership policy requires the configured trusted issuer,
