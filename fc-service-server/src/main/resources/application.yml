@@ -28,13 +28,15 @@ spring:
     url: jdbc:postgresql://localhost:5432/postgres
     username: postgres
     password: postgres
-    platform: postgresql
     hikari:
       connectionTimeout: 30000
       idleTimeout: 600000
       maxLifetime: 1800000
       minimumIdle: 8
       maximumPoolSize: 128
+  sql:
+    init:
+      platform: postgresql
   liquibase:
     change-log: classpath:/liquibase/master-changelog.xml
   main:

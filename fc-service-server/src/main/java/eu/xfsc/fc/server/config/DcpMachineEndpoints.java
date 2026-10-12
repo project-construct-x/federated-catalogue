@@ -17,7 +17,8 @@ package eu.xfsc.fc.server.config;
  * ---license-end
  */
 
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
@@ -25,40 +26,42 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 final class DcpMachineEndpoints {
   private DcpMachineEndpoints() { }
 
+  private static final PathPatternRequestMatcher.Builder PATHS = PathPatternRequestMatcher.withDefaults();
+
   static final RequestMatcher MATCHER = new OrRequestMatcher(
-      new AntPathRequestMatcher("/assets", "GET"),
-      new AntPathRequestMatcher("/assets", "POST"),
-      new AntPathRequestMatcher("/assets/validate", "POST"),
-      new AntPathRequestMatcher("/assets/*", "GET"),
-      new AntPathRequestMatcher("/assets/*", "PUT"),
-      new AntPathRequestMatcher("/assets/*/versions", "GET"),
-      new AntPathRequestMatcher("/assets/*/versions/*/revoke", "POST"),
-      new AntPathRequestMatcher("/assets/*/human-readable", "POST"),
-      new AntPathRequestMatcher("/assets/*/human-readable", "PUT"),
-      new AntPathRequestMatcher("/assets/*/human-readable", "GET"),
-      new AntPathRequestMatcher("/assets/*/machine-readable", "GET"),
-      new AntPathRequestMatcher("/assets/*/validations", "GET"),
-      new AntPathRequestMatcher("/assets/*/compliance-check", "POST"),
-      new AntPathRequestMatcher("/assets/*/compliance-checks", "GET"),
-      new AntPathRequestMatcher("/assets/*/provenance", "POST"),
-      new AntPathRequestMatcher("/assets/*/provenance", "GET"),
-      new AntPathRequestMatcher("/assets/*/provenance/verify", "POST"),
-      new AntPathRequestMatcher("/assets/*/provenance/*", "GET"),
-      new AntPathRequestMatcher("/assets/*/provenance/*/verify", "POST"),
-      new AntPathRequestMatcher("/assets/*", "DELETE"),
-      new AntPathRequestMatcher("/assets/by-id/**", "DELETE"),
-      new AntPathRequestMatcher("/assets/*/revoke", "POST"),
-      new AntPathRequestMatcher("/validations/*", "GET"),
-      new AntPathRequestMatcher("/query", "GET"),
-      new AntPathRequestMatcher("/query", "POST"),
-      new AntPathRequestMatcher("/query/info", "GET"),
-      new AntPathRequestMatcher("/query/search", "POST"),
-      new AntPathRequestMatcher("/trust-frameworks", "GET"),
-      new AntPathRequestMatcher("/verification", "GET"),
-      new AntPathRequestMatcher("/verification", "POST"),
-      new AntPathRequestMatcher("/participants", "GET"),
-      new AntPathRequestMatcher("/participants", "POST"),
-      new AntPathRequestMatcher("/participants/*", "GET"),
-      new AntPathRequestMatcher("/participants/*", "PUT"),
-      new AntPathRequestMatcher("/participants/*", "DELETE"));
+      PATHS.matcher(HttpMethod.GET, "/assets"),
+      PATHS.matcher(HttpMethod.POST, "/assets"),
+      PATHS.matcher(HttpMethod.POST, "/assets/validate"),
+      PATHS.matcher(HttpMethod.GET, "/assets/*"),
+      PATHS.matcher(HttpMethod.PUT, "/assets/*"),
+      PATHS.matcher(HttpMethod.GET, "/assets/*/versions"),
+      PATHS.matcher(HttpMethod.POST, "/assets/*/versions/*/revoke"),
+      PATHS.matcher(HttpMethod.POST, "/assets/*/human-readable"),
+      PATHS.matcher(HttpMethod.PUT, "/assets/*/human-readable"),
+      PATHS.matcher(HttpMethod.GET, "/assets/*/human-readable"),
+      PATHS.matcher(HttpMethod.GET, "/assets/*/machine-readable"),
+      PATHS.matcher(HttpMethod.GET, "/assets/*/validations"),
+      PATHS.matcher(HttpMethod.POST, "/assets/*/compliance-check"),
+      PATHS.matcher(HttpMethod.GET, "/assets/*/compliance-checks"),
+      PATHS.matcher(HttpMethod.POST, "/assets/*/provenance"),
+      PATHS.matcher(HttpMethod.GET, "/assets/*/provenance"),
+      PATHS.matcher(HttpMethod.POST, "/assets/*/provenance/verify"),
+      PATHS.matcher(HttpMethod.GET, "/assets/*/provenance/*"),
+      PATHS.matcher(HttpMethod.POST, "/assets/*/provenance/*/verify"),
+      PATHS.matcher(HttpMethod.DELETE, "/assets/*"),
+      PATHS.matcher(HttpMethod.DELETE, "/assets/by-id/**"),
+      PATHS.matcher(HttpMethod.POST, "/assets/*/revoke"),
+      PATHS.matcher(HttpMethod.GET, "/validations/*"),
+      PATHS.matcher(HttpMethod.GET, "/query"),
+      PATHS.matcher(HttpMethod.POST, "/query"),
+      PATHS.matcher(HttpMethod.GET, "/query/info"),
+      PATHS.matcher(HttpMethod.POST, "/query/search"),
+      PATHS.matcher(HttpMethod.GET, "/trust-frameworks"),
+      PATHS.matcher(HttpMethod.GET, "/verification"),
+      PATHS.matcher(HttpMethod.POST, "/verification"),
+      PATHS.matcher(HttpMethod.GET, "/participants"),
+      PATHS.matcher(HttpMethod.POST, "/participants"),
+      PATHS.matcher(HttpMethod.GET, "/participants/*"),
+      PATHS.matcher(HttpMethod.PUT, "/participants/*"),
+      PATHS.matcher(HttpMethod.DELETE, "/participants/*"));
 }
