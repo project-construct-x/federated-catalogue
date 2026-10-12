@@ -34,6 +34,8 @@ import eu.xfsc.fc.core.pojo.CredentialVerificationResult;
 import eu.xfsc.fc.core.pojo.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.BadCredentialsException;
 
@@ -54,7 +56,11 @@ class DcpMachineAuthenticationServiceTest {
 
   @Test
   void establishesIdentityOnlyAfterStrictVerification() throws Exception {
-    response(ISSUER, HOLDER, "MembershipCredential");
+    String jwtValidity = ",\"exp\":" + Instant.now().plusSeconds(300).getEpochSecond()
+        + ",\"nbf\":" + Instant.now().minusSeconds(300).getEpochSecond();
+    response(ISSUER, HOLDER, "MembershipCredential", jwtValidity,
+        ",\"validFrom\":\"2000-01-01T00:00:00Z\",\"validUntil\":\"" + Instant.now().plusSeconds(300) + "\"",
+        jwtValidity);
     when(verification.verifyCredential(any(), eq(true), eq(true), eq(true), eq(false)))
         .thenReturn(new CredentialVerificationResult(Instant.now(), "ACTIVE", ISSUER, Instant.now(), HOLDER,
             List.of(), List.of(new Validator(HOLDER + "#key", null, null),
@@ -110,15 +116,20 @@ class DcpMachineAuthenticationServiceTest {
   }
 
   private PresentationResponseMessage response(String issuer, String subject, String type) throws Exception {
+    return response(issuer, subject, type, "", "", "");
+  }
+
+  private PresentationResponseMessage response(String issuer, String subject, String type,
+      String vcClaims, String vcFields, String vpClaims) throws Exception {
     var mapper = new ObjectMapper();
     String vc = jwt("""
         {"iss":"%s", "vc":{
-          "type":["VerifiableCredential","%s"], "issuer":"%s", "credentialSubject":{"id":"%s"}
-        }}
-        """.formatted(issuer, type, issuer, subject));
+          "type":["VerifiableCredential","%s"], "issuer":"%s", "credentialSubject":{"id":"%s"}%s
+        }%s}
+        """.formatted(issuer, type, issuer, subject, vcFields, vcClaims));
     var vp = mapper.getNodeFactory().textNode(jwt("""
-        {"iss":"%s", "vp":{"type":["VerifiablePresentation"], "verifiableCredential":[%s]}}
-        """.formatted(HOLDER, mapper.writeValueAsString(vc))));
+        {"iss":"%s", "vp":{"type":["VerifiablePresentation"], "verifiableCredential":[%s]}%s}
+        """.formatted(HOLDER, mapper.writeValueAsString(vc), vpClaims)));
     var response = new PresentationResponseMessage(List.of("https://w3id.org/dspace-dcp/v1.0/dcp.jsonld"),
         "PresentationResponseMessage", List.of(vp), null);
     when(verifier.pullForAuthentication(any(), any()))
@@ -131,6 +142,28 @@ class DcpMachineAuthenticationServiceTest {
     var encoder = Base64.getUrlEncoder().withoutPadding();
     return encoder.encodeToString("{\"alg\":\"RS256\"}".getBytes(StandardCharsets.UTF_8)) + "."
         + encoder.encodeToString(payload.getBytes(StandardCharsets.UTF_8)) + ".c2ln";
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"vc-exp", "vp-exp", "vc-nbf", "vp-nbf", "validUntil", "expirationDate",
+      "validFrom", "issuanceDate", "malformed-date"})
+  void rejectsInvalidValidityDespiteSuccessfulSignatures(String variant) throws Exception {
+    String future = Long.toString(Instant.now().plusSeconds(300).getEpochSecond());
+    String vcClaims = switch (variant) { case "vc-exp" -> ",\"exp\":1";
+      case "vc-nbf" -> ",\"nbf\":" + future; default -> ""; };
+    String vpClaims = switch (variant) { case "vp-exp" -> ",\"exp\":1";
+      case "vp-nbf" -> ",\"nbf\":" + future; default -> ""; };
+    String fields = switch (variant) {
+      case "validUntil", "expirationDate" -> ",\"" + variant + "\":\"2000-01-01T00:00:00Z\"";
+      case "validFrom", "issuanceDate" -> ",\"" + variant + "\":\"" + Instant.now().plusSeconds(300) + "\"";
+      case "malformed-date" -> ",\"validUntil\":42"; default -> "";
+    };
+    response(ISSUER, HOLDER, "MembershipCredential", vcClaims, fields, vpClaims);
+    when(verification.verifyCredential(any(), eq(true), eq(true), eq(true), eq(false)))
+        .thenReturn(new CredentialVerificationResult(Instant.now(), "ACTIVE", ISSUER, Instant.now(), HOLDER,
+            List.of(), List.of(new Validator(HOLDER + "#key", null, null),
+                new Validator(ISSUER + "#key", null, null)), null, null));
+    assertThrows(BadCredentialsException.class, () -> service.authenticateMachineAccess("Bearer si"));
   }
 
   @Test

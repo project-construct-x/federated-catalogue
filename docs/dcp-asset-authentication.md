@@ -29,6 +29,46 @@ The first policy accepts exactly one presentation containing exactly one Members
 delegation and multiple membership subjects are rejected. The authenticated actor is the SI holder.
 Credential-status-list revocation policy is not added by this change and requires separate work.
 
+## Proof validity and replay protection
+
+The implemented Construct-X membership policy requires the configured trusted issuer,
+exactly one MembershipCredential, subject equal to the SI-authenticated holder DID,
+and strict VC/VP signature verification. This follows the base policy in the
+[implementation plan](construct-x-implementation-plan.md); optional credential-status
+and `isConsumer`/`isProvider` policies are not enabled by this implementation.
+
+SI tokens require a DID issuer equal to their subject, the configured audience,
+`exp`, `jti`, and a valid signature using the DID's `capabilityInvocation` key.
+Expired or not-yet-valid SI tokens are rejected with zero clock-skew allowance.
+Membership and presentation JWTs also enforce any `exp`, `nbf` and `iat` claims.
+Credential `validFrom`/`validUntil` (VC 2.0) and `issuanceDate`/`expirationDate`
+(VC 1.1) are checked when present; malformed dates fail closed. Optional expiry
+fields are not made mandatory by this policy. Existing semantic verification
+continues to apply in addition to these authentication checks.
+
+Liquibase changeset `025-dcp-replay-protection.xml` adds `dcp_used_si_tokens`.
+After successful SI signature validation, `(issuer, jti)` is consumed atomically
+in PostgreSQL before contacting the Credential Service. Only SHA-256 hashes of
+issuer and jti plus the expiry instant are stored. Records remain until the SI
+token expires; expired entries are removed on subsequent consumption attempts.
+There is no cache-size eviction or fixed replay TTL. The old `jti-ttl` setting
+has been removed.
+
+All catalogue instances must share this database. Consumption survives process
+restarts and commits independently of subsequent membership rejection or a
+business transaction rollback. Concurrent use allows at most one request past
+this gate. Invalid signatures do not consume a token. A new SI token is needed
+for a retry, even if a downstream operation failed. The same still-valid
+MembershipCredential can be presented again with a fresh SI token; it is not
+itself a single-use credential.
+
+Missing/invalid proofs return 401. Missing trust configuration or an unavailable
+replay database fails closed with 503; there is no local-cache fallback. Existing
+ownership denials remain 403. Apply the migration before enabling traffic, retain
+the replay table across restarts/restores while its tokens remain valid, and keep
+catalogue/database clocks synchronized. Real wallet/issuer interoperability is
+still a deployment acceptance check.
+
 The authentication filter leaves bodies, content types and query parameters intact.
 For uploads, the body is the asset, not the membership proof. A DCP PresentationResponseMessage as
 the upload body is rejected on this path. Keycloak-only bearer tokens and existing login sessions
@@ -119,8 +159,9 @@ SI signature/replay validation, pull orchestration and membership policy. Extern
 DID/CS access, stored query lookup and VC/VP cryptography are isolated in this test.
 Other HTTP security tests cover context cleanup and operation audit attribution for
 success, denial and failure.
-Validation on 2026-10-12: 178 targeted authentication, boundary, ownership and audit
-tests passed, including all 35 machine routes; OpenAPI lint passed with seven warnings.
+Proof-policy validation on 2026-10-12: 169 targeted policy, replay, authentication
+and boundary tests passed, including the PostgreSQL migration/concurrency/rollback
+tests and all 35 machine routes; OpenAPI lint passed with seven warnings.
 The additional full-context AssetController read checks could not execute locally:
 Netty failed during context startup with `Unable to establish loopback connection`
 and `Invalid argument: connect` on Windows. This is not a successful full application

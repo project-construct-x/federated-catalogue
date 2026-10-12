@@ -37,7 +37,7 @@ public class DcpProperties {
   /** Catalogue verifier DID ({@code iss}/{@code sub} of minted verifier SI tokens). */
   private String verifierDid = "";
 
-  /** Expected {@code aud} claim on inbound client Self-Issued ID Tokens. Empty = skip aud check. */
+  /** Required {@code aud} claim on inbound client Self-Issued ID Tokens. Empty fails closed. */
   private String audience = "";
 
   /** Private JWK JSON used to sign verifier Self-Issued ID Tokens. */
@@ -45,9 +45,6 @@ public class DcpProperties {
 
   /** Lifetime of minted verifier Self-Issued ID Tokens. */
   private Duration verifierTokenTtl = Duration.ofMinutes(10);
-
-  /** TTL for seen SI token {@code jti} values (replay protection). */
-  private Duration jtiTtl = Duration.ofHours(1);
 
   /** Timeout for outbound Credential Service HTTP calls. */
   private Duration httpTimeout = Duration.ofSeconds(10);

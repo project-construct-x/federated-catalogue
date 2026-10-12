@@ -26,6 +26,7 @@ import eu.xfsc.fc.core.security.DcpIdentity;
 import eu.xfsc.fc.api.FcMediaTypes;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 import java.util.List;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -101,7 +102,16 @@ public class DcpMachineAuthenticationService {
           || !participant.equals(verified.getId()) || !issuer.equals(verified.getIssuer())) {
         throw new IllegalArgumentException("Verified membership and both signatures required");
       }
+      Instant now = Instant.now();
+      DcpProofValidity.check(SignedJWT.parse(presentation.asText()).getJWTClaimsSet(), null, now);
+      JsonNode membership = PresentationParser.parseJwtPayload(membershipJwt);
+      if (membership.has("vc")) {
+        membership = membership.get("vc");
+      }
+      DcpProofValidity.check(SignedJWT.parse(membershipJwt).getJWTClaimsSet(), membership, now);
       return new DcpIdentity(participant, pulled.holderDid());
+    } catch (AuthenticationServiceException ex) {
+      throw ex;
     } catch (RuntimeException | java.text.ParseException ex) {
       // Upstream exceptions may contain raw tokens or presentations. Do not expose or log them.
       throw new BadCredentialsException("DCP membership authentication failed");

@@ -95,11 +95,15 @@ class DcpMachineSecurityTest {
   @Autowired VerifierSiTokenFactory tokens;
   @Autowired VerificationService verification;
   @Autowired JwtDecoder decoder;
+  @Autowired DcpReplayStore replay;
   MockMvc mvc;
   OctetKeyPair key;
 
   @BeforeEach void setup() throws Exception {
-    reset(resolver, discovery, client, definitions, tokens, verification, decoder);
+    reset(resolver, discovery, client, definitions, tokens, verification, decoder, replay);
+    var consumed = java.util.concurrent.ConcurrentHashMap.<String>newKeySet();
+    when(replay.consume(anyString(), anyString(), any()))
+        .thenAnswer(call -> consumed.add(call.getArgument(0) + "|" + call.getArgument(1)));
     properties.setAudience(AUDIENCE);
     properties.getPostAssets().setRequiredIssuer(ISSUER);
     key = new OctetKeyPairGenerator(Curve.Ed25519).keyID(KID).generate();
@@ -217,6 +221,31 @@ class DcpMachineSecurityTest {
     verifyNoInteractions(client, verification, resolver);
   }
 
+  @Test void replayStoreFailureCannotAuthorizeAnOperation() throws Exception {
+    when(replay.consume(anyString(), anyString(), any()))
+        .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("database unavailable"));
+    mvc.perform(post("/query/search").header("Authorization", "Bearer " + token(Instant.now().plusSeconds(300))))
+        .andExpect(status().isServiceUnavailable()).andExpect(header().doesNotExist("X-Participant"));
+    verifyNoInteractions(client, verification);
+    assertNull(SecurityContextHolder.getContext().getAuthentication());
+  }
+
+  @Test void expiredPresentationIsRejectedAndItsSiTokenRemainsConsumed() throws Exception {
+    var original = presentation();
+    var expired = new JWTClaimsSet.Builder(SignedJWT.parse(original.presentation().getFirst().asText()).getJWTClaimsSet())
+        .expirationTime(Date.from(Instant.now().minusSeconds(1))).build();
+    var mapper = new ObjectMapper();
+    var response = new PresentationResponseMessage(original.context(), original.type(),
+        List.of(mapper.getNodeFactory().textNode(fixtureJwt(mapper.writeValueAsString(expired.toJSONObject())))), null);
+    when(client.queryPresentations(any(), any(), any())).thenReturn(response);
+    String proof = token(Instant.now().plusSeconds(300));
+    mvc.perform(get("/query/info").header("Authorization", "Bearer " + proof))
+        .andExpect(status().isUnauthorized()).andExpect(header().doesNotExist("X-Participant"));
+    when(client.queryPresentations(any(), any(), any())).thenReturn(original);
+    mvc.perform(get("/participants").header("Authorization", "Bearer " + proof)).andExpect(status().isUnauthorized());
+    verify(client, times(1)).queryPresentations(any(), any(), any());
+  }
+
   @ParameterizedTest
   @CsvSource({"POST,/query/search", "GET,/trust-frameworks", "GET,/validations/example", "POST,/verification"})
   void additionalSurfacesAuditVerifiedIdentityWithoutPayloads(String method, String path) throws Exception {
@@ -305,8 +334,9 @@ class DcpMachineSecurityTest {
     @Bean VerifierSiTokenFactory tokens() { return mock(VerifierSiTokenFactory.class); }
     @Bean VerificationService verification() { return mock(VerificationService.class); }
     @Bean JwtDecoder decoder() { return mock(JwtDecoder.class); }
+    @Bean DcpReplayStore replay() { return mock(DcpReplayStore.class); }
     @Bean SelfIssuedIdTokenValidator validator(DidDocumentResolver resolver) {
-      return new SelfIssuedIdTokenValidator(resolver, properties());
+      return new SelfIssuedIdTokenValidator(resolver, properties(), replay());
     }
     @Bean DcpVerifierService verifier(SelfIssuedIdTokenValidator validator) {
       return new DcpVerifierService(validator, discovery(), definitions(), tokens(), client());

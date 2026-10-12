@@ -17,8 +17,6 @@ package eu.xfsc.fc.core.service.dcp;
  * ---license-end
  */
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSVerifier;
@@ -45,6 +43,8 @@ import java.util.Map;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.dao.DataAccessException;
+import org.springframework.security.authentication.AuthenticationServiceException;
 
 /**
  * Validates DCP Self-Issued ID Tokens per the Eclipse DCP SI-token rules:
@@ -58,15 +58,12 @@ public class SelfIssuedIdTokenValidator {
 
   private final DidDocumentResolver didResolver;
   private final DcpProperties properties;
-  private final Cache<String, Boolean> jtiCache;
+  private final DcpReplayStore replayStore;
 
-  public SelfIssuedIdTokenValidator(DidDocumentResolver didResolver, DcpProperties properties) {
+  public SelfIssuedIdTokenValidator(DidDocumentResolver didResolver, DcpProperties properties, DcpReplayStore replayStore) {
     this.didResolver = didResolver;
     this.properties = properties;
-    this.jtiCache = Caffeine.newBuilder()
-        .expireAfterWrite(properties.getJtiTtl())
-        .maximumSize(100_000)
-        .build();
+    this.replayStore = replayStore;
   }
 
   /**
@@ -81,6 +78,9 @@ public class SelfIssuedIdTokenValidator {
     JWTClaimsSet claims = parseClaims(signedJwt);
     String iss = requireClaim(claims.getIssuer(), "iss");
     String sub = requireClaim(claims.getSubject(), "sub");
+    if (!iss.startsWith("did:")) {
+      throw invalid("SI issuer must be a DID");
+    }
     if (!iss.equals(sub)) {
       throw invalid("iss must equal sub (got iss='" + iss + "', sub='" + sub + "')");
     }
@@ -100,18 +100,24 @@ public class SelfIssuedIdTokenValidator {
       kid = iss + kid;
     }
     verifySignature(signedJwt, header, kid, iss, methods);
-    rememberJti(jti);
+    try {
+      if (!replayStore.consume(iss, jti, claims.getExpirationTime().toInstant())) {
+        throw invalid("SI token expired or already used");
+      }
+    } catch (DataAccessException ex) {
+      throw new AuthenticationServiceException("DCP replay protection unavailable");
+    }
 
     String opaqueToken = claimAsString(claims, "token");
     String aud = firstAudience(claims);
-    log.debug("validate; accepted SI token for holderDid={}, jti={}", iss, jti);
+    log.debug("validate; accepted SI token for holderDid={}", iss);
     return new ValidatedSelfIssuedIdToken(iss, aud, jti, opaqueToken, compact);
   }
 
   private void verifyAudience(JWTClaimsSet claims) {
     String expected = properties.getAudience();
     if (expected == null || expected.isBlank()) {
-      return;
+      throw new AuthenticationServiceException("DCP audience must be configured");
     }
     List<String> audiences = claims.getAudience();
     if (audiences == null || audiences.stream().noneMatch(expected::equals)) {
@@ -121,16 +127,11 @@ public class SelfIssuedIdTokenValidator {
 
   private void verifyTimeClaims(JWTClaimsSet claims) {
     try {
-      new DefaultJWTClaimsVerifier<>(null, Set.of("exp")).verify(claims, null);
+      var verifier = new DefaultJWTClaimsVerifier<>(null, Set.of("exp"));
+      verifier.setMaxClockSkew(0);
+      verifier.verify(claims, null);
     } catch (BadJWTException ex) {
       throw invalid("JWT claims validation failed: " + ex.getMessage());
-    }
-  }
-
-  private void rememberJti(String jti) {
-    Boolean previous = jtiCache.asMap().putIfAbsent(jti, Boolean.TRUE);
-    if (previous != null) {
-      throw invalid("jti replay detected: " + jti);
     }
   }
 
