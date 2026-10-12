@@ -151,6 +151,32 @@ are JSON-escaped. The interceptor does not authenticate requests. Internal servi
 without MVC are outside this operation audit;
 their committed database mutations remain covered by Envers.
 
+## Identity propagation and request-supplied participant identifiers
+
+After verification, `DcpMachineAuthenticationFilter` installs a `DcpAuthenticationToken`
+containing the immutable `DcpIdentity` in the request's Spring Security context. The
+filter clears that context on completion, including failed requests. This is the identity
+source for the existing ownership checks (`SessionUtils` / `DcpParticipantAccess`),
+Spring Data auditing (`SecurityAuditorAware`), Envers revisions (`DcpRevisionListener`)
+and HTTP operation auditing (`DcpOperationAuditInterceptor`). The operation interceptor
+captures the identity when MVC starts, before the filter clears the context.
+
+Participant identifiers in paths or credential bodies identify the requested resource;
+they do not authenticate the caller. Participant registration checks the verified credential
+subject against the DCP participant; updates cannot change the registered participant DID.
+Asset writes check the credential issuer and, when replacing an asset, its existing owner.
+Participant/actor headers and query parameters cannot replace the security-context identity.
+The optional actor DID remains separate from the participant DID used for ownership.
+
+`DcpIdentityPropagationTest` exercises the incoming filter, actual participant controller and
+service, and operation audit together. It covers misleading headers/query parameters/body
+fields, foreign participant paths and credential subjects, identity changes during updates,
+and context cleanup before a following unauthenticated request. At the mocked persistence
+boundary it also invokes both real persistence audit consumers to check their attribution;
+`ParticipantDaoTest` separately covers database persistence and Envers wiring. Authentication
+verification and storage are isolated in the HTTP propagation test; it is not a wallet or
+database end-to-end test.
+
 ## Review scope
 
 Unit tests cover strict authentication-policy rejection and the existing upload pipeline.
