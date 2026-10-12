@@ -29,11 +29,11 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** Request-scoped DCP authentication. Registered only inside the asset-write security chain. */
-final class DcpAssetAuthenticationFilter extends OncePerRequestFilter {
+/** Request-scoped DCP authentication, without consuming or modifying the operation's body. */
+final class DcpMachineAuthenticationFilter extends OncePerRequestFilter {
   private final DcpMachineAuthenticationService authenticationService;
 
-  DcpAssetAuthenticationFilter(DcpMachineAuthenticationService authenticationService) {
+  DcpMachineAuthenticationFilter(DcpMachineAuthenticationService authenticationService) {
     this.authenticationService = authenticationService;
   }
 
@@ -45,7 +45,7 @@ final class DcpAssetAuthenticationFilter extends OncePerRequestFilter {
       DcpAuthenticationToken authentication;
       try {
         authentication = new DcpAuthenticationToken(
-            authenticationService.authenticateAssetWrite(request.getHeader("Authorization")));
+            authenticationService.authenticateMachineAccess(request.getHeader("Authorization")));
       } catch (AuthenticationServiceException ex) {
         response.sendError(503, "DCP authentication unavailable");
         return;

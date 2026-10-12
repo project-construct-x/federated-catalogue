@@ -22,13 +22,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-/** Audit the Strip C machine surfaces, excluding residual Keycloak user administration. */
+/** Audit machine surfaces, excluding residual Keycloak user administration. */
 @Configuration
 public class DcpOperationAuditConfig implements WebMvcConfigurer {
   @Override
   public void addInterceptors(InterceptorRegistry registry) {
     registry.addInterceptor(new DcpOperationAuditInterceptor())
-        .addPathPatterns("/assets", "/assets/**", "/participants", "/participants/**")
+        .addPathPatterns("/assets", "/assets/**", "/participants", "/participants/**",
+            "/query", "/query/**", "/verification", "/trust-frameworks", "/validations/**")
         .excludePathPatterns("/participants/*/users", "/participants/*/users/**");
   }
 }

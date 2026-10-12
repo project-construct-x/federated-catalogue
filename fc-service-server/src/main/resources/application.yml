@@ -220,10 +220,8 @@ federated-catalogue:
     protected-namespace:
       namespace: "https://projects.eclipse.org/projects/technology.xfsc/federated-catalogue/meta#"
       prefix: "fcmeta"
-  # DCP verifier pull (POST /dcp/presentations). Presentation request definitions stay in Postgres.
+  # DCP authentication for all machine operations and the presentation protocol.
   dcp:
-    # Transitional opt-in for POST /assets only; Construct-X cutover must enable this.
-    asset-authentication-enabled: ${FEDERATED_CATALOGUE_DCP_ASSET_AUTHENTICATION_ENABLED:false}
     verifier-did: "${FEDERATED_CATALOGUE_DCP_VERIFIER_DID:}"
     audience: "${FEDERATED_CATALOGUE_DCP_AUDIENCE:}"
     # Private JWK JSON used to mint verifier Self-Issued ID Tokens for Credential Service calls
@@ -231,7 +229,8 @@ federated-catalogue:
     verifier-token-ttl: 10m
     jti-ttl: 1h
     http-timeout: 10s
-    # Constraints for POST_ASSETS presentations. Empty values omit the corresponding check.
+    # Historical POST_ASSETS membership policy, shared by all machine operations.
+    # Machine authentication requires an issuer and audience; empty values fail closed.
     post-assets:
       required-issuer: "${FEDERATED_CATALOGUE_DCP_POST_ASSETS_REQUIRED_ISSUER:}"
       required-credential-type: "${FEDERATED_CATALOGUE_DCP_POST_ASSETS_REQUIRED_CREDENTIAL_TYPE:}"

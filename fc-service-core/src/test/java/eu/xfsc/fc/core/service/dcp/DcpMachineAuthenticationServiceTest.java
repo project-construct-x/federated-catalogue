@@ -59,7 +59,7 @@ class DcpMachineAuthenticationServiceTest {
         .thenReturn(new CredentialVerificationResult(Instant.now(), "ACTIVE", ISSUER, Instant.now(), HOLDER,
             List.of(), List.of(new Validator(HOLDER + "#key", null, null),
                 new Validator(ISSUER + "#key", null, null)), null, null));
-    var identity = service.authenticateAssetWrite("Bearer si");
+    var identity = service.authenticateMachineAccess("Bearer si");
     assertEquals(HOLDER, identity.participantDid());
     assertEquals(HOLDER, identity.actorDid());
     verify(verification).verifyCredential(any(), eq(true), eq(true), eq(true), eq(false));
@@ -70,7 +70,7 @@ class DcpMachineAuthenticationServiceTest {
     response(ISSUER, HOLDER, "MembershipCredential");
     when(verification.verifyCredential(any(), eq(true), eq(true), eq(true), eq(false)))
         .thenThrow(new VerificationException("sensitive credential body"));
-    var error = assertThrows(BadCredentialsException.class, () -> service.authenticateAssetWrite("Bearer si"));
+    var error = assertThrows(BadCredentialsException.class, () -> service.authenticateMachineAccess("Bearer si"));
     assertEquals("DCP membership authentication failed", error.getMessage());
     assertNull(error.getCause());
   }
@@ -78,21 +78,21 @@ class DcpMachineAuthenticationServiceTest {
   @Test
   void rejectsWrongIssuerTypeAndSubject() throws Exception {
     response("did:web:untrusted", HOLDER, "MembershipCredential");
-    assertThrows(BadCredentialsException.class, () -> service.authenticateAssetWrite("Bearer si"));
+    assertThrows(BadCredentialsException.class, () -> service.authenticateMachineAccess("Bearer si"));
     response(ISSUER, HOLDER, "OtherCredential");
-    assertThrows(BadCredentialsException.class, () -> service.authenticateAssetWrite("Bearer si"));
+    assertThrows(BadCredentialsException.class, () -> service.authenticateMachineAccess("Bearer si"));
     response(ISSUER, "did:web:other", "MembershipCredential");
-    assertThrows(BadCredentialsException.class, () -> service.authenticateAssetWrite("Bearer si"));
+    assertThrows(BadCredentialsException.class, () -> service.authenticateMachineAccess("Bearer si"));
     verifyNoInteractions(verification);
   }
 
   @Test
   void rejectsMissingTrustConfigurationBeforePull() {
     properties.setAudience("");
-    assertThrows(AuthenticationServiceException.class, () -> service.authenticateAssetWrite("Bearer si"));
+    assertThrows(AuthenticationServiceException.class, () -> service.authenticateMachineAccess("Bearer si"));
     properties.setAudience("https://catalogue.example");
     properties.getPostAssets().setRequiredIssuer("");
-    assertThrows(AuthenticationServiceException.class, () -> service.authenticateAssetWrite("Bearer si"));
+    assertThrows(AuthenticationServiceException.class, () -> service.authenticateMachineAccess("Bearer si"));
     verifyNoInteractions(verifier, verification);
   }
 
@@ -101,11 +101,11 @@ class DcpMachineAuthenticationServiceTest {
     var response = response(ISSUER, HOLDER, "MembershipCredential");
     when(verifier.pullForAuthentication(any(), any())).thenReturn(new DcpVerifierService.PulledPresentation(
         HOLDER, new PresentationResponseMessage(response.context(), response.type(), List.of(), null)));
-    assertThrows(BadCredentialsException.class, () -> service.authenticateAssetWrite("Bearer si"));
+    assertThrows(BadCredentialsException.class, () -> service.authenticateMachineAccess("Bearer si"));
     when(verifier.pullForAuthentication(any(), any())).thenReturn(new DcpVerifierService.PulledPresentation(
         HOLDER, new PresentationResponseMessage(response.context(), response.type(),
             List.of(response.presentation().getFirst(), response.presentation().getFirst()), null)));
-    assertThrows(BadCredentialsException.class, () -> service.authenticateAssetWrite("Bearer si"));
+    assertThrows(BadCredentialsException.class, () -> service.authenticateMachineAccess("Bearer si"));
     verifyNoInteractions(verification);
   }
 
@@ -136,6 +136,6 @@ class DcpMachineAuthenticationServiceTest {
   @Test
   void neverAcceptsAnUnverifiedOrNonCredentialResult() throws Exception {
     response(ISSUER, HOLDER, "MembershipCredential");
-    assertThrows(BadCredentialsException.class, () -> service.authenticateAssetWrite("Bearer si"));
+    assertThrows(BadCredentialsException.class, () -> service.authenticateMachineAccess("Bearer si"));
   }
 }

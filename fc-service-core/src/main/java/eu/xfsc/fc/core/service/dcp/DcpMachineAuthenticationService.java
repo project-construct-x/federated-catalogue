@@ -31,7 +31,7 @@ import org.springframework.security.authentication.AuthenticationServiceExceptio
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 
-/** Strict authentication boundary for asset writes; ingest verification toggles do not weaken it. */
+/** Shared membership authentication for machine operations; ingest toggles cannot weaken it. */
 @Service
 @RequiredArgsConstructor
 public class DcpMachineAuthenticationService {
@@ -44,13 +44,15 @@ public class DcpMachineAuthenticationService {
    * cryptographic VC/VP verification and a membership subject equal to the SI-authenticated holder.
    * Delegated actors and multiple credentials are deliberately not supported by this first policy.
    */
-  public DcpIdentity authenticateAssetWrite(String authorization) {
+  public DcpIdentity authenticateMachineAccess(String authorization) {
     String issuer = properties.getPostAssets().getRequiredIssuer();
     if (issuer == null || issuer.isBlank() || properties.getAudience() == null
         || properties.getAudience().isBlank()) {
       throw new AuthenticationServiceException("DCP audience and membership issuer must be configured");
     }
     try {
+      // Retain the existing stored membership policy and issuer configuration during cutover.
+      // POST_ASSETS is its historical key, not an authorization grant for an HTTP operation.
       var pulled = verifier.pullForAuthentication(authorization, DcpPurposes.POST_ASSETS);
       var presentations = pulled.response().presentation();
       if (presentations == null || presentations.size() != 1) {

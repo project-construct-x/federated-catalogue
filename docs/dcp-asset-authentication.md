@@ -1,18 +1,24 @@
-# DCP asset-write cutover
+# DCP machine authentication
 
-This first vertical slice implements DCP authentication for `POST /assets` only.
-Enable it with `FEDERATED_CATALOGUE_DCP_ASSET_AUTHENTICATION_ENABLED=true`.
-The default remains false during migration so legacy demos can be reviewed independently.
-Construct-X deployments must enable it; this is not a permanent dual-auth policy.
-Other data endpoints have not yet been cut over. Keycloak admin login is unchanged.
+DCP authentication is mandatory for all 35 machine operations in the
+[endpoint inventory](endpoint-access-inventory.md), including asset reads/writes,
+participants, provenance, compliance, query/discovery, verification, validation
+results and trust-framework listing. The former asset-only opt-in switch has been
+removed; `FEDERATED_CATALOGUE_DCP_ASSET_AUTHENTICATION_ENABLED` no longer controls
+access. Keycloak administration and the separate protocol/bootstrap paths retain
+their own security chains.
 
 Configure `FEDERATED_CATALOGUE_DCP_AUDIENCE`, `FEDERATED_CATALOGUE_DCP_VERIFIER_DID`,
 `FEDERATED_CATALOGUE_DCP_VERIFIER_SIGNING_KEY`, and
 `FEDERATED_CATALOGUE_DCP_POST_ASSETS_REQUIRED_ISSUER` (trusted membership issuer DID),
 plus the stored `POST_ASSETS` membership query definition and DID/credential-service connectivity.
+`POST_ASSETS` and the `post-assets.*` properties are retained as historical names
+for the shared membership policy so existing deployments need no policy migration.
+They now apply to authentication for every machine operation. Membership establishes
+identity; the endpoint's business/ownership checks still decide access to a resource.
 Missing audience or trusted issuer fails closed (503); rejected authentication returns 401.
 
-Each upload sends a fresh DCP Self-Issued ID Token in `Authorization: Bearer ...`.
+Each machine request sends a fresh DCP Self-Issued ID Token in `Authorization: Bearer ...`.
 The catalogue pulls the membership presentation from that holder's Credential Service.
 SI signature, audience, expiration, replay protection, membership type, issuer, subject/holder
 binding and strict VC/VP verification must succeed before a `DcpIdentity` is installed.
@@ -23,7 +29,8 @@ The first policy accepts exactly one presentation containing exactly one Members
 delegation and multiple membership subjects are rejected. The authenticated actor is the SI holder.
 Credential-status-list revocation policy is not added by this change and requires separate work.
 
-The upload body is the asset, not the membership proof. A DCP PresentationResponseMessage as
+The authentication filter leaves bodies, content types and query parameters intact.
+For uploads, the body is the asset, not the membership proof. A DCP PresentationResponseMessage as
 the upload body is rejected on this path. Keycloak-only bearer tokens and existing login sessions
 cannot authorize the upload. No OID4VP or bootstrap-token authentication is implemented.
 
@@ -76,7 +83,8 @@ see [catalogue participant storage](dcp-participant-storage.md).
 ## HTTP operation audit
 
 The `eu.xfsc.fc.server.audit.DcpOperationAudit` logger emits one JSON event at INFO on MVC
-completion for authenticated DCP operations under `/assets` and `/participants`, including their
+completion for authenticated DCP operations under `/assets`, `/participants`, `/query`,
+`/verification`, `/trust-frameworks` and `/validations`, including their applicable
 subresources. `/participants/{id}/users` remains admin-only and is excluded. These events cover
 reads and participant operations regardless of whether they create an Envers revision. They use
 the existing application logging infrastructure; retention and collection are deployment concerns.
@@ -99,14 +107,23 @@ an authenticated success event. This is not a complete log of all rejected HTTP 
 
 Events do not serialize request/response bodies, query strings, path parameters such as
 `jsessionid`, authorization headers, credentials, presentations or exception messages. Identifiers
-are JSON-escaped. The interceptor does not authenticate requests or extend the HTTP DCP cutover
-beyond its existing scope. Internal service calls without MVC are outside this operation audit;
+are JSON-escaped. The interceptor does not authenticate requests. Internal service calls
+without MVC are outside this operation audit;
 their committed database mutations remain covered by Envers.
 
 ## Review scope
 
-The model/access commits are independent of the cutover switch. Unit tests cover strict
-authentication-policy rejection and the existing upload pipeline; HTTP security tests cover
-DCP-only routing, context cleanup and operation audit attribution for success, denial and failure.
+Unit tests cover strict authentication-policy rejection and the existing upload pipeline.
+`DcpMachineSecurityTest` covers all 35 operations with real HTTP security filters,
+SI signature/replay validation, pull orchestration and membership policy. External
+DID/CS access, stored query lookup and VC/VP cryptography are isolated in this test.
+Other HTTP security tests cover context cleanup and operation audit attribution for
+success, denial and failure.
+Validation on 2026-10-12: 178 targeted authentication, boundary, ownership and audit
+tests passed, including all 35 machine routes; OpenAPI lint passed with seven warnings.
+The additional full-context AssetController read checks could not execute locally:
+Netty failed during context startup with `Unable to establish loopback connection`
+and `Invalid argument: connect` on Windows. This is not a successful full application
+startup or full-suite validation.
 A deployment acceptance test with a real wallet/Credential
-Service and trusted issuer is still required before enabling this in production.
+Service and trusted issuer is still required before production deployment.

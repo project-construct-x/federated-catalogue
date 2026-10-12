@@ -37,9 +37,10 @@ token therefore no longer opens that page or executes catalogue queries.
 ## Boundary with D and E
 
 Strip B defines which authentication is acceptable; it does not manufacture a
-DCP identity from an incoming bearer token. Only opt-in `POST /assets` currently
-has the DCP authentication filter. Other protected machine routes remain closed
-to external callers until D provides their verified DCP authentication path.
+DCP identity from an incoming bearer token. `DcpMachineSecurityConfig` now applies
+the incoming DCP authentication filter to all 35 classified machine operations.
+It uses the same method/path allowlist as the base authorization chain. Missing
+trust configuration fails closed; there is no Keycloak fallback or asset-only switch.
 OID4VP token issuance, binding and the portal login restriction remain in D.
 The HTTP operation audit interceptor runs after security: requests rejected by
 the security chain never become authenticated operation-audit events.

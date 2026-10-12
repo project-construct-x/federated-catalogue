@@ -1322,7 +1322,8 @@ components:
       scheme: bearer
       description: >-
         DCP authentication establishing a verified MembershipCredential identity; Keycloak and bootstrap tokens are not accepted.
-        General endpoint authentication is being integrated in work package D; currently only opt-in POST /assets has its DCP filter.
+        All operations using this scheme require a fresh DCP Self-Issued ID Token in the Authorization header.
+        The catalogue pulls and verifies the holder's membership presentation before invoking the operation.
     dcpSelfIssued:
       type: http
       scheme: bearer

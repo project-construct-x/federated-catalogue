@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Configuration for the catalogue acting as a DCP verifier
- * ({@code POST /dcp/presentations} and DCP presentation ingest on asset write).
+ * (machine authentication, {@code POST /dcp/presentations} and presentation ingest).
  */
 @Getter
 @Setter
@@ -53,8 +53,8 @@ public class DcpProperties {
   private Duration httpTimeout = Duration.ofSeconds(10);
 
   /**
-   * Constraints applied when verifying presentations for {@code POST_ASSETS}.
-   * Empty issuer / credential-type values omit the corresponding check.
+   * Historical {@code POST_ASSETS} policy, also used for all machine authentication.
+   * Machine authentication requires the issuer even when protocol-only checks are optional.
    */
   @NestedConfigurationProperty
   private PostAssets postAssets = new PostAssets();
