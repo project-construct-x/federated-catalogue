@@ -8,6 +8,11 @@ client role before deploying this change.
 
 ## Endpoint ownership
 
+The table below is an overview. The [endpoint access inventory](endpoint-access-inventory.md)
+classifies every OpenAPI operation by HTTP method and path, explains the decisions,
+and includes framework and development endpoints outside OpenAPI. Its categories
+are also recorded in OpenAPI as descriptive `x-access-category` metadata.
+
 | Surface | Authentication / authorization |
 | --- | --- |
 | `/admin/**`, protected `/actuator/**`, `/users/**`, `/roles`, `/session` | Keycloak JWT with application `ADMIN_ALL` |
