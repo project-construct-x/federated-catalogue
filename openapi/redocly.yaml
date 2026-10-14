@@ -2,6 +2,20 @@ extends:
   - minimal
 
 rules:
+  # Every operation must declare its intended access boundary.
+  rule/operation-access-category:
+    subject:
+      type: Operation
+      property: x-access-category
+    assertions:
+      defined: true
+      enum:
+        - administration
+        - dcp-machine
+        - bootstrap-protocol
+        - public
+    severity: error
+
   # Hard gates — broken spec / inconsistent operations
   no-unresolved-refs: error
   no-identical-paths: warn

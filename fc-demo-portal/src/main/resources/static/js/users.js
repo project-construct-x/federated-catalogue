@@ -43,7 +43,6 @@ $(document).ready(function() {
     initComplete: addSearchIcon,
     columns: [
       { data: 'id', render: $.fn.dataTable.render.text() },
-      { data: 'participantId', render: $.fn.dataTable.render.text() },
       { data: 'firstName', render: $.fn.dataTable.render.text() },
       { data: 'lastName', render: $.fn.dataTable.render.text() },
       { data: 'email', render: $.fn.dataTable.render.text() },

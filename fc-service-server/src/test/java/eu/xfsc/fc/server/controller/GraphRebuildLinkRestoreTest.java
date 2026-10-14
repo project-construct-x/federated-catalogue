@@ -63,7 +63,6 @@ import eu.xfsc.fc.core.pojo.AssetMetadata;
 import eu.xfsc.fc.core.pojo.ContentAccessorBinary;
 import eu.xfsc.fc.api.generated.model.AssetStatus;
 
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
 
 /**
  * Integration test verifying that graph rebuild restores link triples from PostgreSQL.
@@ -119,7 +118,7 @@ public class GraphRebuildLinkRestoreTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void rebuildGraphDb_afterLinkCreated_restoresLinkTriples() throws Exception {
     // Store a machine-readable non-RDF asset
@@ -182,7 +181,7 @@ public class GraphRebuildLinkRestoreTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
       @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void rebuildGraphDb_noLinks_completesWithoutError() throws Exception {
     // Single non-RDF asset, no links — rebuild should not throw

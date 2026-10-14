@@ -46,12 +46,11 @@ public interface UserDao {
   /**
    * Get list of the user profiles by filtered params.
    *
-   * @param participantId Identifier of the participant
    * @param offset        The number of items to skip before starting to collect the result set
    * @param limit         The number of items to return
    * @return List of the user profiles.
    */
-  PaginatedResults<UserProfile> search(String participantId, Integer offset, Integer limit);
+  PaginatedResults<UserProfile> search(Integer offset, Integer limit);
 
   /**
    * Delete the user.

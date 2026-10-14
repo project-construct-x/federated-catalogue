@@ -17,15 +17,9 @@ package eu.xfsc.fc.server.service;
  * ---license-end
  */
 
-import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE;
-import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_ADMIN_ROLE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_USER_ADMIN_ROLE;
-import static eu.xfsc.fc.server.util.CommonConstants.PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_ADMIN_ROLE;
-import static eu.xfsc.fc.server.util.SessionUtils.checkParticipantAccess;
-import static eu.xfsc.fc.server.util.SessionUtils.getSessionUserId;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
+import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
+import static eu.xfsc.fc.server.util.SessionUtils.requireApplicationAdmin;
 import static eu.xfsc.fc.server.util.SessionUtils.getSessionUserRoles;
 
 import java.net.URI;
@@ -41,14 +35,11 @@ import org.springframework.util.ObjectUtils;
 import eu.xfsc.fc.api.generated.model.User;
 import eu.xfsc.fc.api.generated.model.UserProfile;
 import eu.xfsc.fc.api.generated.model.UserProfiles;
-import eu.xfsc.fc.core.dao.ParticipantDao;
 import eu.xfsc.fc.core.dao.UserDao;
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.ConflictException;
-import eu.xfsc.fc.core.exception.NotFoundException;
 import eu.xfsc.fc.core.pojo.PaginatedResults;
 import eu.xfsc.fc.server.generated.controller.UsersApiDelegate;
-import eu.xfsc.fc.server.util.SessionUtils;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -61,11 +52,8 @@ public class UsersService implements UsersApiDelegate {
   @Autowired
   private UserDao userDao;
 
-  @Autowired
-  private ParticipantDao partDao;
-
   /**
-   * Service method for  register a new user to the associated participant in the catalogue.
+   * Register an administrator account independently of catalogue participants.
    *
    * @param user User entity to be added {@link User}
    * @return Created User profile (status code 201)
@@ -77,11 +65,11 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfile> addUser(User user) {
+    requireApplicationAdmin();
     log.debug("addUser.enter; got user: {}", user);
     if (ObjectUtils.isEmpty(user) || hasEmptyRequiredFields(user)) {
       throw new ClientException("User cannot be empty or have empty field values, except for the role!");
     }
-    checkParticipantAccess(user.getParticipantId());
     checkRoleAssignmentAccess(user.getRoleIds(), null);
     UserProfile profile = userDao.create(user);
     log.debug("addUser.exit; returning: {}", profile);
@@ -102,12 +90,12 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfile> updateUser(String userId, User user) {
+    requireApplicationAdmin();
     log.debug("updateUser.enter; got userId: {}", userId);
     if (ObjectUtils.isEmpty(user) || hasEmptyRequiredFields(user)) {
       throw new ClientException("User cannot be empty or have empty field values, except for the role!");
     }
     UserProfile profile = userDao.select(userId);
-    checkParticipantAccess(profile.getParticipantId());
     checkRoleAssignmentAccess(user.getRoleIds(), userId);
     profile = userDao.update(userId, user);
     log.debug("updateUser.exit; returning: {}", profile);
@@ -128,18 +116,18 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfile> deleteUser(String userId) {
+    requireApplicationAdmin();
     log.debug("deleteUser.enter; got userId: {}", userId);
     UserProfile profile = userDao.select(userId);
-    checkParticipantAccess(profile.getParticipantId());
 
-    //last participant-admin-user cannot deleted
+    //last admin-user cannot deleted
     // weird code, con't understand how it works..
-    PaginatedResults<UserProfile> profiles = userDao.search(profile.getParticipantId(), 0, 100);
-    Long participantAdminCount = profiles.getResults().stream()
-        .filter(userProfile -> userProfile.getRoleIds().contains(PARTICIPANT_ADMIN_ROLE)).count();
-    log.debug("deleteUser; total count of participant  admin is : {}", participantAdminCount);
-    if (participantAdminCount == 1) {
-        throw new ConflictException("Last participant admin cannot be deleted");
+    PaginatedResults<UserProfile> profiles = userDao.search(0, Integer.MAX_VALUE);
+    Long adminCount = profiles.getResults().stream()
+        .filter(userProfile -> userProfile.getRoleIds().contains(ADMIN_ALL)).count();
+    log.debug("deleteUser; total count of admin is : {}", adminCount);
+    if (profile.getRoleIds().contains(ADMIN_ALL) && adminCount == 1) {
+        throw new ConflictException("Last admin cannot be deleted");
     }
     profile = userDao.delete(userId);
     log.debug("deleteUser.exit; returning: {}", profile);
@@ -159,9 +147,9 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfile> getUser(String userId) {
+    requireApplicationAdmin();
     log.debug("getUser.enter; got userId: {}", userId);
     UserProfile profile = userDao.select(userId);
-    checkParticipantAccess(profile.getParticipantId());
     log.debug("getUser.exit; returning: {}", profile);
     return ResponseEntity.ok(profile);
   }
@@ -177,21 +165,10 @@ public class UsersService implements UsersApiDelegate {
    *        any information about the internal structure of the server. (status code 500)
    */
   @Override
-  public ResponseEntity<UserProfiles> getUsers(Integer offset, Integer limit) { //String orderBy, Boolean ascending) {
+  public ResponseEntity<UserProfiles> getUsers(Integer offset, Integer limit) {
+    requireApplicationAdmin();
     // sorting is not supported yet by keycloak admin API
-    PaginatedResults<UserProfile> profiles;
-    if (SessionUtils.sessionUserHasRole(CATALOGUE_ADMIN_ROLE_WITH_PREFIX)) {
-      profiles = userDao.search(null, offset, limit);
-    } else {
-      String participantId = SessionUtils.getSessionParticipantId();
-      if (participantId == null) {
-        throw new NotFoundException("Access restricted — your account has no participant association. "
-            + "Users with participant roles must be created through the catalogue's user management.");
-      }
-      profiles = partDao.selectUsers(participantId, offset, limit)
-          .orElseThrow(() -> new NotFoundException(
-              "The participant associated with your account was not found in the catalogue."));
-    }
+    PaginatedResults<UserProfile> profiles = userDao.search(offset, limit);
     return ResponseEntity.ok(new UserProfiles((int) profiles.getTotalCount(), profiles.getResults()));
   }
 
@@ -208,9 +185,9 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<List<String>> getUserRoles(String userId) {
+    requireApplicationAdmin();
     log.debug("getUserRoles.enter; got userId: {}", userId);
     UserProfile profile = userDao.select(userId);
-    checkParticipantAccess(profile.getParticipantId());
     log.debug("getUserRoles.exit; returning: {}", profile.getRoleIds());
     return ResponseEntity.ok(profile.getRoleIds());
   }
@@ -229,9 +206,9 @@ public class UsersService implements UsersApiDelegate {
    */
   @Override
   public ResponseEntity<UserProfile> updateUserRoles(String userId, List<String> roles) {
+    requireApplicationAdmin();
     log.debug("updateUserRoles.enter; got userId: {}, roles: {}", userId, roles);
     UserProfile profile = userDao.select(userId);
-    checkParticipantAccess(profile.getParticipantId());
     checkRoleAssignmentAccess(roles, userId);
     profile = userDao.updateRoles(userId, roles);
     log.debug("updateUserRoles.exit; returning: {}", profile);
@@ -239,7 +216,7 @@ public class UsersService implements UsersApiDelegate {
   }
 
   private boolean hasEmptyRequiredFields(User user) {
-    return StringUtils.isBlank(user.getParticipantId()) || StringUtils.isBlank(user.getEmail())
+    return StringUtils.isBlank(user.getEmail())
         || StringUtils.isBlank(user.getFirstName()) || StringUtils.isBlank(user.getLastName());
   }
 
@@ -264,53 +241,10 @@ public class UsersService implements UsersApiDelegate {
    * @param userId user of the user for which the roles are updated
    */
   private void doCheckRoleAssignmentRule(List<String> sessionUserRoles, String roleToUpdate,  String userId) {
-
-    switch (roleToUpdate) {
-
-      case CATALOGUE_ADMIN_ROLE:
-
-        if (!sessionUserRoles.contains(CATALOGUE_ADMIN_ROLE_WITH_PREFIX)) {
-          log.debug("doCheckRoleAssignmentRule.fails for assigning role :{};",CATALOGUE_ADMIN_ROLE );
-          throwAccessDeniedException(CATALOGUE_ADMIN_ROLE);
-        }
-
-        break;
-
-      case PARTICIPANT_ADMIN_ROLE:
-
-        if (!sessionUserRoles.stream()
-            .anyMatch(List.of(CATALOGUE_ADMIN_ROLE_WITH_PREFIX, PARTICIPANT_ADMIN_ROLE_WITH_PREFIX)::contains)) {
-          log.debug("doCheckRoleAssignmentRule.fails for assigning role :{};",PARTICIPANT_ADMIN_ROLE );
-          throwAccessDeniedException(PARTICIPANT_ADMIN_ROLE);
-        }
-        break;
-
-      case ASSET_ADMIN_ROLE:
-
-        if (!(sessionUserRoles.stream()
-            .anyMatch(List.of(CATALOGUE_ADMIN_ROLE_WITH_PREFIX, PARTICIPANT_ADMIN_ROLE_WITH_PREFIX,
-                PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX)::contains))
-            || !(sessionUserRoles.stream()
-            .anyMatch(List.of(CATALOGUE_ADMIN_ROLE_WITH_PREFIX, PARTICIPANT_ADMIN_ROLE_WITH_PREFIX)::contains))
-            && (sessionUserRoles.contains(PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX) && (userId == null || userId.equals(getSessionUserId())))
-        ) {
-          log.debug("doCheckRoleAssignmentRule.fails for assigning role :{};",ASSET_ADMIN_ROLE );
-          throwAccessDeniedException(ASSET_ADMIN_ROLE);
-        }
-
-        break;
-
-      case PARTICIPANT_USER_ADMIN_ROLE:
-
-        if (!sessionUserRoles.stream()
-            .anyMatch(List.of(CATALOGUE_ADMIN_ROLE_WITH_PREFIX, PARTICIPANT_ADMIN_ROLE_WITH_PREFIX,
-                PARTICIPANT_USER_ADMIN_ROLE_WITH_PREFIX)::contains)) {
-          log.debug("doCheckRoleAssignmentRule.fails for assigning role :{};",PARTICIPANT_USER_ADMIN_ROLE );
-          throwAccessDeniedException(PARTICIPANT_USER_ADMIN_ROLE);
-        }
-
+    if (!sessionUserRoles.contains(ADMIN_ALL_WITH_PREFIX)) {
+      log.debug("doCheckRoleAssignmentRule.fails for assigning role :{};",roleToUpdate );
+      throwAccessDeniedException(roleToUpdate);
     }
-
   }
 
   /**
