@@ -104,6 +104,11 @@ public class Oid4vpBootstrapController {
         return binding.bind(principal, connectorDid);
     }
 
+    /**
+     * Retrieves the presentation request for a given request ID.
+     * @param requestId
+     * @return
+     */
     @GetMapping("/request/{requestId}")
     public ResponseEntity<PresentationRequest> getRequest(
             @PathVariable String requestId) {
