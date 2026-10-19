@@ -36,14 +36,12 @@ public class Oid4VpConfig {
         // return Oid4VpFactory.createDefault(props.getVerifierUrl(), props.getClientId());
         Oid4Vp oid4Vp = Oid4Vp.create(Oid4VpOptions.builder()
                 .verifierUrl(/*"http://vc-verifier:3000/api/verifier"*/props.getVerifierUrl()) // recommended: EECC VC Verifier (see link above)
-                .responseUri("https://example.com/api/auth/oid4vp/response")
+                .responseUri("http://localhost:8081/api/auth/oid4vp/direct-post")
                 .redirectUri("https://example.com/login/oid4vp")
-                .requestUriBaseUrl("https://example.com/api/auth/oid4vp")
+                .requestUriBaseUrl("http://localhost:8081/api/auth/oid4vp")
                 .requestUriEnabled(true)
                 .build());
 
-//        throw new UnsupportedOperationException(
-//                "Use the actual EECC Oid4Vp factory/constructor from the library API here");
         return oid4Vp;
     }
 }

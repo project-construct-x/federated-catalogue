@@ -34,6 +34,7 @@ public record PresentationRequestResult(
         String requestUri,
         String qrCodeUri,
         String challengeId,
-        String connectorDid
+        String connectorDid,
+        String walletUri
 ) {
 }

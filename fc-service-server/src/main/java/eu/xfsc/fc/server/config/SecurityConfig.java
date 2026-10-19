@@ -101,12 +101,13 @@ public class SecurityConfig {
   @Bean
   @Order(1)
   public SecurityFilterChain oid4vpFilterChain(HttpSecurity http, BootstrapTokenService tokens) throws Exception {
-    http.securityMatcher("/api/auth/oid4vp/**")
+    http.securityMatcher("/api/auth/oid4vp/**") // "/api/auth/oid4vp/requests/**",
             .csrf(c -> c.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                     .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/requests",
                             "/api/auth/oid4vp/direct-post", "/api/auth/oid4vp/token").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/auth/oid4vp/request/**").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/connectors/*/bind").hasAuthority("SCOPE_connector:bind")
                     .anyRequest().denyAll())
             .addFilterBefore(new BootstrapTokenAuthenticationFilter(tokens), AuthorizationFilter.class)

@@ -22,14 +22,12 @@ import de.eecc.oid4vc.oid4vp.Constants;
 import de.eecc.oid4vc.oid4vp.DcqlQuery;
 import de.eecc.oid4vc.oid4vp.PresentationClaims;
 import de.eecc.oid4vc.oid4vp.api.Oid4Vp;
+import de.eecc.oid4vc.oid4vp.request.PresentationRequest;
 import de.eecc.oid4vc.oid4vp.request.PresentationRequestDefinition;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Creates OID4VP presentation requests for connector bootstrap and stores matching challenges.
@@ -165,8 +163,13 @@ public class Oid4vpPresentationRequestService {
 //                Map.of("connector_did", connectorDid, "challenge_id", challenge.id()));
         var request = oid4Vp.generatePresentationRequest(myDefinition);
         var challenge = challenges.issue(connectorDid, request.getState());
-        return toResult(request, connectorDid, challenge.id());
+        String walletUri = oid4Vp.toOpenId4VpUrl(request);
+        return toResult(request, connectorDid, challenge.id(), walletUri);
         // liefert state + request_uri (bzw. openid4vp://…) für die Wallet
+    }
+
+    public Optional<PresentationRequest> findPresentationIdByRequestId(String requestId) {
+        return oid4Vp.findPresentationRequestById(requestId);
     }
 
     /**
@@ -180,14 +183,16 @@ public class Oid4vpPresentationRequestService {
     private PresentationRequestResult toResult(
             de.eecc.oid4vc.oid4vp.request.PresentationRequest request,
             String connectorDid,
-            String challengeId
+            String challengeId,
+            String walletUri
     ) {
         return new PresentationRequestResult(
                 request.getState(),
                 request.getRequestUri(),
                 request.getClientId(),
                 connectorDid,
-                challengeId
+                challengeId,
+                walletUri
         );
     }
 

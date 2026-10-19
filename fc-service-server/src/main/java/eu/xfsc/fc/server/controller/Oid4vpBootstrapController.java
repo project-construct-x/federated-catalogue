@@ -18,6 +18,7 @@ package eu.xfsc.fc.server.controller;
  */
 
 import de.eecc.oid4vc.oid4vp.VpTokenResponse;
+import de.eecc.oid4vc.oid4vp.request.PresentationRequest;
 import eu.xfsc.fc.core.service.oid4vp.BootstrapPrincipal;
 import eu.xfsc.fc.core.service.oid4vp.BootstrapTokenResponse;
 import eu.xfsc.fc.core.service.oid4vp.BootstrapTokenService;
@@ -27,16 +28,14 @@ import eu.xfsc.fc.core.service.oid4vp.Oid4vpDirectPostHandler;
 import eu.xfsc.fc.core.service.oid4vp.Oid4vpPresentationRequestService;
 import eu.xfsc.fc.core.service.oid4vp.PresentationRequestResult;
 import java.nio.file.AccessDeniedException;
+import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * REST controller exposing the OID4VP bootstrap flow for connector onboarding.
@@ -103,5 +102,18 @@ public class Oid4vpBootstrapController {
     public ConnectorBinding bind(@PathVariable String connectorDid,
                                  @AuthenticationPrincipal BootstrapPrincipal principal) throws AccessDeniedException {
         return binding.bind(principal, connectorDid);
+    }
+
+    @GetMapping("/request/{requestId}")
+    public ResponseEntity<PresentationRequest> getRequest(
+            @PathVariable String requestId) {
+
+        Optional<PresentationRequest> presentationreqOpt = requests.findPresentationIdByRequestId(requestId);
+
+        if (presentationreqOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok().body(presentationreqOpt.get());
     }
 }
