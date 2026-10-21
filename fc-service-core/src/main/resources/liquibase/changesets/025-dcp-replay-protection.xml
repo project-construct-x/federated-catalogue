@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
+    <changeSet author="construct-x" id="2026-10-12-dcp-replay-protection">
+        <comment>Durable SI-token consumption shared by catalogue instances, retained until token expiry.</comment>
+        <createTable tableName="dcp_used_si_tokens">
+            <column name="issuer_hash" type="varchar(64)">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_dcp_used_si_tokens"/>
+            </column>
+            <column name="jti_hash" type="varchar(64)">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_dcp_used_si_tokens"/>
+            </column>
+            <column name="expires_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dcp_used_si_tokens" indexName="idx_dcp_used_si_tokens_expiry">
+            <column name="expires_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

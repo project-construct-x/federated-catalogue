@@ -30,7 +30,7 @@ import org.springframework.stereotype.Service;
  * Thin catalogue orchestration for the DCP verifier pull: host transport (SI token, DID→CS,
  * HTTP) plus EECC protocol helpers. Presentation request definitions come from
  * {@link DcpPresentationRequestService}; response shape and holder binding are enforced by
- * {@link DcpPresentation#verifyAndExtractClaims} via {@code requiresSubjectId}.
+ * {@link PresentationQueryDefinition#assertResponseMatches} via {@code requiresSubjectId}.
  */
 @Slf4j
 @Service
@@ -48,6 +48,11 @@ public class DcpVerifierService {
    * and validates the response with the stored query definition (including holder binding).
    */
   public PresentationResponseMessage pullPresentations(String authorizationHeader, String purpose) {
+    return pullForAuthentication(authorizationHeader, purpose).response();
+  }
+
+  /** Pulls a response with its SI-authenticated holder; callers must still verify VC/VP signatures. */
+  public PulledPresentation pullForAuthentication(String authorizationHeader, String purpose) {
     String effectivePurpose =
         (purpose == null || purpose.isBlank()) ? DcpPurposes.POST_ASSETS : purpose.strip();
 
@@ -65,12 +70,18 @@ public class DcpVerifierService {
     PresentationResponseMessage response =
         credentialServiceClient.queryPresentations(csUrl, queryMessage, verifierSi);
 
-    // Package enforces structure + requiresSubjectId / requiresIssuer constraints
-    dcp.verifyAndExtractClaims(definition, response);
+    // Enforce structure and holder/issuer constraints. The caller verifies signatures and
+    // extracts the identity; generic claim extraction is unnecessary here and rejects valid
+    // JWT credentials whose claims are nested under "vc" in EECC DCP 1.0.0.
+    definition.assertResponseMatches(response);
 
     log.debug("pullPresentations; purpose={}, holderDid={}, presentations={}",
         effectivePurpose, holderDid,
         response.presentation() == null ? 0 : response.presentation().size());
-    return response;
+    return new PulledPresentation(holderDid, response);
+  }
+
+  /** Protocol-checked response; this is not yet a verified membership identity. */
+  public record PulledPresentation(String holderDid, PresentationResponseMessage response) {
   }
 }

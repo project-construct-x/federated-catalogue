@@ -71,8 +71,8 @@ Missing or wrong membership → write rejected even if a Keycloak Bearer is pres
 
 ## Prerequisites
 
-- Same as [`../README.md`](../README.md): local compose stack, `hurl`, Keycloak user for lab
-  publishes until Phase 6.
+- Same as [`../README.md`](../README.md): local compose stack and `hurl`. The legacy publish helper is pending DCP
+  authentication migration and must not be enabled by adding a non-admin Keycloak account or catalogue role.
 - Signing for strict mode: same flow as
   [`../dcs-template-demo/README.md`](../dcs-template-demo/README.md#signing-the-fixtures-for-strict-mode)
   (`fc-tools/signing/generate-jwt-fixture.py`).

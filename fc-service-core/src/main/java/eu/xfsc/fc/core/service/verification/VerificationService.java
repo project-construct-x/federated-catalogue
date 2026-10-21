@@ -21,8 +21,6 @@ import eu.xfsc.fc.core.exception.VerificationException;
 import eu.xfsc.fc.core.pojo.ContentAccessor;
 import eu.xfsc.fc.core.pojo.CredentialVerificationResult;
 
-import org.springframework.stereotype.Service;
-
 /**
  * Ingest-time verification of W3C Verifiable Credentials and Presentations.
  * Parses JSON-LD VC/VP payloads, verifies signatures, applies the protected-namespace
@@ -33,7 +31,6 @@ import org.springframework.stereotype.Service;
  * {@link eu.xfsc.fc.core.service.validation.AssetValidationService} and is not exposed
  * through this interface.</p>
  */
-@Service
 public interface VerificationService {
 
   /**

@@ -102,11 +102,12 @@ prove anything about the catalogue's behaviour.
 
 This is the canonical demo once a participant has a public DID-web origin serving its certificate chain.
 
+The bearer value below must come from the integrated DCP machine-authentication flow. A Keycloak password grant is
+not valid for this flow: the reduced realm reserves Keycloak for application administration and disables direct-access
+grants.
+
 ```bash
-export TOKEN=$(curl -fsS -d grant_type=password -d client_id=federated-catalogue \
-  -d client_secret=<secret> -d username=<user> -d password=<pw> \
-  http://key-server:8080/realms/federated-catalogue-realm/protocol/openid-connect/token \
-  | jq -r .access_token)
+export TOKEN=<token-from-DCP-machine-authentication-flow>
 export FRAMEWORK_PROFILE_ID="gaia-x-loire-public"   # to be registered in the catalogue
 export PARTICIPANT_VP=/path/to/signed-participant-vp.jwt   # signed with x5u, not x5c
 

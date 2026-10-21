@@ -246,7 +246,7 @@ public class TrustFrameworkAdminControllerTest {
 
   @Test
   @WithMockUser
-  void patchTrustFrameworkBaseClass_wrongRole_returns403() throws Exception {
+  void patchTrustFrameworkBaseClass_noAdminRole_returns403() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
             .patch("/admin/trust-frameworks/gaia-x-2511/base-classes/Participant")
             .contentType(MERGE_PATCH_JSON_VALUE)
@@ -382,7 +382,7 @@ public class TrustFrameworkAdminControllerTest {
 
   @Test
   @WithMockUser
-  void patchTrustFrameworkBundleConfig_wrongRole_returns403() throws Exception {
+  void patchTrustFrameworkBundleConfig_noAdminRole_returns403() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
             .patch("/admin/trust-frameworks/bundles/gaia-x-2511")
             .contentType(MERGE_PATCH_JSON_VALUE)
@@ -480,7 +480,7 @@ public class TrustFrameworkAdminControllerTest {
 
   @Test
   @WithMockUser
-  void deleteTrustFrameworkBundleConfig_wrongRole_returns403() throws Exception {
+  void deleteTrustFrameworkBundleConfig_noAdminRole_returns403() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
             .delete("/admin/trust-frameworks/bundles/gaia-x-2511")
             .with(csrf()))

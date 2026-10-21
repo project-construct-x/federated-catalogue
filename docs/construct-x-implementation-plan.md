@@ -441,7 +441,7 @@ Integration sketch:
 - [ ] **SHACL** — BPN (+ optional IBAN) shapes; register via `POST /schemas` in demo
 - [ ] **Discovery hurl** — BPN/name/country queries; latest-version pattern
 - [ ] **Strict profile** — env/compose + negative verification tests
-- [ ] **Keycloak strip A** — slim realm JSON (admin role only; delete `ASSET_*` / `SCHEMA_*` / `QUERY_*` / `Ro-*` / composites)
+- [x] **Keycloak strip A** — slim realm JSON (admin role only; delete `ASSET_*` / `SCHEMA_*` / `QUERY_*` / `Ro-*` / composites)
 - [ ] **Keycloak strip B** — `SecurityConfig` admin-only JWT; user data APIs off role matchers
 - [ ] **Keycloak strip C** — DID/DCP presentation scoping replaces JWT `participant_id` for machines; OID4VP bootstrap token only for initial connector auth
 - [ ] **Keycloak strip D** — DCP façade for **all machine** posts; OID4VP **only** for initial connector authentication; portal admin-only login
@@ -466,12 +466,12 @@ Lab finding while publishing `examples/construct-x-registry-demo/membership-cred
 
 **Canonical input (must work):** Construct-X issuer shape — `@context` is **remote URL list only**, contexts resolved at expand/extract time (no inline term map):
 
-```json
-"@context": [
-  "https://www.w3.org/ns/credentials/v2",
-  "https://www.w3.org/ns/credentials/status/v1"
-]
-```
++{
++  "@context": [
++    "https://www.w3.org/ns/credentials/v2",
++    "https://www.w3.org/ns/credentials/status/v1"
++  ]
++}
 
 plus `credentialSubject.isConsumer` / `isProvider` and `credentialStatus` (`BitstringStatusListEntry`) as in the int issuer JWT / `membership-credential-v2.jsonld`.
 

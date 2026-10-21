@@ -137,6 +137,34 @@ class DcpVerifierServiceTest {
         ex.getMessage());
   }
 
+  @Test
+  void pullAcceptsJwtWrappedMembershipWithoutRequiringGenericClaimExtraction() throws Exception {
+    stubClientToken();
+    when(credentialServiceDiscovery.resolveCredentialServiceUrl(HOLDER)).thenReturn(CS_URL);
+    when(requestService.requireQueryDefinition(DcpPurposes.POST_ASSETS))
+        .thenReturn(MembershipQueryDefinition.INSTANCE);
+    when(verifierSiTokenFactory.create(eq(CS_URL), eq("opaque-cs-token"))).thenReturn("verifier-si");
+    String vc = fixtureJwt("""
+        {"iss":"did:web:issuer.example","vc":{"type":["VerifiableCredential","MembershipCredential"],
+        "issuer":"did:web:issuer.example","credentialSubject":{"id":"did:web:holder.example"}}}
+        """);
+    String vp = fixtureJwt("""
+        {"iss":"did:web:holder.example","vp":{"type":["VerifiablePresentation"],"verifiableCredential":[%s]}}
+        """.formatted(MAPPER.writeValueAsString(vc)));
+    var response = new PresentationResponseMessage(List.of("https://w3id.org/dspace-dcp/v1.0/dcp.jsonld"),
+        "PresentationResponseMessage", List.of(MAPPER.getNodeFactory().textNode(vp)), null);
+    when(credentialServiceClient.queryPresentations(eq(CS_URL), any(), eq("verifier-si")))
+        .thenReturn(response);
+    assertEquals(response, service.pullPresentations("Bearer client-si", DcpPurposes.POST_ASSETS));
+  }
+
+  // Protocol fixture only; callers perform VC/VP signature verification after the pull.
+  private String fixtureJwt(String payload) {
+    var encoder = java.util.Base64.getUrlEncoder().withoutPadding();
+    return encoder.encodeToString("{\"alg\":\"RS256\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8)) + "."
+        + encoder.encodeToString(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8)) + ".c2ln";
+  }
+
   private void stubClientToken() {
     when(siTokenValidator.validate("Bearer client-si"))
         .thenReturn(new ValidatedSelfIssuedIdToken(
