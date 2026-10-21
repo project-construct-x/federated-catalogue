@@ -22,8 +22,33 @@ The development realm contains one local administrator account. Staging and prod
 must be treated as operator accounts and assigned `ADMIN_ALL`. Do not add catalogue users, connectors,
 participants, fine-grained `ASSET_*` / `SCHEMA_*` / `QUERY_*` roles, or `Ro-*` composites to these realms.
 
-The `federated-catalogue` client intentionally disables direct-access grants, service accounts, and
-Keycloak Authorization Services. Interactive administrator login uses the OIDC authorization-code flow.
+The `federated-catalogue` client disables direct-access grants and Keycloak Authorization Services.
+Interactive administrator login uses the OIDC authorization-code flow.
+
+The service account is enabled for the catalogue server's separate client-credentials access to the
+Keycloak Admin API. It has only `realm-management/manage-users` (user CRUD and user role mappings) and
+`realm-management/view-clients` (lookup of the catalogue client and its roles). It does not receive
+`ADMIN_ALL` or `realm-admin`. These are Keycloak's built-in administrative permissions, not catalogue
+machine-operation roles. The server continues to require a human administrator's `ADMIN_ALL` token
+for `/users` and `/roles`, and DCP for protected machine operations.
+
+### Updating an already imported realm
+
+Restarting Keycloak with `--import-realm` does not update an existing realm. Apply the following to the
+configured realm (including an existing `gaia-x` realm where applicable):
+
+1. Open client `federated-catalogue` and enable **Service accounts roles** under its authentication
+   capabilities; keep client authentication enabled and direct-access grants disabled.
+2. In **Service account roles**, assign the client roles `manage-users` and `view-clients` from
+   `realm-management`. Do not grant `realm-admin` or the catalogue's `ADMIN_ALL` role to this account.
+3. Ensure the server's `KEYCLOAK_CREDENTIALS_SECRET` matches this client's secret. No new secret is
+   needed when enabling the existing account. The supplied client uses full scope, so the assigned
+   roles are included in its token; deployments with restricted scope must also allow these roles.
+4. Log in to the portal as an application administrator and verify `/admin/me`, `/users` and `/roles`.
+   Verify that non-admin users are still denied. A service-account token alone must not grant access
+   to catalogue admin or protected machine APIs.
+
+Do not delete a database or clear migration checksums to apply this realm update.
 
 ### Existing `gaia-x` deployments
 
