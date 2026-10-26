@@ -76,7 +76,7 @@ public class SecurityConfig {
   @Bean
   @Order(-1)
   public SecurityFilterChain publicResourcesFilterChain(HttpSecurity http) throws Exception {
-    http.securityMatcher("/actuator/health", "/actuator/health/**", "/api/docs", "/api/docs.yaml",
+    http.securityMatcher("/actuator/health", "/actuator/health/**", "/actuator/configprops","/api/docs", "/api/docs.yaml",
             "/api/docs/**", "/swagger-ui/**", "/js/**", "/css/**")
         .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/**").permitAll()
             .anyRequest().denyAll());
