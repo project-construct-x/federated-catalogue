@@ -5,7 +5,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, graph-rebuild
+        include: health, info, graph-rebuild, configprops
 
 server:
   port: 8081
@@ -238,9 +238,10 @@ federated-catalogue:
 
 logging:
   level:
+    org.springframework.security: TRACE
     root: INFO
     eu.xfsc.fc: DEBUG
-#    org.neo4j.driver: DEBUG
+    #    org.neo4j.driver: DEBUG
 #    org.springframework: DEBUG
     org.springframework.web: DEBUG #INFO
 #    org.springframework.security: DEBUG 
