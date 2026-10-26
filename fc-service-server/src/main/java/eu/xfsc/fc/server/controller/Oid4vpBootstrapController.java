@@ -17,6 +17,7 @@ package eu.xfsc.fc.server.controller;
  * ---license-end
  */
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import de.eecc.oid4vc.oid4vp.VpTokenResponse;
 import de.eecc.oid4vc.oid4vp.request.PresentationRequest;
 import eu.xfsc.fc.core.service.oid4vp.BootstrapPrincipal;
@@ -28,6 +29,7 @@ import eu.xfsc.fc.core.service.oid4vp.Oid4vpDirectPostHandler;
 import eu.xfsc.fc.core.service.oid4vp.Oid4vpPresentationRequestService;
 import eu.xfsc.fc.core.service.oid4vp.PresentationRequestResult;
 import java.nio.file.AccessDeniedException;
+import java.text.ParseException;
 import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * REST controller exposing the OID4VP bootstrap flow for connector onboarding.
@@ -51,6 +56,8 @@ public class Oid4vpBootstrapController {
     private final Oid4vpDirectPostHandler directPost;
     private final BootstrapTokenService tokens;
     private final ConnectorBindingService binding;
+
+    private static final Logger log = LoggerFactory.getLogger(Oid4vpBootstrapController.class);
 
     /**
      * Creates an OID4VP presentation request for the connector DID.
@@ -72,7 +79,10 @@ public class Oid4vpBootstrapController {
      */
     @PostMapping(value = "/direct-post", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public VpTokenResponse.DirectPostResponse directPost(@RequestParam("vp_token") String vpToken,
-                                                         @RequestParam String state) {
+                                                         @RequestParam String state) throws ParseException, JsonProcessingException {
+
+
+        log.info("DIRECT-POST CONTROLLER WAS Reached with state: {} and vp_token: {}", state, vpToken);
         return directPost.handle(vpToken, state);
     }
 

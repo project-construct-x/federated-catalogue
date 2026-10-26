@@ -17,16 +17,24 @@ package eu.xfsc.fc.core.service.oid4vp;
  * ---license-end
  */
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jwt.SignedJWT;
 import de.eecc.dcp.vp.PresentationParser;
+import de.eecc.oid4vc.oid4vp.PresentationClaims;
 import de.eecc.oid4vc.oid4vp.VpTokenResponse;
 import de.eecc.oid4vc.oid4vp.api.DirectPostResult;
 import de.eecc.oid4vc.oid4vp.api.Oid4Vp;
 import java.text.ParseException;
 import java.util.Map;
+
+import de.eecc.oid4vc.oid4vp.request.PresentationRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Handles OID4VP direct-post responses from wallets during connector bootstrap.
@@ -44,6 +52,10 @@ public class Oid4vpDirectPostHandler {
     private final ConnectorBindingAuthorizer authorizer;
     private final Oid4vpBootstrapProperties props;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final Logger log = LoggerFactory.getLogger(Oid4vpDirectPostHandler.class);
+
     /**
      * Processes a wallet direct-post response and returns an OID4VP response code.
      *
@@ -54,8 +66,26 @@ public class Oid4vpDirectPostHandler {
      * @param state submitted OID4VP state form field
      * @return direct-post response containing the response code
      */
-    public VpTokenResponse.DirectPostResponse handle(String vpToken, String state) {
-        return oid4Vp.processDirectPost(vpToken, state, (request, parsedVpToken) -> {
+    public VpTokenResponse.DirectPostResponse handle(String vpToken, String state) throws ParseException, JsonProcessingException {
+        SignedJWT jwt = SignedJWT.parse(vpToken);
+        Object vp = jwt.getJWTClaimsSet().getClaim("vp");
+
+        String jsonVpToken = objectMapper.writeValueAsString(vp);
+//        Map<String, Object> claims = jwt.getJWTClaimsSet().toJSONObject();
+//        String jsonVpToken = new ObjectMapper().writeValueAsString(claims);
+
+        log.debug("Change jwt vp token to json (OID4VP direct-post response) for state {}: {}", state, jsonVpToken);
+        // DEBUG: The following code is commented out because it is not used in the current implementation.
+        // It was originally intended to process the direct-post response using the OID4VP library, but the actual processing is done in the next block of code.
+        // The commented-out code is kept for reference and may be useful for future debugging or development purposes.
+//        VpTokenResponse.DirectPostResponse directPostResponse =
+//                oid4Vp.processDirectPost(vpToken, state, (PresentationRequest request, JsonNode vpTokenNode) -> {
+//                    PresentationClaims claims = oid4Vp.extractPresentationClaims(myDefinition, vpTokenNode);
+//                    // persist claims on request if needed for token redemption
+//                    return DirectPostResult.issueResponseCode();
+//                });
+
+        return oid4Vp.processDirectPost(jsonVpToken, state, (request, parsedVpToken) -> {
             Challenge challenge = challenges.findActiveByState(request.getState())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "No connector binding challenge found for OID4VP state"));
