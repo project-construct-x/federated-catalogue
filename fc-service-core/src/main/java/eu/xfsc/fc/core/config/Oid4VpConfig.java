@@ -20,26 +20,27 @@ package eu.xfsc.fc.core.config;
 import de.eecc.oid4vc.oid4vp.api.Oid4Vp;
 import de.eecc.oid4vc.oid4vp.api.Oid4VpOptions;
 import eu.xfsc.fc.core.service.oid4vp.Oid4vpBootstrapProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@EnableConfigurationProperties(Oid4vpBootstrapProperties.class)
 public class Oid4VpConfig {
 
     @Bean
     public Oid4Vp oid4Vp(Oid4vpBootstrapProperties props) {
-        // WICHTIG: hier die EECC-API-Fabrikmethode oder den Konstruktor einsetzen,
-        // die in der Bibliothek tatsächlich existiert.
-        // Beispiel-Form:
-        // return new Oid4Vp(props.getVerifierUrl(), props.getClientId(), props.getResponseUri());
-        // oder:
-        // return Oid4VpFactory.createDefault(props.getVerifierUrl(), props.getClientId());
+        System.out.println("OID4VP enabled = " + props.isEnabled());
+        System.out.println("OID4VP requestUriBaseUrl = "
+                + props.getRequestUriBaseUrl());
+
         Oid4Vp oid4Vp = Oid4Vp.create(Oid4VpOptions.builder()
                 .verifierUrl(/*"http://vc-verifier:3000/api/verifier"*/props.getVerifierUrl()) // recommended: EECC VC Verifier (see link above)
-                .responseUri("http://localhost:8081/api/auth/oid4vp/direct-post")
-                .redirectUri("https://example.com/login/oid4vp")
-                .requestUriBaseUrl("http://localhost:8081/api/auth/oid4vp")
-                .requestUriEnabled(true)
+                .responseUri(/*"http://localhost:8081/api/auth/oid4vp/direct-post*/props.getResponseUri()) // recommended: local direct-post endpoint")
+                .redirectUri(/*"http://localhost:8081/api/auth/oid4vp/direct-post"*/props.getRedirectUri()) // recommended: local direct-post endpoint")
+                .requestUriBaseUrl(/*"http://localhost:8081/api/auth/oid4vp"*/props.getRequestUriBaseUrl()) // recommended: local request endpoint")
+                .requestTtl(props.getRequestTtl())
+                .requestUriEnabled(props.isEnabled())
                 .build());
 
         return oid4Vp;
