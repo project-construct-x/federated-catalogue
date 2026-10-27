@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -32,13 +33,30 @@ class KeycloakRealmConfigurationTest {
   @ParameterizedTest
   @ValueSource(strings = {"dev", "staging", "prod"})
   void adminApiServiceAccountHasOnlyTheRequiredTechnicalRoles(String environment) throws Exception {
-    Path root = Path.of("").toAbsolutePath();
-    while (root != null && !root.resolve("keycloak/realms").toFile().isDirectory()) {
-      root = root.getParent();
-    }
-    assertThat(root).as("repository root containing realm imports").isNotNull();
+    Path root = repositoryRoot("keycloak/realms");
     JsonNode realm = new ObjectMapper().readTree(root.resolve("keycloak/realms")
         .resolve(environment).resolve("fc-realm.json").toFile());
+    assertAdminOnlyRealm(realm);
+  }
+
+  @Test
+  void helmRealmMatchesTheAdminOnlyContract() throws Exception {
+    Path root = repositoryRoot("deployment/helm/fc-service/fc-realm.json");
+    JsonNode realm = new ObjectMapper().readTree(
+        root.resolve("deployment/helm/fc-service/fc-realm.json").toFile());
+    assertAdminOnlyRealm(realm);
+  }
+
+  private static Path repositoryRoot(String marker) {
+    Path root = Path.of("").toAbsolutePath();
+    while (root != null && !root.resolve(marker).toFile().exists()) {
+      root = root.getParent();
+    }
+    assertThat(root).as("repository root containing " + marker).isNotNull();
+    return root;
+  }
+
+  private static void assertAdminOnlyRealm(JsonNode realm) {
     List<JsonNode> clients = new ArrayList<>();
     realm.path("clients").forEach(client -> {
       if (client.path("clientId").asText().equals("federated-catalogue")) {
