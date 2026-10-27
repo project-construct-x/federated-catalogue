@@ -100,7 +100,7 @@ public class AssetUploadControllerDisabledGraphTest {
     }
 
     @Test
-    @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+    @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
         @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
     public void enrichNonRdfAsset_graphStoreDisabled_returns503() throws Exception {
         // Arrange: Create initial non-RDF asset

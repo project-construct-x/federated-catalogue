@@ -17,222 +17,124 @@ package eu.xfsc.fc.core.dao.impl;
  * ---license-end
  */
 
-import static eu.xfsc.fc.core.dao.impl.UserDaoImpl.toUserProfile;
-import static eu.xfsc.fc.core.util.KeycloakUtils.getErrorMessage;
-
-import eu.xfsc.fc.api.generated.model.Participant;
-import eu.xfsc.fc.api.generated.model.UserProfile;
 import eu.xfsc.fc.core.dao.ParticipantDao;
+import eu.xfsc.fc.core.dao.participants.CatalogueParticipant;
+import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.ConflictException;
 import eu.xfsc.fc.core.pojo.PaginatedResults;
 import eu.xfsc.fc.core.pojo.ParticipantMetaData;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import eu.xfsc.fc.core.security.DcpParticipantAccess;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceException;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import jakarta.ws.rs.core.Response;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.http.HttpStatus;
-import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.resource.GroupResource;
-import org.keycloak.admin.client.resource.GroupsResource;
-import org.keycloak.admin.client.resource.UsersResource;
-import org.keycloak.representations.idm.ClientRepresentation;
-import org.keycloak.representations.idm.GroupRepresentation;
-import org.keycloak.representations.idm.UserRepresentation;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Implementation of the {@link ParticipantDao} interface.
- */
-@Slf4j
-@Component
+/** Transactional catalogue storage, independent of Keycloak accounts and groups. */
+@Repository
+@Transactional
 public class ParticipantDaoImpl implements ParticipantDao {
-  private static final String ATR_NAME = "name";
-  private static final String ATR_PUBLIC_KEY  = "publicKey";
-  private static final String ATR_ASSET_HASH = "assetHash";
+  @PersistenceContext
+  private EntityManager entityManager;
 
-  @Value("${keycloak.realm}")
-  private String realm;
-  @Value("${keycloak.resource}")
-  private String resourceId;
-  @Autowired
-  private Keycloak keycloak;
-
-  /**
-   * Create Participant.
-   *
-   * @param participant Participant entity.
-   * @return Created participant.
-   */
   @Override
   public ParticipantMetaData create(ParticipantMetaData participant) {
-
-    GroupsResource instance = keycloak.realm(realm).groups();
-    GroupRepresentation groupRepo = toGroupRepo(participant);
-    Response response = instance.add(groupRepo);
-    if (response.getStatus() != HttpStatus.SC_CREATED) {
-      String message = getErrorMessage(response);
-      log.info("create.error; status {}:{}, {}", response.getStatus(), response.getStatusInfo(), message);
-      throw new ConflictException(message);
+    checkOwner(participant.getId());
+    if (entityManager.find(CatalogueParticipant.class, participant.getId()) != null) {
+      throw new ConflictException("Participant already exists: " + participant.getId());
     }
-    return participant;
+    CatalogueParticipant entity = new CatalogueParticipant();
+    entity.setDid(participant.getId());
+    copy(participant, entity);
+    try {
+      entityManager.persist(entity);
+      entityManager.flush();
+    } catch (PersistenceException ex) {
+      // A concurrent registration may pass the existence check; the primary key still wins.
+      for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+        if (cause instanceof java.sql.SQLException sql && "23505".equals(sql.getSQLState())) {
+          throw new ConflictException("Participant already exists: " + participant.getId());
+        }
+      }
+      throw ex;
+    }
+    return metadata(entity);
   }
 
-  /**
-   * Get an Optional Participant by id.
-   *
-   * @param participantId Participant id.
-   * @return Optional Participant.
-   */
   @Override
+  @Transactional(readOnly = true)
   public Optional<ParticipantMetaData> select(String participantId) {
-
-    GroupsResource instance = keycloak.realm(realm).groups();
-    List<GroupRepresentation> groups = instance.groups(participantId, 0, 1, false);
-    if (groups.size() == 0) {
-      return Optional.empty();
-    }
-    return Optional.of(toParticipantExt(groups.getFirst()));
+    return Optional.ofNullable(entityManager.find(CatalogueParticipant.class, participantId))
+        .map(ParticipantDaoImpl::metadata);
   }
 
-  /**
-   * Get list of users by participant id.
-   *
-   * @param participantId Participant id.
-   * @return Optional list of users.
-   */
   @Override
-  public Optional<PaginatedResults<UserProfile>> selectUsers(String participantId, Integer offset, Integer limit) {
-
-    GroupsResource instance = keycloak.realm(realm).groups();
-    List<GroupRepresentation> groups = instance.groups(participantId, 0, 1, false);
-    if (groups.size() == 0) {
-      return Optional.empty();
-    }
-    GroupRepresentation groupRepo = groups.getFirst();
-
-    List<UserRepresentation> users;
-    List<UserProfile> profiles = new ArrayList<>();
-
-    GroupResource group = instance.group(groupRepo.getId());
-    ClientRepresentation client = keycloak.realm(realm).clients().findByClientId(resourceId).getFirst();
-    UsersResource usersResource = keycloak.realm(realm).users();
-      users = group.members(offset, limit, false);
-    users.stream().map(user ->
-            toUserProfile(user, usersResource.get(user.getId()).roles().clientLevel(client.getId()).listAll()))
-        .forEach(profiles::add);
-    return Optional.of(new PaginatedResults<>(profiles));
+  public Optional<ParticipantMetaData> selectForUpdate(String participantId) {
+    checkOwner(participantId);
+    return Optional.ofNullable(entityManager.find(CatalogueParticipant.class, participantId,
+        LockModeType.PESSIMISTIC_WRITE)).map(ParticipantDaoImpl::metadata);
   }
 
-  /**
-   * Remove the Participant with the given id.
-   *
-   * @param participantId Participant id.
-   * @return Removed optional participant.
-   */
-  @Override
-  public Optional<ParticipantMetaData> delete(String participantId) {
-
-    GroupsResource instance = keycloak.realm(realm).groups();
-    List<GroupRepresentation> groups = instance.groups(participantId, 0, 1, false);
-    if (groups.size() == 0) {
-      return Optional.empty();
-    }
-    GroupRepresentation groupRepo = groups.getFirst();
-
-    UsersResource resource = keycloak.realm(realm).users();
-    List<UserRepresentation> users;
-    do {
-      users = instance.group(groupRepo.getId()).members();
-      users.stream().forEach(ur -> resource.delete(ur.getId()));
-    } while (users.size() > 0);
-
-    instance.group(groupRepo.getId()).remove();
-    return Optional.of(toParticipantExt(groupRepo));
-  }
-
-  /**
-   * Update the Participant with the given id.
-   *
-   * @param participantId Participant id.
-   * @param participant Participant model.
-   * @return Updated optional participant.
-   */
   @Override
   public Optional<ParticipantMetaData> update(String participantId, ParticipantMetaData participant) {
-    GroupsResource instance = keycloak.realm(realm).groups();
-    List<GroupRepresentation> groups = instance.groups(participantId, 0, 1, true);
-    if (groups.size() == 0) {
+    checkOwner(participantId);
+    if (!participantId.equals(participant.getId())) {
+      throw new ClientException("Participant ID cannot be changed");
+    }
+    CatalogueParticipant entity = entityManager.find(CatalogueParticipant.class, participantId);
+    if (entity == null) {
       return Optional.empty();
     }
-    GroupRepresentation groupRepo = groups.getFirst();
-    GroupRepresentation updated = toGroupRepo(participant);
-    instance.group(groupRepo.getId()).update(updated);
-    return Optional.of(toParticipantExt(updated));
+    copy(participant, entity);
+    entityManager.flush();
+    return Optional.of(metadata(entity));
   }
 
-  /**
-   * Get participants by filtered params.
-   *
-   * @param offset How many items to skip.
-   * @param limit The maximum number of items to return.
-   * @return List of filtered participants.
-   */
   @Override
-  public PaginatedResults<ParticipantMetaData> search(Integer offset, Integer limit) {
-    GroupsResource instance = keycloak.realm(realm).groups();
-    List<GroupRepresentation> groups = instance.groups(null, offset, limit, false);
-    Map<String, Long> counts = instance.count();
-    long total = counts.get("count");
-    // map groups to ParticipantMetaData, filter out null values
-    List<ParticipantMetaData> parts = groups.stream()
-      .map(this::toParticipantExt)
-      .filter(Objects::nonNull)
-      .collect(Collectors.toList());
-    // adjust totals. not strictly true, but better..
-    total -= groups.size() - parts.size();
-    return new PaginatedResults<>(total, parts);
-  }
-
-  /**
-   * Map participant to user group representation model.
-   *
-   * @param participant Participant model.
-   * @return User group representation model.
-   */
-  public static GroupRepresentation toGroupRepo(ParticipantMetaData participant) {
-    GroupRepresentation groupRepo = new GroupRepresentation();
-    groupRepo.setName(participant.getId());
-    groupRepo.singleAttribute(ATR_NAME, participant.getName());
-    groupRepo.singleAttribute(ATR_PUBLIC_KEY, participant.getPublicKey());
-    groupRepo.singleAttribute(ATR_ASSET_HASH, participant.getAssetHash());
-    return groupRepo;
-  }
-
-  /**
-   * Map group representation to participant model.
-   *
-   * @param groupRepo Group representation model.
-   * @return ParticipantMetaData model.
-   */
-  private ParticipantMetaData toParticipantExt(GroupRepresentation groupRepo) {
-    Map<String, List<String>> attributes = groupRepo.getAttributes();
-    // check for required attributes..
-    if (emptyAttributes(attributes.get(ATR_NAME)) || emptyAttributes(attributes.get(ATR_PUBLIC_KEY)) ||
-        emptyAttributes(attributes.get(ATR_ASSET_HASH))) {
-      return null; 
+  public Optional<ParticipantMetaData> delete(String participantId) {
+    checkOwner(participantId);
+    CatalogueParticipant entity = entityManager.find(CatalogueParticipant.class, participantId);
+    if (entity == null) {
+      return Optional.empty();
     }
-    return new ParticipantMetaData(groupRepo.getName(), attributes.get(ATR_NAME).getFirst(),
-        attributes.get(ATR_PUBLIC_KEY).getFirst(), null, attributes.get(ATR_ASSET_HASH).getFirst());
+    ParticipantMetaData result = metadata(entity);
+    entityManager.remove(entity);
+    entityManager.flush();
+    return Optional.of(result);
   }
 
-  private boolean emptyAttributes(List<String> attrs) {
-    return attrs == null || attrs.isEmpty();
+  /** Administrative catalogue inventory; machine callers are scoped by ParticipantsService. */
+  @Override
+  @Transactional(readOnly = true)
+  public PaginatedResults<ParticipantMetaData> search(Integer offset, Integer limit) {
+    if (offset == null || offset < 0 || limit == null || limit < 0) {
+      throw new ClientException("Offset must be non-negative and limit must be non-negative");
+    }
+    long total = entityManager.createQuery("select count(p) from CatalogueParticipant p", Long.class)
+        .getSingleResult();
+    var results = entityManager.createQuery("select p from CatalogueParticipant p order by p.did",
+            CatalogueParticipant.class).setFirstResult(offset).setMaxResults(limit).getResultList();
+    return new PaginatedResults<>(total, results.stream().map(ParticipantDaoImpl::metadata).toList());
+  }
+
+  private static void checkOwner(String did) {
+    DcpParticipantAccess.checkAccess(SecurityContextHolder.getContext().getAuthentication(), did);
+  }
+
+  private static void copy(ParticipantMetaData source, CatalogueParticipant target) {
+    if (source.getAssetHash() == null || !source.getAssetHash().matches("[a-fA-F0-9]{64}")) {
+      throw new ClientException("Participant credential hash must be SHA-256");
+    }
+    target.setName(source.getName());
+    target.setPublicKey(source.getPublicKey());
+    target.setAssetHash(source.getAssetHash());
+  }
+
+  private static ParticipantMetaData metadata(CatalogueParticipant entity) {
+    return new ParticipantMetaData(entity.getDid(), entity.getName(), entity.getPublicKey(), null,
+        entity.getAssetHash());
   }
 }

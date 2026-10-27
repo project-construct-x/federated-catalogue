@@ -20,6 +20,7 @@ package eu.xfsc.fc.core.dao;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -28,12 +29,14 @@ import java.util.List;
 import java.util.Set;
 
 import eu.xfsc.fc.core.dao.assets.Asset;
+import eu.xfsc.fc.core.dao.audit.AuthenticationRevision;
 import eu.xfsc.fc.core.dao.schemas.SchemaAuditRepository;
 import eu.xfsc.fc.core.dao.schemas.SchemaFile;
 import eu.xfsc.fc.core.dao.schemas.SchemaTerm;
 import org.hibernate.envers.AuditReaderFactory;
 import org.hibernate.envers.RevisionType;
 import org.hibernate.envers.query.AuditEntity;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,12 +44,15 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import eu.xfsc.fc.api.generated.model.AssetStatus;
 import eu.xfsc.fc.core.config.DatabaseConfig;
+import eu.xfsc.fc.core.security.DcpAuthenticationToken;
+import eu.xfsc.fc.core.security.DcpIdentity;
 import eu.xfsc.fc.core.security.SecurityAuditorAware;
 import eu.xfsc.fc.core.dao.assets.AssetDao;
 import eu.xfsc.fc.core.dao.assets.AssetAuditRepository;
@@ -94,9 +100,15 @@ class EnversAuditTest {
 
   @BeforeEach
   void cleanUp() {
+    SecurityContextHolder.clearContext();
     transactionTemplate.executeWithoutResult(status ->
             jdbcTemplate.execute("TRUNCATE schematerms_aud, schemafiles_aud, assets_aud,"
                                  + " revinfo, schematerms, schemafiles, assets CASCADE"));
+  }
+
+  @AfterEach
+  void clearSecurityContext() {
+    SecurityContextHolder.clearContext();
   }
 
   // --- Asset helpers ---
@@ -121,6 +133,54 @@ class EnversAuditTest {
   }
 
   // ===== Asset audit tests =====
+
+  @Test
+  void dcpWrites_persistParticipantDidInEntityAndAuditHistory() {
+    String creator = "did:web:participant-a.example";
+    String modifier = "did:web:participant-b.example";
+    SecurityContextHolder.getContext().setAuthentication(new DcpAuthenticationToken(
+        new DcpIdentity(creator, "did:web:actor-a.example")));
+    transactionTemplate.executeWithoutResult(status ->
+        assetDao.insert(buildAssetRecord("hash-dcp", "sub/dcp", creator, List.of())));
+
+    // Exercise persistence auditing directly; resource authorization belongs to the services.
+    SecurityContextHolder.getContext().setAuthentication(new DcpAuthenticationToken(
+        new DcpIdentity(modifier, "did:web:actor-b.example")));
+    transactionTemplate.executeWithoutResult(status ->
+        assetDao.update("hash-dcp", AssetStatus.REVOKED.ordinal()));
+
+    transactionTemplate.executeWithoutResult(status -> {
+      Asset current = entityManager.createQuery(
+          "select a from Asset a where a.assetHash = :hash", Asset.class)
+          .setParameter("hash", "hash-dcp").getSingleResult();
+      assertEquals(creator, current.getCreatedBy());
+      assertEquals(modifier, current.getModifiedBy());
+
+      List<?> revisions = AuditReaderFactory.get(entityManager).createQuery()
+          .forRevisionsOfEntity(Asset.class, false, true)
+          .add(AuditEntity.property("assetHash").eq("hash-dcp"))
+          .addOrder(AuditEntity.revisionNumber().asc())
+          .getResultList();
+      assertEquals(2, revisions.size());
+      Asset inserted = (Asset) auditRow(revisions, 0)[0];
+      Asset updated = (Asset) auditRow(revisions, 1)[0];
+      assertEquals(RevisionType.ADD, revisionType(revisions, 0));
+      assertEquals(creator, inserted.getCreatedBy());
+      assertEquals(creator, inserted.getModifiedBy());
+      assertEquals(RevisionType.MOD, revisionType(revisions, 1));
+      assertEquals(creator, updated.getCreatedBy());
+      assertEquals(modifier, updated.getModifiedBy());
+      assertEquals("sub/dcp", updated.getSubjectId());
+      AuthenticationRevision creation = (AuthenticationRevision) auditRow(revisions, 0)[1];
+      AuthenticationRevision modification = (AuthenticationRevision) auditRow(revisions, 1)[1];
+      assertEquals(creator, creation.getParticipantDid());
+      assertEquals("did:web:actor-a.example", creation.getActorDid());
+      assertEquals("DCP", creation.getAuthenticationMethod());
+      assertEquals(modifier, modification.getParticipantDid());
+      assertEquals("did:web:actor-b.example", modification.getActorDid());
+      assertEquals("DCP", modification.getAuthenticationMethod());
+    });
+  }
 
   @Test
   void insertAsset_createsAuditEntry() {
@@ -203,6 +263,8 @@ class EnversAuditTest {
             List.of("did:val:1")))
     );
 
+    SecurityContextHolder.getContext().setAuthentication(new DcpAuthenticationToken(
+        new DcpIdentity("did:web:deleting-participant.example", "did:web:deleting-actor.example")));
     transactionTemplate.executeWithoutResult(status ->
         assetDao.delete("hash-del")
     );
@@ -222,6 +284,26 @@ class EnversAuditTest {
     Asset deleted = (Asset) auditRow(revisions, 1)[0];
     assertEquals("hash-del", deleted.getAssetHash());
     assertEquals("sub/del", deleted.getSubjectId());
+    AuthenticationRevision creation = (AuthenticationRevision) auditRow(revisions, 0)[1];
+    assertNull(creation.getParticipantDid());
+    assertNull(creation.getAuthenticationMethod());
+    AuthenticationRevision deletion = (AuthenticationRevision) auditRow(revisions, 1)[1];
+    assertEquals("did:web:deleting-participant.example", deletion.getParticipantDid());
+    assertEquals("did:web:deleting-actor.example", deletion.getActorDid());
+    assertEquals("DCP", deletion.getAuthenticationMethod());
+  }
+
+  @Test
+  void rolledBackDcpWriteDoesNotLeaveSuccessfulAuditRevision() {
+    SecurityContextHolder.getContext().setAuthentication(new DcpAuthenticationToken(
+        new DcpIdentity("did:web:participant.example", null)));
+    transactionTemplate.executeWithoutResult(status -> {
+      assetDao.insert(buildAssetRecord("hash-rollback", "sub/rollback", "issuer", List.of()));
+      entityManager.flush();
+      status.setRollbackOnly();
+    });
+    assertEquals(0, jdbcTemplate.queryForObject("select count(*) from assets_aud", Integer.class));
+    assertEquals(0, jdbcTemplate.queryForObject("select count(*) from revinfo", Integer.class));
   }
 
   @Test
@@ -415,7 +497,7 @@ class EnversAuditTest {
           .forRevisionsOfEntity(Asset.class, false, true)
           .add(AuditEntity.property("assetHash").eq("hash-ts"))
           .getResultList();
-      var revEntity = (org.hibernate.envers.DefaultRevisionEntity) auditRow(results, 0)[1];
+      var revEntity = (AuthenticationRevision) auditRow(results, 0)[1];
       return Instant.ofEpochMilli(revEntity.getTimestamp());
     });
 
