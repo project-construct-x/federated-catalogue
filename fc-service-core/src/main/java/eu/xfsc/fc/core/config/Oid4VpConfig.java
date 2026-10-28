@@ -24,6 +24,12 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Spring configuration for the EECC OID4VP library.
+ *
+ * <p>Creates an {@link Oid4Vp} bean using the configured properties under
+ * {@code federated-catalogue.oid4vp}.
+ */
 @Configuration
 @EnableConfigurationProperties(Oid4vpBootstrapProperties.class)
 public class Oid4VpConfig {
@@ -35,10 +41,10 @@ public class Oid4VpConfig {
                 + props.getRequestUriBaseUrl());
 
         Oid4Vp oid4Vp = Oid4Vp.create(Oid4VpOptions.builder()
-                .verifierUrl(/*"http://vc-verifier:3000/api/verifier"*/props.getVerifierUrl()) // recommended: EECC VC Verifier (see link above)
-                .responseUri(/*"http://localhost:8081/api/auth/oid4vp/direct-post*/props.getResponseUri()) // recommended: local direct-post endpoint")
-                .redirectUri(/*"http://localhost:8081/api/auth/oid4vp/direct-post"*/props.getRedirectUri()) // recommended: local direct-post endpoint")
-                .requestUriBaseUrl(/*"http://localhost:8081/api/auth/oid4vp"*/props.getRequestUriBaseUrl()) // recommended: local request endpoint")
+                .verifierUrl(props.getVerifierUrl())
+                .responseUri(props.getResponseUri())
+                .redirectUri(props.getRedirectUri())
+                .requestUriBaseUrl(props.getRequestUriBaseUrl())
                 .requestTtl(props.getRequestTtl())
                 .requestUriEnabled(props.isEnabled())
                 .build());

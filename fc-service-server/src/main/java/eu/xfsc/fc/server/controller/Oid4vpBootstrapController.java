@@ -80,8 +80,6 @@ public class Oid4vpBootstrapController {
     @PostMapping(value = "/direct-post", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public VpTokenResponse.DirectPostResponse directPost(@RequestParam("vp_token") String vpToken,
                                                          @RequestParam String state) throws ParseException, JsonProcessingException {
-
-
         log.info("DIRECT-POST CONTROLLER WAS Reached with state: {} and vp_token: {}", state, vpToken);
         return directPost.handle(vpToken, state);
     }

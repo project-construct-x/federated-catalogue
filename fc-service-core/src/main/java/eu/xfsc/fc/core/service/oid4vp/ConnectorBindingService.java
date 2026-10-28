@@ -39,7 +39,7 @@ public class ConnectorBindingService {
     /**
      * Binds the connector DID from the path to the verified bootstrap principal.
      *
-     * <p>AK 6: on every error the transaction is rolled back and no binding is created.
+     * <p> on every error the transaction is rolled back and no binding is created.
      *
      * @param p authenticated bootstrap principal from the dedicated filter
      * @param connectorDid connector DID addressed by the request path

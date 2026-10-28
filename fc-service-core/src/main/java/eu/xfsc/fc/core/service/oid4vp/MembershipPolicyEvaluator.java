@@ -257,7 +257,7 @@ public class MembershipPolicyEvaluator {
                     return jwtId;
                 }
             } catch (java.text.ParseException ignored) {
-                // The presentation was already parsed during policy validation; keep fallback here.
+                // Ignore parsing failures and continue with the fallback.
             }
         }
         if (membershipJwt != null && !membershipJwt.isBlank()) {
@@ -267,7 +267,7 @@ public class MembershipPolicyEvaluator {
                     return jwtId;
                 }
             } catch (java.text.ParseException ignored) {
-                // The credential was already parsed during policy validation; keep fallback here.
+                // Ignore parsing failures and continue with the fallback.
             }
         }
         return fallback;
