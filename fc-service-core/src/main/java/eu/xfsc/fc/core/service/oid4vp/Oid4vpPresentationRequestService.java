@@ -154,18 +154,11 @@ public class Oid4vpPresentationRequestService {
             }
         };
 
-//        PresentationRequest request = oid4Vp.generatePresentationRequest(
-//                GenerateRequestOptions.<PresentationRequest>builder(myPresentationDefinition)
-//                        .redirect(true)
-//                        .builderSupplier(() -> PresentationRequest.builder().purpose("LOGIN"))
-//                        .build());
-//        return oid4Vp.createPresentationRequest(dcql, props.getVerifierUrl(),
-//                Map.of("connector_did", connectorDid, "challenge_id", challenge.id()));
         var request = oid4Vp.generatePresentationRequest(myDefinition);
         var challenge = challenges.issue(connectorDid, request.getState());
         String walletUri = oid4Vp.toOpenId4VpUrl(request);
         return toResult(request, connectorDid, challenge.id(), walletUri);
-        // liefert state + request_uri (bzw. openid4vp://…) für die Wallet
+        // return state + request_uri (or openid4vp://…) for wallet
     }
 
     public Optional<PresentationRequest> findPresentationIdByRequestId(String requestId) {

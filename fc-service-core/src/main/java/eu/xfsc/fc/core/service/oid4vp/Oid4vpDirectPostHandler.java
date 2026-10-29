@@ -69,21 +69,9 @@ public class Oid4vpDirectPostHandler {
     public VpTokenResponse.DirectPostResponse handle(String vpToken, String state) throws ParseException, JsonProcessingException {
         SignedJWT jwt = SignedJWT.parse(vpToken);
         Object vp = jwt.getJWTClaimsSet().getClaim("vp");
-
         String jsonVpToken = objectMapper.writeValueAsString(vp);
-//        Map<String, Object> claims = jwt.getJWTClaimsSet().toJSONObject();
-//        String jsonVpToken = new ObjectMapper().writeValueAsString(claims);
 
         log.debug("Change jwt vp token to json (OID4VP direct-post response) for state {}: {}", state, jsonVpToken);
-        // DEBUG: The following code is commented out because it is not used in the current implementation.
-        // It was originally intended to process the direct-post response using the OID4VP library, but the actual processing is done in the next block of code.
-        // The commented-out code is kept for reference and may be useful for future debugging or development purposes.
-//        VpTokenResponse.DirectPostResponse directPostResponse =
-//                oid4Vp.processDirectPost(vpToken, state, (PresentationRequest request, JsonNode vpTokenNode) -> {
-//                    PresentationClaims claims = oid4Vp.extractPresentationClaims(myDefinition, vpTokenNode);
-//                    // persist claims on request if needed for token redemption
-//                    return DirectPostResult.issueResponseCode();
-//                });
 
         return oid4Vp.processDirectPost(jsonVpToken, state, (request, parsedVpToken) -> {
             Challenge challenge = challenges.findActiveByState(request.getState())
