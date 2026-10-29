@@ -57,6 +57,8 @@ import eu.xfsc.fc.core.service.verification.VerificationService;
 import foundation.identity.did.DIDDocument;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
+
+import java.net.URL;
 import java.sql.Timestamp;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -142,7 +144,8 @@ class Oid4vpBootstrapControllerTest {
      */
     @Test
     void bootstrapSuccess() throws Exception {
-        String token = bootstrapToken(HOLDER, "state-success", "code-success", "vp-token-success");
+        String vpToken = readTestVpTokenFile();
+        String token = bootstrapToken(HOLDER, "state-success", "code-success", /*"vp-token-success"*/vpToken);
 
         mockMvc.perform(post("/api/auth/oid4vp/connectors/{connectorDid}/bind", HOLDER)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
@@ -159,7 +162,8 @@ class Oid4vpBootstrapControllerTest {
      */
     @Test
     void bindWithoutKeycloak() throws Exception {
-        String token = bootstrapToken(HOLDER, "state-bind", "code-bind", "vp-token-bind");
+        String vpToken = readTestVpTokenFile();
+        String token = bootstrapToken(HOLDER, "state-bind", "code-bind", /*"vp-token-bind"*/vpToken);
 
         mockMvc.perform(post("/api/auth/oid4vp/connectors/{connectorDid}/bind", HOLDER)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
@@ -189,9 +193,10 @@ class Oid4vpBootstrapControllerTest {
         mockMvc.perform(post("/api/auth/oid4vp/requests")
                 .param("connectorDid", HOLDER));
 
+        String vpToken = readTestVpTokenFile();
         mockMvc.perform(post("/api/auth/oid4vp/direct-post")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("vp_token", "vp-token-untrusted")
+                .param("vp_token", vpToken)
                 .param("state", "state-untrusted"))
             .andExpect(status().isBadRequest())
            .andExpect(jsonPath("$.message", startsWith("Signed membership issuer")));
@@ -214,9 +219,11 @@ class Oid4vpBootstrapControllerTest {
         mockMvc.perform(post("/api/auth/oid4vp/requests")
                         .param("connectorDid", HOLDER))
                 .andExpect(status().isOk());
+
+        String vpToken = readTestVpTokenFile();
         mockMvc.perform(post("/api/auth/oid4vp/direct-post")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                        .param("vp_token", "vp-token-revoked")
+                        .param("vp_token", /*"vp-token-revoked"*/vpToken)
                         .param("state", "state-revoked"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Membership credential status must be ACTIVE"));
@@ -241,9 +248,11 @@ class Oid4vpBootstrapControllerTest {
         mockMvc.perform(post("/api/auth/oid4vp/requests")
                 .param("connectorDid", CONNECTOR_A))
             .andExpect(status().isOk());
+
+        String vpToken = readTestVpTokenFile();
         mockMvc.perform(post("/api/auth/oid4vp/direct-post")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("vp_token", "vp-token-unauthorized")
+                .param("vp_token", /*"vp-token-unauthorized"*/vpToken)
                 .param("state", "state-unauthorized"))
             .andExpect(status().isForbidden());
 
@@ -266,18 +275,21 @@ class Oid4vpBootstrapControllerTest {
         mockMvc.perform(post("/api/auth/oid4vp/requests")
                 .param("connectorDid", HOLDER))
             .andExpect(status().isOk());
+
+        String vpToken = readTestVpTokenFile();
         mockMvc.perform(post("/api/auth/oid4vp/direct-post")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("vp_token", "vp-token-replay")
+                .param("vp_token", /*"vp-token-replay"*/vpToken)
                 .param("state", "state-replay-vp"))
             .andExpect(status().isOk());
         mockMvc.perform(post("/api/auth/oid4vp/direct-post")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("vp_token", "vp-token-replay")
+                .param("vp_token", /*"vp-token-replay"*/vpToken)
                 .param("state", "state-replay-vp"))
             .andExpect(status().isBadRequest());
 
-        String replayCodeToken = bootstrapToken(HOLDER, "state-replay-code", "code-replay", "vp-token-code");
+        String replayCodeToken = bootstrapToken(HOLDER, "state-replay-code", "code-replay",
+                /*"vp-token-code"*/vpToken);
         assertTrue(replayCodeToken.startsWith("ey"));
         mockMvc.perform(post("/api/auth/oid4vp/token")
                 .param("state", "state-replay-code")
@@ -285,7 +297,7 @@ class Oid4vpBootstrapControllerTest {
             .andExpect(status().isBadRequest());
 
         String bootstrapToken = bootstrapToken(HOLDER, "state-replay-bootstrap", "code-bootstrap",
-            "vp-token-bootstrap");
+            /*"vp-token-bootstrap"*/vpToken);
         mockMvc.perform(post("/api/auth/oid4vp/connectors/{connectorDid}/bind", HOLDER)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + bootstrapToken))
             .andExpect(status().isCreated());
@@ -327,9 +339,10 @@ class Oid4vpBootstrapControllerTest {
             .andExpect(status().isOk());
         expireChallenge("state-expired-challenge");
 
+        String vpToken = readTestVpTokenFile();
         mockMvc.perform(post("/api/auth/oid4vp/direct-post")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("vp_token", "vp-token-expired-challenge")
+                .param("vp_token", /*"vp-token-expired-challenge"*/vpToken)
                 .param("state", "state-expired-challenge"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("No connector binding challenge found for OID4VP state"));
@@ -362,7 +375,8 @@ class Oid4vpBootstrapControllerTest {
     @Test
     void connectorMismatch() throws Exception {
         stubConnectorDocument(CONNECTOR_A, HOLDER);
-        String token = bootstrapToken(CONNECTOR_A, "state-mismatch", "code-mismatch", "vp-token-mismatch");
+        String vpToken = readTestVpTokenFile();
+        String token = bootstrapToken(CONNECTOR_A, "state-mismatch", "code-mismatch", /*"vp-token-mismatch"*/vpToken);
 
         mockMvc.perform(post("/api/auth/oid4vp/connectors/{connectorDid}/bind", CONNECTOR_B)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
@@ -541,6 +555,17 @@ class Oid4vpBootstrapControllerTest {
             .type(new JOSEObjectType(BootstrapTokenService.TOKEN_TYPE)).build(), claims);
         jwt.sign(new MACSigner(OctetSequenceKey.parse(SIGNING_JWK)));
         return jwt.serialize();
+    }
+
+    private String readTestVpTokenFile() throws Exception {
+        URL url = getClass().getClassLoader().getResource("vp_token.txt");
+        System.out.println(url != null ? "vp_token.txt found at: " + url.getPath() : "vp_token.txt not found");
+        String content = new String(
+                getClass().getResourceAsStream("/vp_token.txt").readAllBytes(),
+                StandardCharsets.UTF_8);
+
+        System.out.println(content);
+        return content;
     }
 }
 
