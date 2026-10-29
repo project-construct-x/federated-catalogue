@@ -29,6 +29,6 @@
     <include file="changesets/022-validation-result-failure-category.xml" relativeToChangelogFile="true"/>
     <include file="changesets/023-dcp-revision-identity.xml" relativeToChangelogFile="true"/>
     <include file="changesets/024-catalogue-participants.xml" relativeToChangelogFile="true"/>
-    <include file="changesets/023-oid4vp-bootstrap.xml" relativeToChangelogFile="true"/>
     <include file="changesets/025-dcp-replay-protection.xml" relativeToChangelogFile="true"/>
+    <include file="changesets/026-oid4vp-bootstrap.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
