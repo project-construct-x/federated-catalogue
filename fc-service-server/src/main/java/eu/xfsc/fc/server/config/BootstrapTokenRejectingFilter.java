@@ -30,7 +30,7 @@ import eu.xfsc.fc.core.service.oid4vp.BootstrapTokenService;
 import java.io.IOException;
 import java.text.ParseException;
 
-/** Wird in der DCP- und Admin-Chain vorgeschaltet: typ=bootstrap+jwt -> 401 (AK 5). */
+/** Is applied before the DCP and admin security filter chains: typ=bootstrap+jwt -> 401. */
 public class BootstrapTokenRejectingFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
