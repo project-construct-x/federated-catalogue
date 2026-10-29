@@ -18,15 +18,11 @@ package eu.xfsc.fc.server.controller;
  */
 
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
-import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_DELETE;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_UPDATE;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_DELETE_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_UPDATE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestUtil.getAccessor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -59,8 +54,8 @@ import eu.xfsc.fc.api.generated.model.AssetStatus;
 import eu.xfsc.fc.api.generated.model.Assets;
 import eu.xfsc.fc.api.generated.model.Error;
 import eu.xfsc.fc.core.dao.validation.ValidationResult;
-import eu.xfsc.fc.core.security.DcpAuthenticationToken;
 import eu.xfsc.fc.core.security.DcpIdentity;
+import eu.xfsc.fc.core.service.dcp.DcpMachineAuthenticationService;
 import eu.xfsc.fc.core.dao.validation.ValidationResultRepository;
 import eu.xfsc.fc.core.dao.validation.ValidatorType;
 import eu.xfsc.fc.core.exception.NotFoundException;
@@ -108,6 +103,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -124,6 +120,19 @@ import org.springframework.web.context.WebApplicationContext;
 @AutoConfigureWireMock(port = 0)
 @Import(EmbeddedNeo4JConfig.class)
 public class AssetControllerTest {
+    @MockitoBean
+    private DcpMachineAuthenticationService machineAuthentication;
+
+    @org.junit.jupiter.api.BeforeEach
+    void configureMachineAuthentication() {
+        // Controller/storage tests isolate credential verification; HTTP DCP verification
+        // is covered by DcpMachineSecurityTest with the real authentication service.
+        org.mockito.Mockito.when(machineAuthentication.authenticateMachineAccess(any()))
+            .thenThrow(new org.springframework.security.authentication.BadCredentialsException("DCP required"));
+        doReturn(new DcpIdentity(PARTICIPANT_ISSUER, null)).when(machineAuthentication)
+            .authenticateMachineAccess("Bearer test-dcp");
+    }
+
     private final static String TEST_ISSUER = "http://example.org/test-issuer";
     private final static String PARTICIPANT_ISSUER = "did:example:issuer";
     private final static String RESOURCE_ISSUER = "did:web:compliance.lab.gaia-x.eu";
@@ -792,17 +801,17 @@ public class AssetControllerTest {
 
     @Test
     @WithMockUser
-    public void readAssets_noPermission_returnsForbidden() throws Exception {
+    public void readAssets_withoutDcp_returnsUnauthorized() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets")
                         .with(csrf())
                         .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
     public void readAssets_withDcpIdentity_returnsOk() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get("/assets")
-                        .with(authentication(new DcpAuthenticationToken(new DcpIdentity(PARTICIPANT_ISSUER, null))))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer test-dcp")
                         .with(csrf())
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());

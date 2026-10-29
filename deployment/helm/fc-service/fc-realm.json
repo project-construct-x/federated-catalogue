@@ -386,7 +386,19 @@
   "webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister": false,
   "webAuthnPolicyPasswordlessAcceptableAaguids": [],
   "webAuthnPolicyPasswordlessExtraOrigins": [],
-  "users": [],
+  "users": [
+    {
+      "username": "service-account-federated-catalogue",
+      "enabled": true,
+      "serviceAccountClientId": "federated-catalogue",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-clients"
+        ]
+      }
+    }
+  ],
   "scopeMappings": [
     {
       "clientScope": "offline_access",
@@ -616,7 +628,7 @@
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": false,
+      "serviceAccountsEnabled": true,
       "authorizationServicesEnabled": false,
       "publicClient": false,
       "frontchannelLogout": false,

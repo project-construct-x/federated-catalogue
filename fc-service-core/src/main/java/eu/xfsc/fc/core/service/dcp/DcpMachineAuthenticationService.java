@@ -26,12 +26,13 @@ import eu.xfsc.fc.core.security.DcpIdentity;
 import eu.xfsc.fc.api.FcMediaTypes;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 import java.util.List;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 
-/** Strict authentication boundary for asset writes; ingest verification toggles do not weaken it. */
+/** Shared membership authentication for machine operations; ingest toggles cannot weaken it. */
 @Service
 @RequiredArgsConstructor
 public class DcpMachineAuthenticationService {
@@ -44,13 +45,15 @@ public class DcpMachineAuthenticationService {
    * cryptographic VC/VP verification and a membership subject equal to the SI-authenticated holder.
    * Delegated actors and multiple credentials are deliberately not supported by this first policy.
    */
-  public DcpIdentity authenticateAssetWrite(String authorization) {
+  public DcpIdentity authenticateMachineAccess(String authorization) {
     String issuer = properties.getPostAssets().getRequiredIssuer();
     if (issuer == null || issuer.isBlank() || properties.getAudience() == null
         || properties.getAudience().isBlank()) {
       throw new AuthenticationServiceException("DCP audience and membership issuer must be configured");
     }
     try {
+      // Retain the existing stored membership policy and issuer configuration during cutover.
+      // POST_ASSETS is its historical key, not an authorization grant for an HTTP operation.
       var pulled = verifier.pullForAuthentication(authorization, DcpPurposes.POST_ASSETS);
       var presentations = pulled.response().presentation();
       if (presentations == null || presentations.size() != 1) {
@@ -99,7 +102,16 @@ public class DcpMachineAuthenticationService {
           || !participant.equals(verified.getId()) || !issuer.equals(verified.getIssuer())) {
         throw new IllegalArgumentException("Verified membership and both signatures required");
       }
+      Instant now = Instant.now();
+      DcpProofValidity.check(SignedJWT.parse(presentation.asText()).getJWTClaimsSet(), null, now);
+      JsonNode membership = PresentationParser.parseJwtPayload(membershipJwt);
+      if (membership.has("vc")) {
+        membership = membership.get("vc");
+      }
+      DcpProofValidity.check(SignedJWT.parse(membershipJwt).getJWTClaimsSet(), membership, now);
       return new DcpIdentity(participant, pulled.holderDid());
+    } catch (AuthenticationServiceException ex) {
+      throw ex;
     } catch (RuntimeException | java.text.ParseException ex) {
       // Upstream exceptions may contain raw tokens or presentations. Do not expose or log them.
       throw new BadCredentialsException("DCP membership authentication failed");

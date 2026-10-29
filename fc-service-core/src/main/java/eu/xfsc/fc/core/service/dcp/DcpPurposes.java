@@ -22,7 +22,7 @@ package eu.xfsc.fc.core.service.dcp;
  */
 public final class DcpPurposes {
 
-  /** {@code POST /assets} — DCP {@code PresentationResponseMessage} ingest. */
+  /** Historical asset-ingest key, also selecting the shared machine membership policy. */
   public static final String POST_ASSETS = "POST_ASSETS";
 
   private DcpPurposes() {}

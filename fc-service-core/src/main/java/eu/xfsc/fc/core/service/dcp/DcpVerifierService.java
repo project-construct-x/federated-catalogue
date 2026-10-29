@@ -30,7 +30,7 @@ import org.springframework.stereotype.Service;
  * Thin catalogue orchestration for the DCP verifier pull: host transport (SI token, DID→CS,
  * HTTP) plus EECC protocol helpers. Presentation request definitions come from
  * {@link DcpPresentationRequestService}; response shape and holder binding are enforced by
- * {@link DcpPresentation#verifyAndExtractClaims} via {@code requiresSubjectId}.
+ * {@link PresentationQueryDefinition#assertResponseMatches} via {@code requiresSubjectId}.
  */
 @Slf4j
 @Service
@@ -70,8 +70,10 @@ public class DcpVerifierService {
     PresentationResponseMessage response =
         credentialServiceClient.queryPresentations(csUrl, queryMessage, verifierSi);
 
-    // Package enforces structure + requiresSubjectId / requiresIssuer constraints
-    dcp.verifyAndExtractClaims(definition, response);
+    // Enforce structure and holder/issuer constraints. The caller verifies signatures and
+    // extracts the identity; generic claim extraction is unnecessary here and rejects valid
+    // JWT credentials whose claims are nested under "vc" in EECC DCP 1.0.0.
+    definition.assertResponseMatches(response);
 
     log.debug("pullPresentations; purpose={}, holderDid={}, presentations={}",
         effectivePurpose, holderDid,

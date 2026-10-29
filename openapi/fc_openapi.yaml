@@ -1322,7 +1322,8 @@ components:
       scheme: bearer
       description: >-
         DCP authentication establishing a verified MembershipCredential identity; Keycloak and bootstrap tokens are not accepted.
-        General endpoint authentication is being integrated in work package D; currently only opt-in POST /assets has its DCP filter.
+        All operations using this scheme require a fresh DCP Self-Issued ID Token in the Authorization header.
+        The catalogue pulls and verifies the holder's membership presentation before invoking the operation.
     dcpSelfIssued:
       type: http
       scheme: bearer
@@ -1409,6 +1410,7 @@ tags:
 paths:
   /admin/me:
     get:
+      x-access-category: administration
       tags:
         - Admin
       summary: Check if the current user has admin access
@@ -1424,6 +1426,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /admin/stats:
     get:
+      x-access-category: administration
       tags:
         - Admin
       summary: Get dashboard statistics
@@ -1445,6 +1448,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/health:
     get:
+      x-access-category: administration
       tags:
         - Admin
       summary: Get component health overview
@@ -1466,6 +1470,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/keycloak-url:
     get:
+      x-access-category: administration
       tags:
         - Admin
       summary: Get the Keycloak Admin Console URL for embedding
@@ -1487,6 +1492,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/trust-frameworks:
     get:
+      x-access-category: administration
       tags:
         - AdminTrustFrameworks
       summary: List all registered trust frameworks
@@ -1510,6 +1516,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/trust-frameworks/{id}:
     patch:
+      x-access-category: administration
       tags:
         - AdminTrustFrameworks
       summary: Partially update a trust framework
@@ -1548,6 +1555,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/trust-frameworks/bundles/{bundleId}:
     patch:
+      x-access-category: administration
       tags:
         - AdminTrustFrameworks
       summary: Merge-patch external client identifiers of a trust-framework bundle
@@ -1599,6 +1607,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     delete:
+      x-access-category: administration
       tags:
         - AdminTrustFrameworks
       summary: Clear all external-identifier overrides for a trust-framework bundle
@@ -1630,6 +1639,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/trust-frameworks/{bundleId}/base-classes/{baseClassName}:
     patch:
+      x-access-category: administration
       tags:
         - AdminTrustFrameworks
       summary: Merge-patch a single base class within a trust-framework bundle
@@ -1671,6 +1681,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/schema-validation:
     get:
+      x-access-category: administration
       tags:
         - AdminSchemaValidation
       summary: Get schema validation module status
@@ -1692,6 +1703,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/schema-validation/modules/{type}:
     patch:
+      x-access-category: administration
       tags:
         - AdminSchemaValidation
       summary: Partially update a schema validation module
@@ -1742,6 +1754,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/schema-validation/ontologies:
     get:
+      x-access-category: administration
       tags:
         - AdminSchemaValidation
       summary: List uploaded ontologies and their subclass contributions to registered base classes
@@ -1771,6 +1784,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/graph-database:
     get:
+      x-access-category: administration
       tags:
         - AdminGraph
       summary: Get graph database status
@@ -1792,6 +1806,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/graph-database/switch:
     post:
+      x-access-category: administration
       tags:
         - AdminGraph
       summary: Switch the graph database backend (requires restart)
@@ -1827,6 +1842,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /admin/graph/rebuild:
     post:
+      x-access-category: administration
       tags:
         - AdminGraph
       summary: Trigger an asynchronous graph rebuild
@@ -1854,6 +1870,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /admin/graph/rebuild/status:
     get:
+      x-access-category: administration
       tags:
         - AdminGraph
       summary: Get the current graph rebuild status
@@ -1869,6 +1886,7 @@ paths:
                 $ref: '#/components/schemas/RebuildStatus'
   /admin/graph/status:
     get:
+      x-access-category: administration
       tags:
         - AdminGraph
       summary: Get the current graph store status
@@ -1884,6 +1902,7 @@ paths:
                 $ref: '#/components/schemas/GraphStatus'
   /assets:
     get:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Get the list of asset metadata in the Catalogue
@@ -1990,6 +2009,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     post:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Add a new asset to the catalogue
@@ -2114,6 +2134,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/validate:
     post:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Validate one or more assets against stored schemas
@@ -2166,6 +2187,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/{id}:
     get:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Read an asset by its IRI.
@@ -2223,6 +2245,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     put:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Update an asset in-place (versioned).
@@ -2285,6 +2308,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/{id}/versions:
     get:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Get version history for an asset.
@@ -2343,6 +2367,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/{id}/versions/{version}/revoke:
     post:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Revoke a specific version of an asset.
@@ -2387,6 +2412,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/{id}/human-readable:
     post:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Upload and link a human-readable representation to a machine-readable asset
@@ -2476,6 +2502,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     put:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Replace the human-readable representation linked to a machine-readable asset
@@ -2526,6 +2553,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     get:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Download the human-readable representation linked to a machine-readable asset
@@ -2559,6 +2587,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/{id}/machine-readable:
     get:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Download the machine-readable asset linked to a human-readable representation
@@ -2593,6 +2622,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/{id}/validations:
     get:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Get stored validation results for an asset
@@ -2627,6 +2657,7 @@ paths:
 
   /assets/{id}/compliance-check:
     post:
+      x-access-category: dcp-machine
       tags:
         - Compliance
       summary: Run a compliance check for an asset
@@ -2677,6 +2708,7 @@ paths:
 
   /assets/{id}/compliance-checks:
     get:
+      x-access-category: dcp-machine
       tags:
         - Compliance
       summary: Get stored compliance check results for an asset
@@ -2709,6 +2741,7 @@ paths:
 
   /assets/{id}/provenance:
     post:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Attach a provenance credential to an asset version.
@@ -2793,6 +2826,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     get:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: List provenance credentials for an asset.
@@ -2852,6 +2886,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/{id}/provenance/verify:
     post:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Verify all provenance credentials for an asset.
@@ -2895,6 +2930,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/{id}/provenance/{credentialId}:
     get:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Get a single provenance credential.
@@ -2933,6 +2969,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/{id}/provenance/{credentialId}/verify:
     post:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Verify a single provenance credential.
@@ -2973,6 +3010,7 @@ paths:
 
   /assets/{asset_hash}:
     delete:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Completely delete an asset by its content hash
@@ -3009,6 +3047,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/by-id/{id}:
     delete:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Delete an asset and its linked companions by IRI
@@ -3046,6 +3085,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /assets/{asset_hash}/revoke:
     post:
+      x-access-category: dcp-machine
       tags:
         - Assets
       summary: Change the lifecycle state of an asset to revoked
@@ -3093,6 +3133,7 @@ paths:
 
   /validations/{id}:
     get:
+      x-access-category: dcp-machine
       tags:
         - Validations
       summary: Get a single stored validation result by ID
@@ -3124,6 +3165,7 @@ paths:
 
   /query:
     get:
+      x-access-category: dcp-machine
       tags:
         - Query
       summary: Retrieve an HTML website to send openCypher queries to the Catalogue
@@ -3143,6 +3185,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     post:
+      x-access-category: dcp-machine
       tags:
         - Query
       summary: Send a query to the Catalogue
@@ -3255,6 +3298,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /query/info:
     get:
+      x-access-category: dcp-machine
       tags:
         - Query
       summary: Get information about the active query backend
@@ -3273,6 +3317,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /query/search:
     post:
+      x-access-category: dcp-machine
       tags:
         - Query
       summary: Run distributed search query in the Catalogue
@@ -3304,6 +3349,7 @@ paths:
 
   /schemas:
     get:
+      x-access-category: administration
       tags:
         - Schemas
       summary: 'Get the full list of schemas (ontologies, shapes, vocabularies, JSON schemas, XML schemas).'
@@ -3325,6 +3371,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'          
     post:
+      x-access-category: administration
       tags:
         - Schemas
       summary: 'Add a new Schema to the catalogue.'
@@ -3386,6 +3433,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /schemas/latest:
     get:
+      x-access-category: administration
       tags:
         - Schemas
       summary: 'Get the latest schema for a given type.'
@@ -3451,6 +3499,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /schemas/{schemaId}:
     get:
+      x-access-category: administration
       tags:
         - Schemas
       summary: Get a specific schema.
@@ -3500,6 +3549,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     put:
+      x-access-category: administration
       tags:
         - Schemas
       summary: 'Replace a schema. This is only allowed for ontologies with the same IRI.'
@@ -3552,6 +3602,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     delete:
+      x-access-category: administration
       tags:
         - Schemas
       summary: 'Delete a Schema'
@@ -3579,6 +3630,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /schemas/{schemaId}/versions:
     get:
+      x-access-category: administration
       tags:
         - Schemas
       summary: 'Get version history for a schema.'
@@ -3608,6 +3660,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /trust-frameworks:
     get:
+      x-access-category: dcp-machine
       tags:
         - TrustFrameworks
       summary: List enabled trust frameworks and their profiles (public discovery)
@@ -3630,6 +3683,7 @@ paths:
 
   /verification:
     get:
+      x-access-category: dcp-machine
       tags:
         - Verification
       summary: Show a HTML page to verify (portions of) a signed credential
@@ -3652,6 +3706,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     post:
+      x-access-category: dcp-machine
       tags:
         - Verification
       summary: >-
@@ -3756,6 +3811,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /participants:
     get:
+      x-access-category: dcp-machine
       tags:
         - Participants
       summary: Get the authenticated participant
@@ -3780,6 +3836,7 @@ paths:
       security:
         - dcp: []
     post:
+      x-access-category: dcp-machine
       tags:
         - Participants
       summary: Register a new participant in the catalogue
@@ -3816,6 +3873,7 @@ paths:
         - dcp: []
   /participants/{participantId}:
     get:
+      x-access-category: dcp-machine
       tags:
         - Participants
       summary: Get the registered participant
@@ -3845,6 +3903,7 @@ paths:
       security:
         - dcp: []
     put:
+      x-access-category: dcp-machine
       tags:
         - Participants
       summary: Update a participant in the catalogue
@@ -3881,6 +3940,7 @@ paths:
       security:
         - dcp: []
     delete:
+      x-access-category: dcp-machine
       tags:
         - Participants
       summary: Delete a participant in the catalogue
@@ -3911,6 +3971,7 @@ paths:
         - dcp: []
   /participants/{participantId}/users:
     get:
+      x-access-category: administration
       tags:
         - Participants
       deprecated: true
@@ -3947,6 +4008,7 @@ paths:
         - jwt: []
   /users:
     get:
+      x-access-category: administration
       tags:
         - Users
       summary: List the registered users
@@ -3972,6 +4034,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     post:
+      x-access-category: administration
       tags:
         - Users
       summary: Register a new user to the associated participant in the catalogue
@@ -4006,6 +4069,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /users/{userId}:
     get:
+      x-access-category: administration
       tags:
         - Users
       summary: Get the user profile
@@ -4034,6 +4098,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     put:
+      x-access-category: administration
       tags:
         - Users
       summary: Update the user profile
@@ -4069,6 +4134,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     delete:
+      x-access-category: administration
       tags:
         - Users
       summary: Delete a user
@@ -4100,6 +4166,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /users/{userId}/roles:
     get:
+      x-access-category: administration
       tags:
         - Users
       summary: Get roles of the user
@@ -4130,6 +4197,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     put:
+      x-access-category: administration
       tags:
         - Users
       summary: Update roles of the user
@@ -4167,6 +4235,7 @@ paths:
           $ref: '#/components/responses/ServerError'
   /roles:
     get:
+      x-access-category: administration
       tags:
         - Roles
       summary: Get all registered roles in the catalogue
@@ -4189,6 +4258,7 @@ paths:
 
   /session:
     get:
+      x-access-category: administration
       summary: Return the current authenticated session
       tags:
         - Session
@@ -4205,6 +4275,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
     delete:
+      x-access-category: administration
       summary: Close the current authenticated session
       tags:
         - Session
@@ -4219,6 +4290,7 @@ paths:
 
   /dcp/presentations:
     post:
+      x-access-category: bootstrap-protocol
       tags:
         - Dcp
       summary: Pull a DCP presentation from the holder's Credential Service

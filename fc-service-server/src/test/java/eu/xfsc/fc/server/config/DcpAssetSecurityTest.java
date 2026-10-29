@@ -61,8 +61,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 /** Real security chains and upload service, with external verification/storage isolated. */
 @SpringJUnitWebConfig(DcpAssetSecurityTest.Config.class)
-@TestPropertySource(properties = {"keycloak.resource=federated-catalogue",
-    "federated-catalogue.dcp.asset-authentication-enabled=true"})
+@TestPropertySource(properties = "keycloak.resource=federated-catalogue")
 class DcpAssetSecurityTest {
   private static final String PARTICIPANT = "did:web:participant.example";
   @Autowired private WebApplicationContext context;
@@ -75,9 +74,9 @@ class DcpAssetSecurityTest {
   @BeforeEach
   void setup() {
     reset(authentication, store, verification, detector);
-    when(authentication.authenticateAssetWrite(any())).thenThrow(new BadCredentialsException("private-token"));
+    when(authentication.authenticateMachineAccess(any())).thenThrow(new BadCredentialsException("private-token"));
     doReturn(new DcpIdentity(PARTICIPANT, PARTICIPANT))
-        .when(authentication).authenticateAssetWrite("Bearer dcp");
+        .when(authentication).authenticateMachineAccess("Bearer dcp");
     when(store.storeUnverified(any(), any())).thenAnswer(invocation -> invocation.getArgument(0));
     mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
   }
@@ -201,7 +200,7 @@ class DcpAssetSecurityTest {
 
   @Configuration
   @EnableWebMvc
-  @Import({DcpAssetSecurityConfig.class, SecurityConfig.class, DcpOperationAuditConfig.class})
+  @Import({DcpMachineSecurityConfig.class, SecurityConfig.class, DcpOperationAuditConfig.class})
   static class Config {
     @Bean DcpMachineAuthenticationService authentication() { return mock(DcpMachineAuthenticationService.class); }
     @Bean AssetStore store() { return mock(AssetStore.class); }

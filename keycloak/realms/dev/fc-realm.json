@@ -379,6 +379,17 @@
   "webAuthnPolicyPasswordlessExtraOrigins": [],
   "users": [
     {
+      "username": "service-account-federated-catalogue",
+      "enabled": true,
+      "serviceAccountClientId": "federated-catalogue",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-clients"
+        ]
+      }
+    },
+    {
       "username": "fc-ca-test",
       "enabled": true,
       "emailVerified": true,
@@ -628,7 +639,7 @@
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": false,
+      "serviceAccountsEnabled": true,
       "authorizationServicesEnabled": false,
       "publicClient": false,
       "frontchannelLogout": false,

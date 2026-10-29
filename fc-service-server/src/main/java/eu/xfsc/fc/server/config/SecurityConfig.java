@@ -101,7 +101,7 @@ public class SecurityConfig {
   @Bean
   @Order(1)
   public SecurityFilterChain oid4vpFilterChain(HttpSecurity http, BootstrapTokenService tokens) throws Exception {
-    http.securityMatcher("/api/auth/oid4vp/**") // "/api/auth/oid4vp/requests/**",
+    http.securityMatcher("/api/auth/oid4vp/**")
             .csrf(c -> c.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
@@ -137,49 +137,10 @@ public class SecurityConfig {
       )
       .authorizeHttpRequests(authorization -> authorization
 
-        // Query/discovery is a machine data API, not an administrative capability.
-        .requestMatchers(HttpMethod.POST, "/query", "/query/search").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/query", "/query/info").access(DCP_ONLY)
-
-        // Verification APIs
-        .requestMatchers("/verification").access(DCP_ONLY)
-
-        // DCP verifier pull — auth is the client Self-Issued ID Token (not Keycloak)
+        // Method/path policy is shared with the incoming DCP authentication chain.
+        .requestMatchers(DcpMachineEndpoints.MATCHER).access(DCP_ONLY)
+        // Protocol endpoint performs its own Self-Issued ID Token validation.
         .requestMatchers(HttpMethod.POST, "/dcp/presentations").permitAll()
-        
-        // Asset APIs
-        .requestMatchers(HttpMethod.PUT, "/assets/*").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.POST, "/assets/*/versions/*/revoke").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/assets/*/versions").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.POST, "/assets/*/revoke").access(DCP_ONLY)
-        // Asset-linking sub-resource endpoints — must appear before the broader /assets/* GET matcher
-        .requestMatchers(HttpMethod.POST, "/assets/*/human-readable").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.PUT, "/assets/*/human-readable").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/assets/*/human-readable").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/assets/*/machine-readable").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/assets/*/validations").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.POST, "/assets/validate").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.POST, "/assets/*/provenance").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/assets/*/provenance", "/assets/*/provenance/*").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.POST, "/assets/*/provenance/*/verify", "/assets/*/provenance/verify").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/assets", "/assets/*").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.POST, "/assets").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.DELETE, "/assets/*").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.DELETE, "/assets/by-id/**").access(DCP_ONLY)
-
-        // Compliance check APIs
-        .requestMatchers(HttpMethod.POST, "/assets/*/compliance-check").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/assets/*/compliance-checks").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/trust-frameworks").access(DCP_ONLY)
-
-        // Validation result read APIs
-        .requestMatchers(HttpMethod.GET, "/validations/**").access(DCP_ONLY)
-
-        .requestMatchers(HttpMethod.POST, "/participants").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/participants").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.PUT, "/participants/*").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.DELETE, "/participants/*").access(DCP_ONLY)
-        .requestMatchers(HttpMethod.GET, "/participants/*").access(DCP_ONLY)
 
         .anyRequest().denyAll()
       )  
@@ -188,6 +149,7 @@ public class SecurityConfig {
               new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
           .accessDeniedHandler(accessDeniedHandler())
       );
+      // DcpMachineSecurityConfig authenticates the allowlisted machine operations first.
       // TODO: Implement DCP authentication
       return http.build();
   }

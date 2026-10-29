@@ -38,7 +38,6 @@ import eu.xfsc.fc.core.service.resolve.DidDocumentResolver;
 import foundation.identity.did.DIDDocument;
 import foundation.identity.did.VerificationMethod;
 import java.net.URI;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -67,8 +66,12 @@ class SelfIssuedIdTokenValidatorTest {
     keyPair = new OctetKeyPairGenerator(Curve.Ed25519).keyID(KID).generate();
     DcpProperties properties = new DcpProperties();
     properties.setAudience(AUDIENCE);
-    properties.setJtiTtl(Duration.ofMinutes(5));
-    validator = new SelfIssuedIdTokenValidator(didResolver, properties);
+    var replay = mock(DcpReplayStore.class);
+    var consumed = java.util.concurrent.ConcurrentHashMap.<String>newKeySet();
+    org.mockito.Mockito.lenient().when(replay.consume(org.mockito.ArgumentMatchers.anyString(),
+        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(call -> consumed.add(call.getArgument(0) + "|" + call.getArgument(1)));
+    validator = new SelfIssuedIdTokenValidator(didResolver, properties, replay);
   }
 
   @Test
@@ -109,7 +112,7 @@ class SelfIssuedIdTokenValidatorTest {
 
     validator.validate(jwt);
     DcpException ex = assertThrows(DcpException.class, () -> validator.validate(jwt));
-    assertTrue(ex.getMessage().contains("jti replay"));
+    assertTrue(ex.getMessage().contains("already used"));
   }
 
   @Test
@@ -138,6 +141,18 @@ class SelfIssuedIdTokenValidatorTest {
     DIDDocument doc = mock(DIDDocument.class);
     when(doc.getCapabilityInvocationVerificationMethodsDereferenced()).thenReturn(List.of(vm));
     when(didResolver.resolveDidDocument(HOLDER)).thenReturn(doc);
+  }
+
+  @Test
+  void rejectsJustExpiredAndNotYetValidTokensWithoutClockSkew() throws Exception {
+    String expired = sign(HOLDER, HOLDER, AUDIENCE, "just-expired", Instant.now().minusSeconds(1));
+    assertThrows(DcpException.class, () -> validator.validate(expired));
+    var claims = new JWTClaimsSet.Builder().issuer(HOLDER).subject(HOLDER).audience(AUDIENCE)
+        .jwtID("future").expirationTime(Date.from(Instant.now().plusSeconds(300)))
+        .notBeforeTime(Date.from(Instant.now().plusSeconds(30))).build();
+    var jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.EdDSA).keyID(KID).build(), claims);
+    jwt.sign(new Ed25519Signer(keyPair));
+    assertThrows(DcpException.class, () -> validator.validate(jwt.serialize()));
   }
 
   @Test
