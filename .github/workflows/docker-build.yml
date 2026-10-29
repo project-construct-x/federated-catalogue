@@ -16,7 +16,7 @@ env:
   # e.g. ghcr.io/project-construct-x/federated-catalogue/<image>
   IMAGE_NAME: ${{ github.repository }}
   KUBE_CONTEXT: construct-x-dev
-  KUBE_NAMESPACE: user-grp-03
+  KUBE_NAMESPACE: dev-01
   HELM_RELEASE: fc-service
   HELM_CHART: deployment/helm/fc-service
   HELM_STAGE_VALUES: deployment/helm/extra-stages/construct-x-dev.yaml
@@ -98,6 +98,7 @@ jobs:
       url: https://federated-catalogue.staging.construct-x.net
     permissions:
       contents: read
+      packages: read
 
     steps:
       - name: Checkout repository
@@ -124,8 +125,10 @@ jobs:
           echo "$KUBE_CONFIG" | base64 -d > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
           kubectl config use-context "${KUBE_CONTEXT}"
+          kubectl config set-context "${KUBE_CONTEXT}" --namespace="${KUBE_NAMESPACE}"
           kubectl config get-contexts
-          kubectl -n "${KUBE_NAMESPACE}" get ns "${KUBE_NAMESPACE}" >/dev/null
+          # Credentials are namespace-scoped (dev-01); cluster-level "get ns" is forbidden.
+          kubectl -n "${KUBE_NAMESPACE}" get pods
 
       - name: Apply Keycloak client secret
         env:
@@ -157,6 +160,33 @@ jobs:
             --from-literal=keycloak_client_secret="${FC_KEYCLOAK_CLIENT_SECRET}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: Apply GHCR pull secret
+        env:
+          # Optional long-lived PAT (read:packages). Falls back to this job's token,
+          # which can pull during the deploy but expires when the job ends.
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          token="${GHCR_PULL_TOKEN:-${GITHUB_TOKEN}}"
+          if [[ -z "${token}" ]]; then
+            echo "::error::GHCR_PULL_TOKEN or GITHUB_TOKEN is required to pull private GHCR images."
+            exit 1
+          fi
+          kubectl -n "${KUBE_NAMESPACE}" create secret docker-registry ghcr-pull \
+            --docker-server=ghcr.io \
+            --docker-username="${{ github.actor }}" \
+            --docker-password="${token}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          # A StatefulSet will not replace a pod that is already unready, so an
+          # old Fuseki pod keeps pulling the previous tag forever. Delete it
+          # after the pull secret exists; the controller recreates it from the
+          # current template and the pull happens while this job's token is valid.
+          fuseki_ready="$(kubectl -n "${KUBE_NAMESPACE}" get pod fc-fuseki-0 -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || true)"
+          if [[ "${fuseki_ready}" != "true" ]]; then
+            kubectl -n "${KUBE_NAMESPACE}" delete pod fc-fuseki-0 --ignore-not-found --wait=false
+          fi
+
       - name: Build chart dependencies
         run: helm dependency build "${HELM_CHART}"
 
@@ -165,9 +195,10 @@ jobs:
           set -euo pipefail
           helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART}" \
             --kube-context "${KUBE_CONTEXT}" \
-            --namespace "${KUBE_NAMESPACE}" --create-namespace \
+            --namespace "${KUBE_NAMESPACE}" \
             -f "${HELM_CHART}/values.yaml" \
             -f "${HELM_STAGE_VALUES}" \
+            --set-string podAnnotations.deployed-sha="${GITHUB_SHA}" \
             --wait --timeout 10m
 
       - name: Status

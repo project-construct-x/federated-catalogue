@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -85,9 +102,8 @@ public class AssetLinkControllerGraphlessTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_READ_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+      @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void getHumanReadable_graphStoreDisabled_returnsOk() throws Exception {
     final var mrAsset = uploadMachineReadableAsset();
     mrHash = mrAsset.getAssetHash();
@@ -114,9 +130,8 @@ public class AssetLinkControllerGraphlessTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_READ_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+      @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void getMachineReadable_graphStoreDisabled_returnsOk() throws Exception {
     final var mrAsset = uploadMachineReadableAsset();
     mrHash = mrAsset.getAssetHash();

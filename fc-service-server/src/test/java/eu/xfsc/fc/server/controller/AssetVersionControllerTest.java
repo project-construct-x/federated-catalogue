@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import com.c4_soft.springaddons.security.oauth2.test.annotations.Claims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenIdClaims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.StringClaim;
@@ -38,8 +55,6 @@ import org.springframework.web.context.WebApplicationContext;
 import java.time.Instant;
 import java.util.List;
 
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_UPDATE_WITH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -125,7 +140,7 @@ public class AssetVersionControllerTest {
   // ===== GET /assets/{id}/versions =====
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetVersions_afterTwoUploads_returnsTwoVersionsDescending() throws Exception {
     storeVersion(CONTENT_V1, null);
     storeVersion(CONTENT_V2, null);
@@ -146,7 +161,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetVersions_currentVersionHasIsCurrentTrue() throws Exception {
     storeVersion(CONTENT_V1, null);
     storeVersion(CONTENT_V2, null);
@@ -164,7 +179,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetVersions_olderVersionsHaveStatusDeprecated() throws Exception {
     storeVersion(CONTENT_V1, null);
     storeVersion(CONTENT_V2, null);
@@ -181,7 +196,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetVersions_withChangeComment_commentAppearsInVersionHistory() throws Exception {
     String comment = "updated description";
     storeVersion(CONTENT_V1, null);
@@ -200,7 +215,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetVersions_pagination_returnsCorrectPage() throws Exception {
     storeVersion(CONTENT_V1, null);
     storeVersion(CONTENT_V2, null);
@@ -222,7 +237,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetVersions_unknownId_returnsNotFound() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/assets/{id}/versions", "did:web:unknown-asset")
             .with(csrf())
@@ -239,7 +254,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetVersions_negativePage_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/assets/{id}/versions", ASSET_IRI)
             .param("page", "-1")
@@ -249,7 +264,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetVersions_zeroSize_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/assets/{id}/versions", ASSET_IRI)
             .param("size", "0")
@@ -259,7 +274,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetVersions_sizeExceedsMax_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/assets/{id}/versions", ASSET_IRI)
             .param("size", "101")
@@ -271,7 +286,7 @@ public class AssetVersionControllerTest {
   // ===== GET /assets/{id}?version=X =====
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetById_withVersionParam_returnsHistoricalContent() throws Exception {
     storeVersion(CONTENT_V1, null);
     storeVersion(CONTENT_V2, null);
@@ -287,7 +302,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetById_withoutVersionParam_returnsMostRecentContent() throws Exception {
     storeVersion(CONTENT_V1, null);
     storeVersion(CONTENT_V2, null);
@@ -311,7 +326,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetById_withVersionParamOutOfRange_returnsNotFound() throws Exception {
     storeVersion(CONTENT_V1, null);
 
@@ -322,7 +337,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetById_withVersionParamZero_returnsBadRequest() throws Exception {
     storeVersion(CONTENT_V1, null);
 
@@ -333,7 +348,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {"ASSET_READ"})
+  @WithMockUser
   public void readAssetById_withNegativeVersionParam_returnsBadRequest() throws Exception {
     storeVersion(CONTENT_V1, null);
 
@@ -346,7 +361,7 @@ public class AssetVersionControllerTest {
   // ===== POST /assets/{id}/versions/{version}/revoke =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX, ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   public void revokeAssetVersion_currentVersion_assetBecomesUnavailable() throws Exception {
     storeVersion(CONTENT_V1, null);
@@ -364,7 +379,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   public void revokeAssetVersion_historicalVersion_returnsConflict() throws Exception {
     storeVersion(CONTENT_V1, null);
@@ -378,7 +393,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   public void revokeAssetVersion_alreadyRevokedVersion_returnsConflict() throws Exception {
     storeVersion(CONTENT_V1, null);
@@ -397,7 +412,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   public void revokeAssetVersion_unknownVersion_returnsNotFound() throws Exception {
     storeVersion(CONTENT_V1, null);
@@ -409,7 +424,7 @@ public class AssetVersionControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   public void revokeAssetVersion_negativeVersion_returnsBadRequest() throws Exception {
     storeVersion(CONTENT_V1, null);

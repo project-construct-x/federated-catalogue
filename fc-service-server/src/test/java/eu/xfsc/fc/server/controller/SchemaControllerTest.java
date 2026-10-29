@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.core.pojo.ContentAccessorDirect;
 import eu.xfsc.fc.core.service.schemastore.SchemaStore;
 
@@ -28,11 +45,7 @@ import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider;
 
 import static eu.xfsc.fc.server.helper.FileReaderHelper.getMockFileDataAsString;
-import static eu.xfsc.fc.server.util.CommonConstants.ASSET_READ;
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL;
-import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_CREATE;
-import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_DELETE;
-import static eu.xfsc.fc.server.util.CommonConstants.SCHEMA_READ;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -68,7 +81,7 @@ public class SchemaControllerTest {
   }
   
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void getSchemaByIdShouldReturnSuccessResponse() throws Exception {
     String id = schemaStore.addSchema(new ContentAccessorDirect(getMockFileDataAsString("test-schema.ttl"))).id();
     String schemaId = URLEncoder.encode(id, Charset.defaultCharset());
@@ -88,7 +101,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void getSchemasShouldReturnSuccessResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/schemas")
             .with(csrf())
@@ -107,7 +120,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void getLatestSchemaShouldReturnSuccessResponse() throws Exception {
     String id = schemaStore.addSchema(new ContentAccessorDirect(getMockFileDataAsString("test-schema.ttl"))).id();
     mockMvc.perform(MockMvcRequestBuilders.get("/schemas/latest?type=SHAPE")
@@ -126,7 +139,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void getLatestSchemaWithoutTypeShouldReturnBadRequest() throws Exception {
     String id = schemaStore.addSchema(new ContentAccessorDirect(getMockFileDataAsString("test-schema.ttl"))).id();
     mockMvc.perform(MockMvcRequestBuilders.get("/schemas/latest")
@@ -137,7 +150,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void getLatestSchemaWithUncorrectedTypeShouldReturnBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/schemas/latest?type=testType")
             .with(csrf())
@@ -166,18 +179,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {ASSET_READ})
-  public void addSchemaWithoutRoleAccessShouldReturnForbiddenResponse() throws Exception {
-    mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
-            .content(SCHEMA_REQUEST)
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .accept(MediaType.APPLICATION_JSON))
-        .andExpect(status().isForbidden());
-  }
-
-  @Test
-  @WithMockUser(roles = {SCHEMA_CREATE})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void addSchemaShouldReturnSuccessResponse() throws Exception {
     ResultActions resultActions = mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
             .content(getMockFileDataAsString("test-schema.ttl"))
@@ -199,8 +201,8 @@ public class SchemaControllerTest {
 
 
   @Test
-  @WithMockUser(roles = {ASSET_READ})
-  public void deleteSchemasWithDifferentRoleReturnForbiddenResponse() throws Exception {
+  @WithMockUser
+  public void deleteSchemasWithoutAdminRoleReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.delete("/schemas/schemaID")
             .with(csrf())
             .accept(MediaType.APPLICATION_JSON))
@@ -208,7 +210,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_DELETE})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void deleteSchemasReturnSuccessResponse() throws Exception {
     String id = schemaStore.addSchema(new ContentAccessorDirect(getMockFileDataAsString("test-schema.ttl"))).id();
     String schemaId = URLEncoder.encode(id, Charset.defaultCharset());
@@ -219,8 +221,8 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
-  public void addSchema_withReadOnlyRole_shouldReturnForbiddenResponse() throws Exception {
+  @WithMockUser
+  public void addSchema_withoutAdminRole_shouldReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
             .content(SCHEMA_REQUEST)
             .with(csrf())
@@ -231,7 +233,7 @@ public class SchemaControllerTest {
 
   @Test
   @WithMockUser
-  public void getSchema_withoutPermissionRole_shouldReturnForbiddenResponse() throws Exception {
+  public void getSchema_withoutAdminRole_shouldReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.get("/schemas")
             .with(csrf())
             .accept(MediaType.APPLICATION_JSON))
@@ -239,8 +241,8 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_READ})
-  public void updateSchema_withReadRole_shouldReturnForbiddenResponse() throws Exception {
+  @WithMockUser
+  public void updateSchema_withoutAdminRole_shouldReturnForbiddenResponse() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders.put("/schemas")
             .content(getMockFileDataAsString("test-schema.ttl"))
             .with(csrf())
@@ -281,7 +283,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void addSchema_validJsonSchema_returns201() throws Exception {
     String jsonSchema = getMockFileDataAsString("test-json-schema.json");
 
@@ -294,7 +296,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void addSchema_invalidJsonSchema_returns422() throws Exception {
     String invalidSchema = "{ this is not valid JSON at all";
 
@@ -306,7 +308,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void addSchema_validXmlSchema_returns201() throws Exception {
     String xsd = getMockFileDataAsString("test-xml-schema.xsd");
 
@@ -319,7 +321,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void addSchema_invalidXmlSchema_returns422() throws Exception {
     String invalidXsd = "<?xml version=\"1.0\"?><xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">"
         + "<xs:element name=\"broken\" type=\"xs:nonExistentType\"/></xs:schema>";
@@ -332,7 +334,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void getSchemas_withNonRdfSchemas_includesJsonAndXml() throws Exception {
     String jsonSchema = getMockFileDataAsString("test-json-schema.json");
     mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
@@ -359,7 +361,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void getSchema_jsonSchemaById_returns200() throws Exception {
     String jsonSchema = getMockFileDataAsString("test-json-schema.json");
     mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
@@ -377,7 +379,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_DELETE})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void deleteSchema_jsonSchema_returns200() throws Exception {
     String jsonSchema = getMockFileDataAsString("test-json-schema.json");
     mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
@@ -393,7 +395,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void getLatestSchema_jsonType_returns200() throws Exception {
     String jsonSchema = getMockFileDataAsString("test-json-schema.json");
     mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
@@ -411,7 +413,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void getLatestSchema_xmlType_returns200() throws Exception {
     String xsd = getMockFileDataAsString("test-xml-schema.xsd");
     mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
@@ -429,7 +431,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void getSchema_xmlSchemaById_returns200() throws Exception {
     String xsd = getMockFileDataAsString("test-xml-schema.xsd");
     mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
@@ -447,7 +449,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE, SCHEMA_READ})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void addSchema_invalidJsonSchema_noDbRecordCreated() throws Exception {
     String invalidSchema = "{ this is not valid JSON at all";
     mockMvc.perform(MockMvcRequestBuilders.post("/schemas")
@@ -465,7 +467,7 @@ public class SchemaControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = {SCHEMA_CREATE})
+  @WithMockUser(roles = {ADMIN_ALL})
   public void addSchema_validJsonSchema_returnsUploadTime() throws Exception {
     String jsonSchema = getMockFileDataAsString("test-json-schema.json");
 

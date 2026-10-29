@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.dcp;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,7 +38,6 @@ import eu.xfsc.fc.core.service.resolve.DidDocumentResolver;
 import foundation.identity.did.DIDDocument;
 import foundation.identity.did.VerificationMethod;
 import java.net.URI;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -50,8 +66,12 @@ class SelfIssuedIdTokenValidatorTest {
     keyPair = new OctetKeyPairGenerator(Curve.Ed25519).keyID(KID).generate();
     DcpProperties properties = new DcpProperties();
     properties.setAudience(AUDIENCE);
-    properties.setJtiTtl(Duration.ofMinutes(5));
-    validator = new SelfIssuedIdTokenValidator(didResolver, properties);
+    var replay = mock(DcpReplayStore.class);
+    var consumed = java.util.concurrent.ConcurrentHashMap.<String>newKeySet();
+    org.mockito.Mockito.lenient().when(replay.consume(org.mockito.ArgumentMatchers.anyString(),
+        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(call -> consumed.add(call.getArgument(0) + "|" + call.getArgument(1)));
+    validator = new SelfIssuedIdTokenValidator(didResolver, properties, replay);
   }
 
   @Test
@@ -92,7 +112,7 @@ class SelfIssuedIdTokenValidatorTest {
 
     validator.validate(jwt);
     DcpException ex = assertThrows(DcpException.class, () -> validator.validate(jwt));
-    assertTrue(ex.getMessage().contains("jti replay"));
+    assertTrue(ex.getMessage().contains("already used"));
   }
 
   @Test
@@ -121,6 +141,40 @@ class SelfIssuedIdTokenValidatorTest {
     DIDDocument doc = mock(DIDDocument.class);
     when(doc.getCapabilityInvocationVerificationMethodsDereferenced()).thenReturn(List.of(vm));
     when(didResolver.resolveDidDocument(HOLDER)).thenReturn(doc);
+  }
+
+  @Test
+  void rejectsJustExpiredAndNotYetValidTokensWithoutClockSkew() throws Exception {
+    String expired = sign(HOLDER, HOLDER, AUDIENCE, "just-expired", Instant.now().minusSeconds(1));
+    assertThrows(DcpException.class, () -> validator.validate(expired));
+    var claims = new JWTClaimsSet.Builder().issuer(HOLDER).subject(HOLDER).audience(AUDIENCE)
+        .jwtID("future").expirationTime(Date.from(Instant.now().plusSeconds(300)))
+        .notBeforeTime(Date.from(Instant.now().plusSeconds(30))).build();
+    var jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.EdDSA).keyID(KID).build(), claims);
+    jwt.sign(new Ed25519Signer(keyPair));
+    assertThrows(DcpException.class, () -> validator.validate(jwt.serialize()));
+  }
+
+  @Test
+  void validate_rejectsMissingExpirationAndExpiredToken() throws Exception {
+    SignedJWT missingExpiration = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.EdDSA).keyID(KID).build(),
+        new JWTClaimsSet.Builder().issuer(HOLDER).subject(HOLDER).audience(AUDIENCE).jwtID("missing-exp").build());
+    missingExpiration.sign(new Ed25519Signer(keyPair));
+    assertThrows(DcpException.class, () -> validator.validate(missingExpiration.serialize()));
+    String expired = sign(HOLDER, HOLDER, AUDIENCE, "expired", Instant.now().minusSeconds(300));
+    assertThrows(DcpException.class, () -> validator.validate(expired));
+  }
+
+  @Test
+  void invalidSignatureDoesNotConsumeLegitimateJti() throws Exception {
+    mockCapabilityInvocation();
+    String valid = sign(HOLDER, HOLDER, AUDIENCE, "same-jti", Instant.now().plusSeconds(300));
+    SignedJWT invalid = SignedJWT.parse(valid);
+    invalid = new SignedJWT(invalid.getHeader(), invalid.getJWTClaimsSet());
+    invalid.sign(new Ed25519Signer(new OctetKeyPairGenerator(Curve.Ed25519).generate()));
+    String forged = invalid.serialize();
+    assertThrows(DcpException.class, () -> validator.validate(forged));
+    assertEquals(HOLDER, validator.validate(valid).holderDid());
   }
 
   private String sign(String iss, String sub, String aud, String jti, Instant exp) throws Exception {

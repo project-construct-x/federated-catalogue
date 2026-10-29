@@ -1,9 +1,28 @@
 package eu.xfsc.fc.server.controller;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_READ_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_UPDATE_WITH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -19,13 +38,18 @@ import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenIdClaims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.StringClaim;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.WithMockJwtAuth;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import eu.xfsc.fc.api.generated.model.AssetStatus;
 import eu.xfsc.fc.api.generated.model.ProvenanceCredential;
 import eu.xfsc.fc.api.generated.model.ProvenanceCredentials;
 import eu.xfsc.fc.api.generated.model.ProvenanceVerificationResult;
+import eu.xfsc.fc.core.dao.assets.AssetDao;
+import eu.xfsc.fc.core.dao.assets.ContentKind;
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.ConflictException;
 import eu.xfsc.fc.core.exception.NotFoundException;
 import eu.xfsc.fc.core.pojo.AssetMetadata;
+import eu.xfsc.fc.core.pojo.ContentAccessorDirect;
+import eu.xfsc.fc.core.service.assetstore.AssetRecord;
 import eu.xfsc.fc.core.service.assetstore.AssetStore;
 import eu.xfsc.fc.core.service.provenance.ProvenanceService;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
@@ -36,6 +60,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,6 +98,8 @@ public class ProvenanceControllerTest {
   private static final String TEST_ISSUER = "did:web:example.org:provenance-test";
   private static final String ASSET_IRI = "did:web:example.org:prov-test-asset";
   private static final String CREDENTIAL_ID = "did:vc:prov-cred-001";
+  private static final String ZERO_CREDENTIAL_ASSET_IRI = "did:web:example.org:prov-zero-cred-asset";
+  private static final String NO_CREDENTIALS_REASON = "No provenance credentials present for this asset";
 
   private static final String PROVENANCE_URL = "/assets/%s/provenance";
   private static final String SINGLE_CREDENTIAL_URL = "/assets/%s/provenance/%s";
@@ -90,6 +117,8 @@ public class ProvenanceControllerTest {
   private ProvenanceService provenanceService;
   @MockitoSpyBean
   private AssetStore assetStorePublisher;
+  @Autowired
+  private AssetDao assetDao;
 
   @BeforeAll
   void setup() {
@@ -104,7 +133,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance — happy path =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_validRequest_returnsCreated() throws Exception {
     final var assetMeta = assetMetaWithIssuer(TEST_ISSUER);
@@ -129,7 +158,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance — error cases =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_wrongCredentialSubjectId_returnsBadRequest() throws Exception {
     final var assetMeta = assetMetaWithIssuer(TEST_ISSUER);
@@ -146,7 +175,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_duplicateCredentialId_returnsConflict() throws Exception {
     final var assetMeta = assetMetaWithIssuer(TEST_ISSUER);
@@ -163,7 +192,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_unknownAsset_returnsNotFound() throws Exception {
     doThrow(new NotFoundException("Asset not found")).when(assetStorePublisher).getById(anyString());
@@ -189,9 +218,10 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @Disabled("Keycloak Reduction")
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
-  void addProvenanceCredential_wrongRole_returnsForbidden() throws Exception {
+  void addProvenanceCredential_noPermission_returnsForbidden() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
             .post(String.format(PROVENANCE_URL, encode(ASSET_IRI)))
             .contentType(MediaType.APPLICATION_JSON)
@@ -203,7 +233,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance — boundary tests =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void addProvenanceCredential_versionZero_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -218,7 +248,7 @@ public class ProvenanceControllerTest {
   // ===== GET /assets/{id}/provenance — happy path =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_existingAsset_returnsOk() throws Exception {
     doReturn(new ProvenanceCredentials(1, List.of(provenanceCredentialStub())))
@@ -239,7 +269,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_unknownAsset_returnsNotFound() throws Exception {
     doThrow(new NotFoundException("Asset not found")).when(provenanceService).list(eq(ASSET_IRI), any(), any());
@@ -254,7 +284,7 @@ public class ProvenanceControllerTest {
   // ===== GET /assets/{id}/provenance — boundary tests =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_versionZero_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -266,7 +296,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_negativePageIndex_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -278,7 +308,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_sizeZero_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -290,7 +320,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void listProvenanceCredentials_sizeAboveMaximum_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
@@ -311,9 +341,10 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @Disabled("Keycloak Reduction")
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
-  void listProvenanceCredentials_wrongRole_returnsForbidden() throws Exception {
+  void listProvenanceCredentials_noPermission_returnsForbidden() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders
             .get(String.format(PROVENANCE_URL, encode(ASSET_IRI)))
             .with(csrf())
@@ -324,7 +355,7 @@ public class ProvenanceControllerTest {
   // ===== GET /assets/{id}/provenance/{credentialId} =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void getProvenanceCredential_existingCredential_returnsOk() throws Exception {
     doReturn(provenanceCredentialStub()).when(provenanceService).get(eq(ASSET_IRI), eq(CREDENTIAL_ID));
@@ -342,7 +373,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_READ_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void getProvenanceCredential_unknownCredential_returnsNotFound() throws Exception {
     doThrow(new NotFoundException("Provenance credential not found")).when(provenanceService).get(anyString(), anyString());
@@ -366,7 +397,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance/{credentialId}/verify =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyProvenanceCredential_validCredential_returnsOk() throws Exception {
     doReturn(assetMetaWithIssuer(TEST_ISSUER)).when(assetStorePublisher).getById(ASSET_IRI);
@@ -386,7 +417,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyProvenanceCredential_invalidSignature_returnsOkWithIsValidFalse() throws Exception {
     doReturn(assetMetaWithIssuer(TEST_ISSUER)).when(assetStorePublisher).getById(ASSET_IRI);
@@ -405,7 +436,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyProvenanceCredential_unknownCredential_returnsNotFound() throws Exception {
     doReturn(assetMetaWithIssuer(TEST_ISSUER)).when(assetStorePublisher).getById(ASSET_IRI);
@@ -430,7 +461,7 @@ public class ProvenanceControllerTest {
   // ===== POST /assets/{id}/provenance/verify =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyAllProvenanceCredentials_allValid_returnsOkWithIsValidTrue() throws Exception {
     doReturn(assetMetaWithIssuer(TEST_ISSUER)).when(assetStorePublisher).getById(ASSET_IRI);
@@ -449,7 +480,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyAllProvenanceCredentials_mixedResults_returnsOkWithIsValidFalse() throws Exception {
     doReturn(assetMetaWithIssuer(TEST_ISSUER)).when(assetStorePublisher).getById(ASSET_IRI);
@@ -468,7 +499,7 @@ public class ProvenanceControllerTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyAllProvenanceCredentials_unknownAsset_returnsNotFound() throws Exception {
     doThrow(new NotFoundException("Asset not found")).when(provenanceService).verifyAll(anyString(), any());
@@ -489,10 +520,66 @@ public class ProvenanceControllerTest {
         .andExpect(status().isUnauthorized());
   }
 
+  // ===== POST /assets/{id}/provenance/verify — zero-credential path, real service =====
+
+  /**
+   * Drives the zero-credential path through the real {@link ProvenanceService} (no stubbing of
+   * {@code verifyAll}, only a spy) so the actual response body — as serialized to the wire — is
+   * asserted, not a hand-built stub. This is the test that would have caught the OpenAPI
+   * "absent vs. null" documentation mismatch: the raw JSON must carry an explicit
+   * {@code "verificationTimestamp":null}, not omit the field.
+   */
+  @Test
+  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+      stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
+  void verifyAllProvenanceCredentials_realServiceNoCredentials_returnsIsValidFalseWithNullTimestampField()
+      throws Exception {
+    assetDao.insert(AssetRecord.builder()
+        .assetHash("hash-prov-controller-zero-cred")
+        .id(ZERO_CREDENTIAL_ASSET_IRI)
+        .issuer(TEST_ISSUER)
+        .uploadTime(Instant.now())
+        .statusTime(Instant.now())
+        .expirationTime(null)
+        .status(AssetStatus.ACTIVE)
+        .content(new ContentAccessorDirect("{}"))
+        .validatorDids(List.of())
+        .contentType("application/ld+json")
+        .fileSize(2L)
+        .originalFilename("zero-cred.jsonld")
+        .contentKind(ContentKind.RDF)
+        .build());
+
+    final var result = mockMvc.perform(MockMvcRequestBuilders
+            .post(String.format(VERIFY_ALL_URL, encode(ZERO_CREDENTIAL_ASSET_IRI)))
+            .with(csrf())
+            .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andReturn();
+
+    final String body = result.getResponse().getContentAsString();
+    assertTrue(body.contains("\"verificationTimestamp\":null"),
+        () -> "verificationTimestamp must be serialized as an explicit null, not omitted from the "
+            + "response body — actual body: " + body);
+
+    final var verResult = objectMapper.readValue(body, ProvenanceVerificationResult.class);
+    assertEquals(Boolean.FALSE, verResult.getIsValid());
+    assertNull(verResult.getVerificationTimestamp());
+    assertEquals(List.of(NO_CREDENTIALS_REASON), verResult.getErrors());
+
+    /* every other nullable field is unset on the aggregated result too — pinned so a mapper
+     * regression can't accidentally default one of them to non-null without a test noticing. */
+    assertNull(verResult.getVerificationMethod());
+    assertNull(verResult.getIssuerResolutionStatus());
+    assertNull(verResult.getIssuedDateTime());
+    assertNull(verResult.getSignatureValid());
+    assertNull(verResult.getCredentialExpiryValid());
+  }
+
   // ===== POST /assets/{id}/provenance/verify — boundary tests =====
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_UPDATE_WITH_PREFIX}, claims = @OpenIdClaims(otherClaims = @Claims(
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(
       stringClaims = {@StringClaim(name = PARTICIPANT_ID, value = TEST_ISSUER)})))
   void verifyAllProvenanceCredentials_versionZero_returnsBadRequest() throws Exception {
     mockMvc.perform(MockMvcRequestBuilders

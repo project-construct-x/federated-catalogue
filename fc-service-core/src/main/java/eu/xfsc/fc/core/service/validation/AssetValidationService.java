@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.validation;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.api.generated.model.ValidationRequest;
 import eu.xfsc.fc.api.generated.model.ValidationResponse;
 
@@ -25,10 +42,16 @@ public interface AssetValidationService {
   /**
    * Validates one or more stored assets against stored schemas.
    *
-   * <p>If {@code assetIds} contains a single entry, the asset is dispatched through the
-   * full type-based pipeline (SHACL for RDF, JSON Schema for JSON, XML Schema for XML).
-   * If {@code assetIds} contains multiple entries, all assets are merged into a single
-   * data graph and validated via SHACL only.</p>
+   * <p>If {@code assetIds} contains a single entry and {@code schemaIds} is given explicitly, each
+   * schema is matched to a strategy by type: SHACL for any RDF asset, JSON Schema for a non-RDF
+   * JSON asset or an RDF asset serialised in JSON-LD, and XML Schema for a non-RDF XML asset or
+   * an RDF asset serialised in RDF/XML. If instead {@code validateAgainstAllSchemas} is set, an
+   * RDF asset (JSON-LD or RDF/XML) is validated by SHACL only, against the composite of all
+   * stored shapes; JSON Schema and XML Schema are never auto-selected for an RDF asset, since,
+   * unlike SHACL's composite shape, there is no principled way to pick "the" applicable schema
+   * for it — a non-RDF JSON or XML asset is instead validated against its latest stored JSON or
+   * XML Schema, respectively. If {@code assetIds} contains multiple entries, all assets are
+   * merged into a single data graph and validated via SHACL only, regardless of serialisation.</p>
    *
    * @param request asset IRIs and schema selection (schemaIds or validateAgainstAllSchemas)
    * @return validation response with result ID(s) and optional report

@@ -1,3 +1,20 @@
+/*-
+ * ---license-start
+ * fc-demo-portal
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 $(document).ready(function() {
 
   var usersDataTable = $('#usersTable').DataTable({
@@ -26,7 +43,6 @@ $(document).ready(function() {
     initComplete: addSearchIcon,
     columns: [
       { data: 'id', render: $.fn.dataTable.render.text() },
-      { data: 'participantId', render: $.fn.dataTable.render.text() },
       { data: 'firstName', render: $.fn.dataTable.render.text() },
       { data: 'lastName', render: $.fn.dataTable.render.text() },
       { data: 'email', render: $.fn.dataTable.render.text() },

@@ -1,3 +1,20 @@
+###
+# ---license-start
+# fc-service
+# ---
+# Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+# ---
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License, Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0.
+#
+# SPDX-License-Identifier: Apache-2.0
+# ---license-end
+###
+
 # Default values for fc-service.
 #
 # To change the deployment hostnames, update the hosts section below.
@@ -95,11 +112,11 @@ probes:
   initialDelaySeconds: 60
   periodSeconds: 30
 
+# Recreate: the filestore PVC is ReadWriteOnce. A RollingUpdate with
+# maxSurge starts a second pod that cannot mount the volume while the
+# previous pod still holds it, so the rollout never becomes ready.
 strategy:
-  type: RollingUpdate
-  rollingUpdate:
-    maxSurge: 1
-    maxUnavailable: 0
+  type: Recreate
 
 autoscaling:
   enabled: false
@@ -394,8 +411,8 @@ did:
 fuseki:
   fullnameOverride: fc-fuseki
   image:
-    repository: ghcr.io/project-construct-x/federated-catalogue/fc-fuseki
-    tag: "5.5.0"
+    repository: ghcr.io/eclipse-xfsc/federated-catalogue/fc-fuseki
+    tag: "6.2.0"
   dataset: ds
   javaOptions: "-Xmx1g"
   persistence:

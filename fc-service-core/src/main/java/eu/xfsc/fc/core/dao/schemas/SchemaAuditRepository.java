@@ -1,10 +1,27 @@
 package eu.xfsc.fc.core.dao.schemas;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.core.service.schemastore.SchemaRecord;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.envers.AuditReaderFactory;
-import org.hibernate.envers.DefaultRevisionEntity;
+import eu.xfsc.fc.core.dao.audit.AuthenticationRevision;
 import org.hibernate.envers.query.AuditEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Repository;
@@ -91,7 +108,7 @@ public class SchemaAuditRepository {
 
   private SchemaRecord toRecord(Object[] revision, int version) {
     SchemaFile snapshot = (SchemaFile) revision[0];
-    DefaultRevisionEntity revEntity = (DefaultRevisionEntity) revision[1];
+    AuthenticationRevision revEntity = (AuthenticationRevision) revision[1];
     Instant revTimestamp = Instant.ofEpochMilli(revEntity.getTimestamp());
     Set<String> terms = snapshot.getTerms() == null ? new HashSet<>()
         : snapshot.getTerms().stream().map(SchemaTerm::getTerm).collect(Collectors.toSet());

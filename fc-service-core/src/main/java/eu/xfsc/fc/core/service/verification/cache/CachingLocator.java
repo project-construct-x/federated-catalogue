@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.verification.cache;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.core.pojo.ContentAccessor;
 import eu.xfsc.fc.core.pojo.ContentAccessorDirect;
 import eu.xfsc.fc.core.service.filestore.FileStore;
@@ -17,8 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.jena.atlas.web.ContentType;
 import org.apache.jena.atlas.web.TypedInputStream;
-import org.apache.jena.riot.system.stream.Locator;
-import org.apache.jena.riot.system.stream.LocatorHTTP;
+import org.apache.jena.riot.system.streammgr.Locator;
+import org.apache.jena.riot.system.streammgr.LocatorHTTP;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 

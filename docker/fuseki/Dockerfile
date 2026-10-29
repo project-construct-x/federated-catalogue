@@ -17,10 +17,10 @@
 
 ## This Dockefile builds a reduced footprint container.
 
-ARG JAVA_VERSION=21
+ARG JAVA_VERSION=25
 
 ARG ALPINE_VERSION=3.21.2
-ARG JENA_VERSION=5.5.0
+ARG JENA_VERSION=6.2.0
 
 # Internal, passed between stages.
 ARG FUSEKI_DIR=/fuseki

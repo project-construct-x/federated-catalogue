@@ -1,11 +1,29 @@
 package eu.xfsc.fc.server.util;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.server.util.CommonConstants.ADMIN_ALL_WITH_PREFIX;
-import static eu.xfsc.fc.server.util.CommonConstants.CATALOGUE_ADMIN_ROLE_WITH_PREFIX;
 
 import java.util.Collection;
+import eu.xfsc.fc.core.security.DcpIdentity;
+import eu.xfsc.fc.core.security.DcpParticipantAccess;
+import org.springframework.security.core.Authentication;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
@@ -18,20 +36,25 @@ import org.springframework.security.oauth2.jwt.Jwt;
  */
 @Slf4j
 public class SessionUtils {
-  /**
-   * Public static method to get Participant ID from the active user session.
-   *
-   * @return Returns either the Participant ID or null if the user session doesn't contain Participant ID attribute.
-   */
+  /** Returns the verified membership subject DID; Keycloak claims cannot identify a machine caller. */
   public static String getSessionParticipantId() {
-    String participantId = null;
-    Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-    if (principal instanceof Jwt) {
-      participantId = ((Jwt) principal).getClaim("participant_id");
+    return requireDcpIdentity().participantDid();
+  }
+
+  /** Requires the trusted context established by DCP authentication. */
+  public static DcpIdentity requireDcpIdentity() {
+    return DcpParticipantAccess.requireIdentity(SecurityContextHolder.getContext().getAuthentication());
+  }
+
+  /** Administrative account management is independent of catalogue participant ownership. */
+  public static void requireApplicationAdmin() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null || !authentication.isAuthenticated()
+        || !(authentication.getPrincipal() instanceof Jwt)
+        || authentication.getAuthorities().stream()
+            .noneMatch(authority -> ADMIN_ALL_WITH_PREFIX.equals(authority.getAuthority()))) {
+      throw new AccessDeniedException("Authenticated application administrator required");
     }
-    log.debug("getSessionParticipantId.exit; got participant id {} from principal: {}", participantId, principal);
-    //log.debug("getSessionParticipantId.exit; got roles: {}", ((Jwt) principal).getClaimAsStringList("roles"));
-    return participantId;
   }
 
   /**
@@ -40,12 +63,18 @@ public class SessionUtils {
    * @return String user Id.
    */
   public static String getSessionUserId() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null || !authentication.isAuthenticated()) {
+      return null;
+    }
+    if (authentication.getPrincipal() instanceof DcpIdentity) {
+      return DcpParticipantAccess.requireIdentity(authentication).actorDid();
+    }
     String userId = null;
     Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     if (principal instanceof Jwt) {
       userId = ((Jwt) principal).getSubject();
     }
-    log.debug("getSessionUserId.exit; got user id {} from principal: {}", userId, principal);
     return userId;
   }
 
@@ -73,21 +102,9 @@ public class SessionUtils {
                                 .map(authority -> authority.getAuthority()).collect( Collectors.toList());
     return authorities;
   }
-  /**
-   * Internal service method for checking user access to a particular Participant.
-   *
-   * @param participantId The Participant issuer of the asset (required).
-   */
+  /** Checks resource ownership using DCP only; administrator roles do not bypass this check. */
   public static void checkParticipantAccess(String participantId) {
-    String sessionParticipantId = SessionUtils.getSessionParticipantId();
-    if (!SessionUtils.sessionUserHasRole(CATALOGUE_ADMIN_ROLE_WITH_PREFIX)
-        && !SessionUtils.sessionUserHasRole(ADMIN_ALL_WITH_PREFIX)
-        && (Objects.isNull(participantId)
-        || Objects.isNull(sessionParticipantId) || !participantId.equals(sessionParticipantId))) {
-      log.debug("checkParticipantAccess; The user does not have access to the specified participant."
-          + " User incoming participant id = {}, session participant id = {}.", sessionParticipantId, participantId);
-      throw new AccessDeniedException("The user does not have access to the specified participant.");
-    }
+    DcpParticipantAccess.checkAccess(SecurityContextHolder.getContext().getAuthentication(), participantId);
   }
 
   /**

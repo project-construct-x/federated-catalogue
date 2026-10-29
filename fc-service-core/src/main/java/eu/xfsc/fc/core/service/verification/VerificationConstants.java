@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.verification;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 /**
  * Shared string constants for the verification pipeline.
  */
@@ -30,21 +47,6 @@ public final class VerificationConstants {
    * Property URI used to annotate graph claims with their source credential subject IRI.
    */
   public static final String GAIAX_CLAIMS_GRAPH_URI = "https://w3id.org/gaia-x/2511#claimsGraphUri";
-
-  // TODO: media types below are API/wire concerns, not verification-domain vocabulary.
-  // Move to eu.xfsc.fc.api.FcMediaTypes (alongside MERGE_PATCH_JSON).
-
-  // W3C VC-JOSE-COSE media types (IANA-registered)
-  public static final String MEDIA_TYPE_VC_JWT = "application/vc+jwt";
-  public static final String MEDIA_TYPE_VP_JWT = "application/vp+jwt";
-  public static final String MEDIA_TYPE_VC_LD_JSON = "application/vc+ld+json";
-  public static final String MEDIA_TYPE_VP_LD_JSON = "application/vp+ld+json";
-  public static final String MEDIA_TYPE_LD_JSON = "application/ld+json";
-
-    // RDF format media types
-    public static final String MEDIA_TYPE_TURTLE = "text/turtle";
-    public static final String MEDIA_TYPE_NTRIPLES = "application/n-triples";
-    public static final String MEDIA_TYPE_RDF_XML = "application/rdf+xml";
 
   private VerificationConstants() {
   }

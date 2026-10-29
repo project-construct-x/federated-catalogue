@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.service;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_CREATE_WITH_PREFIX;
 import static eu.xfsc.fc.server.util.TestCommonConstants.ASSET_UPDATE_WITH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -108,9 +125,8 @@ public class AssetLinkPreservationOnUpdateTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_UPDATE_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+      @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void updateMachineReadableAsset_linksPreservedAfterUpdate() throws Exception {
     storeMrVersion("initial MR content v1");
     final var hrAsset = uploadHumanReadable(MR_IRI, "initial HR content", "text/plain", "hr.txt");
@@ -129,9 +145,8 @@ public class AssetLinkPreservationOnUpdateTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_UPDATE_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+      @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void replaceHumanReadableAsset_machineReadableAssetUnchanged() throws Exception {
     storeMrVersion("MR content for HR replacement test");
     final var hrV1 = uploadHumanReadable(MR_IRI, "HR v1 content", "text/plain", "hr-v1.txt");
@@ -161,9 +176,8 @@ public class AssetLinkPreservationOnUpdateTest {
   }
 
   @Test
-  @WithMockJwtAuth(authorities = {ASSET_CREATE_WITH_PREFIX, ASSET_UPDATE_WITH_PREFIX},
-      claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
-          @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
+  @WithMockJwtAuth(claims = @OpenIdClaims(otherClaims = @Claims(stringClaims = {
+      @StringClaim(name = "participant_id", value = TEST_ISSUER)})))
   void updateMachineReadableAsset_hasHumanReadableTripleRemainsQueryableAfterUpdate() throws Exception {
     storeMrVersion("MR v1 for SPARQL check");
     final var hrAsset = uploadHumanReadable(MR_IRI, "HR for SPARQL check", "text/plain", "hr-sparql.txt");

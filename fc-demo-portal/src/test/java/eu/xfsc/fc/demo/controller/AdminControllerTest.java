@@ -1,5 +1,22 @@
 package eu.xfsc.fc.demo.controller;
 
+/*-
+ * ---license-start
+ * fc-demo-portal
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -12,6 +29,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static eu.xfsc.fc.demo.utils.CommonConstants.ADMIN_ALL_WITH_PREFIX;
+
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -21,8 +40,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.OAuth2LoginRequestPostProcessor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -32,6 +53,7 @@ import eu.xfsc.fc.api.generated.model.TrustFrameworkPatch;
 import eu.xfsc.fc.api.generated.model.TrustFrameworkBaseClassPatch;
 import eu.xfsc.fc.client.AdminClient;
 import eu.xfsc.fc.demo.config.SecurityConfig;
+import eu.xfsc.fc.demo.config.CustomOidcUserService;
 
 /**
  * Tests for the AdminController proxy endpoints. Covers both authentication enforcement and
@@ -41,7 +63,10 @@ import eu.xfsc.fc.demo.config.SecurityConfig;
  * each route mapping.
  */
 @WebMvcTest(AdminController.class)
-@Import(SecurityConfig.class)
+@Import({
+    SecurityConfig.class,
+    CustomOidcUserService.class
+})
 class AdminControllerTest {
 
   private static final String REG_ID = "fc-client-oidc";
@@ -106,7 +131,7 @@ class AdminControllerTest {
   @Test
   void patchTrustFramework_authenticated_forwardsToAdminClient() throws Exception {
     mockMvc.perform(patch("/admin/trust-frameworks/gaia-x")
-            .with(oauth2Login())
+            .with(adminLogin())
             .with(oauth2Client(REG_ID))
             .contentType(MediaType.APPLICATION_JSON)
             .content(ENABLED_TRUE))
@@ -117,9 +142,19 @@ class AdminControllerTest {
   }
 
   @Test
+  void patchTrustFramework_withoutAdminRole_forbidden() throws Exception {
+    mockMvc.perform(patch("/admin/trust-frameworks/gaia-x")
+            .with(oauth2Login())
+            .with(oauth2Client(REG_ID))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(ENABLED_TRUE))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   void patchTrustFrameworkBaseClass_authenticated_forwardsToAdminClient() throws Exception {
     mockMvc.perform(patch("/admin/trust-frameworks/gaia-x-2511/base-classes/ServiceOffering")
-            .with(oauth2Login())
+            .with(adminLogin())
             .with(oauth2Client(REG_ID))
             .contentType(MediaType.APPLICATION_JSON)
             .content(ENABLED_TRUE))
@@ -130,9 +165,19 @@ class AdminControllerTest {
   }
 
   @Test
+  void patchTrustFrameworkBaseClass_withoutAdminRole_forbidden() throws Exception {
+    mockMvc.perform(patch("/admin/trust-frameworks/gaia-x-2511/base-classes/ServiceOffering")
+            .with(oauth2Login())
+            .with(oauth2Client(REG_ID))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(ENABLED_TRUE))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   void patchSchemaModule_authenticated_forwardsToAdminClient() throws Exception {
     mockMvc.perform(patch("/admin/schema-validation/modules/SHACL")
-            .with(oauth2Login())
+            .with(adminLogin())
             .with(oauth2Client(REG_ID))
             .contentType(MediaType.APPLICATION_JSON)
             .content(ENABLED_TRUE))
@@ -140,6 +185,16 @@ class AdminControllerTest {
 
     verify(adminClient).patchSchemaModule(eq("SHACL"), any(SchemaModulePatch.class),
         any(OAuth2AuthorizedClient.class));
+  }
+
+  @Test
+  void patchSchemaModule_withoutAdminRole_forbidden() throws Exception {
+    mockMvc.perform(patch("/admin/schema-validation/modules/SHACL")
+            .with(oauth2Login())
+            .with(oauth2Client(REG_ID))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(ENABLED_TRUE))
+        .andExpect(status().isForbidden());
   }
 
   @Test
@@ -151,9 +206,19 @@ class AdminControllerTest {
   }
 
   @Test
-  void patchTrustFrameworkBundleConfig_authenticated_forwardsToAdminClient() throws Exception {
+  void patchTrustFrameworkBundleConfig_withoutAdminRole_forbidden() throws Exception {
     mockMvc.perform(patch("/admin/trust-frameworks/bundles/gaia-x-2511")
             .with(oauth2Login())
+            .with(oauth2Client(REG_ID))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(BUNDLE_CONFIG_PATCH))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void patchTrustFrameworkBundleConfig_authenticated_forwardsToAdminClient() throws Exception {
+    mockMvc.perform(patch("/admin/trust-frameworks/bundles/gaia-x-2511")
+            .with(adminLogin())
             .with(oauth2Client(REG_ID))
             .contentType(MediaType.APPLICATION_JSON)
             .content(BUNDLE_CONFIG_PATCH))
@@ -172,15 +237,23 @@ class AdminControllerTest {
   @Test
   void deleteTrustFrameworkBundleConfig_authenticated_returns200() throws Exception {
     mockMvc.perform(delete("/admin/trust-frameworks/bundles/gaia-x-2511")
-            .with(oauth2Login())
+            .with(adminLogin())
             .with(oauth2Client(REG_ID)))
         .andExpect(status().isOk());
   }
 
   @Test
-  void deleteTrustFrameworkBundleConfig_authenticated_forwardsToAdminClient() throws Exception {
+  void deleteTrustFrameworkBundleConfig_withoutAdminRole_forbidden() throws Exception {
     mockMvc.perform(delete("/admin/trust-frameworks/bundles/gaia-x-2511")
             .with(oauth2Login())
+            .with(oauth2Client(REG_ID)))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void deleteTrustFrameworkBundleConfig_authenticated_forwardsToAdminClient() throws Exception {
+    mockMvc.perform(delete("/admin/trust-frameworks/bundles/gaia-x-2511")
+            .with(adminLogin())
             .with(oauth2Client(REG_ID)))
         .andExpect(status().isOk());
 
@@ -206,11 +279,19 @@ class AdminControllerTest {
         .thenReturn(ResponseEntity.status(HttpStatus.ACCEPTED).body(new RebuildStatus()));
 
     mockMvc.perform(post("/admin/graph/rebuild")
-            .with(oauth2Login())
+            .with(adminLogin())
             .with(oauth2Client(REG_ID)))
         .andExpect(status().isAccepted());
 
     verify(adminClient).triggerGraphRebuild(any(OAuth2AuthorizedClient.class));
+  }
+
+  @Test
+  void triggerGraphRebuild_withoutAdminRole_forbidden() throws Exception {
+    mockMvc.perform(post("/admin/graph/rebuild")
+            .with(oauth2Login())
+            .with(oauth2Client(REG_ID)))
+        .andExpect(status().isForbidden());
   }
 
   @Test
@@ -219,7 +300,7 @@ class AdminControllerTest {
         .thenReturn(ResponseEntity.status(HttpStatus.CONFLICT).body(new RebuildStatus()));
 
     mockMvc.perform(post("/admin/graph/rebuild")
-            .with(oauth2Login())
+            .with(adminLogin())
             .with(oauth2Client(REG_ID)))
         .andExpect(status().isConflict());
   }
@@ -230,10 +311,22 @@ class AdminControllerTest {
         .thenReturn(new RebuildStatus());
 
     mockMvc.perform(get("/admin/graph/rebuild/status")
-            .with(oauth2Login())
+            .with(adminLogin())
             .with(oauth2Client(REG_ID)))
         .andExpect(status().isOk());
 
     verify(adminClient).getGraphRebuildStatus(any(OAuth2AuthorizedClient.class));
+  }
+
+  @Test
+  void getGraphRebuildStatus_withoutAdminRole_forbidden() throws Exception {
+    mockMvc.perform(get("/admin/graph/rebuild/status")
+            .with(oauth2Login())
+            .with(oauth2Client(REG_ID)))
+        .andExpect(status().isForbidden());
+  }
+
+  private OAuth2LoginRequestPostProcessor adminLogin() {
+    return oauth2Login().authorities(new SimpleGrantedAuthority(ADMIN_ALL_WITH_PREFIX));
   }
 }

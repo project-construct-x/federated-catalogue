@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.service.trustframework.compliance;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -16,12 +33,14 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import eu.xfsc.fc.core.exception.ServiceErrorException;
 import eu.xfsc.fc.core.exception.ServiceUnavailableException;
 import eu.xfsc.fc.core.exception.TimeoutException;
 import eu.xfsc.fc.core.pojo.ContentAccessorDirect;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import okhttp3.mockwebserver.SocketPolicy;
 
 /**
  * Unit tests for {@link JwtVcComplianceClient} against a local HTTP stub.
@@ -151,7 +170,7 @@ class JwtVcComplianceClientTest {
   }
 
   @Test
-  void check_vpJwtWithNoIdClaim_returnsUnverifiableAttestation_withoutHttpCall() {
+  void check_vpJwtWithNoIdClaim_returnsMalformedCredential_withoutHttpCall() {
 
     var credential = new ContentAccessorDirect(VP_JWT_NO_ID);
 
@@ -160,7 +179,7 @@ class JwtVcComplianceClientTest {
     assertInstanceOf(UnverifiableAttestation.class, outcome);
     assertFalse(outcome.compliant());
     var unverifiable = (UnverifiableAttestation) outcome;
-    assertEquals(FailureCategory.UNVERIFIABLE_ATTESTATION, unverifiable.failureCategory());
+    assertEquals(FailureCategory.MALFORMED_CREDENTIAL, unverifiable.failureCategory());
     assertEquals(VP_JWT_NO_ID, unverifiable.rawAttestation());
     assertEquals("VP JWT has no 'id' claim", unverifiable.verificationError());
     assertEquals(0, server.getRequestCount(), "No HTTP request must be sent for missing id claim");
@@ -184,15 +203,33 @@ class JwtVcComplianceClientTest {
   }
 
   @Test
-  void check_5xxResponse_throwsServiceUnavailableException() {
+  void check_5xxResponse_throwsServiceErrorException() {
 
+    // The service was reached and responded, just with an error — distinct from being
+    // unreachable, so this must throw the more specific ServiceErrorException subtype.
     server.enqueue(new MockResponse()
         .setResponseCode(500)
         .setBody("Internal Server Error"));
 
     var credential = new ContentAccessorDirect(TEST_VP_JWT);
 
-    assertThrows(ServiceUnavailableException.class, () -> client.check(credential, config));
+    assertThrows(ServiceErrorException.class, () -> client.check(credential, config));
+  }
+
+  @Test
+  void check_connectionResetAtStart_throwsServiceUnavailableException() {
+
+    // Simulates a trust service that is unreachable (connection reset), rather than a mocked
+    // Java exception, so the resulting failure path is exercised exactly as it would occur
+    // against a real, unreachable external service. Must be exactly ServiceUnavailableException,
+    // not the ServiceErrorException subtype used for reached-but-erroring responses.
+    server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START));
+
+    var credential = new ContentAccessorDirect(TEST_VP_JWT);
+
+    ServiceUnavailableException exception = assertThrows(ServiceUnavailableException.class,
+        () -> client.check(credential, config));
+    assertEquals(ServiceUnavailableException.class, exception.getClass());
   }
 
   @Test
@@ -219,7 +256,7 @@ class JwtVcComplianceClientTest {
   }
 
   @Test
-  void check_malformedComplianceJwtOn201_returnsUnverifiableAttestation() {
+  void check_malformedComplianceJwtOn201_returnsMalformedAttestation() {
 
     server.enqueue(new MockResponse()
         .setResponseCode(201)
@@ -233,7 +270,7 @@ class JwtVcComplianceClientTest {
     assertInstanceOf(UnverifiableAttestation.class, outcome);
     assertFalse(outcome.compliant());
     var unverifiable = (UnverifiableAttestation) outcome;
-    assertEquals(FailureCategory.UNVERIFIABLE_ATTESTATION, unverifiable.failureCategory());
+    assertEquals(FailureCategory.MALFORMED_ATTESTATION, unverifiable.failureCategory());
     assertEquals("Compliance credential is not a parseable JWT", unverifiable.verificationError());
   }
 }

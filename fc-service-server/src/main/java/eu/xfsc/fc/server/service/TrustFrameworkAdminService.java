@@ -1,5 +1,22 @@
 package eu.xfsc.fc.server.service;
 
+/*-
+ * ---license-start
+ * fc-service-server
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -23,6 +40,7 @@ import eu.xfsc.fc.core.service.trustframework.TrustFrameworkBundle;
 import eu.xfsc.fc.core.service.trustframework.TrustFrameworkBundleConfigService;
 import eu.xfsc.fc.core.service.trustframework.TrustFrameworkBundleConfigService.Field;
 import eu.xfsc.fc.core.service.trustframework.TrustFrameworkBundleConfigService.Overrides;
+import eu.xfsc.fc.core.service.trustframework.TrustFrameworkBundleUrlValidator;
 import eu.xfsc.fc.core.service.trustframework.TrustFrameworkRegistry;
 import eu.xfsc.fc.core.service.trustframework.TrustFrameworkService;
 import eu.xfsc.fc.server.generated.controller.AdminTrustFrameworksApiDelegate;
@@ -42,6 +60,7 @@ public class TrustFrameworkAdminService implements AdminTrustFrameworksApiDelega
   private final TrustFrameworkService trustFrameworkService;
   private final TrustFrameworkRegistry trustFrameworkRegistry;
   private final TrustFrameworkBundleConfigService bundleConfigService;
+  private final TrustFrameworkBundleUrlValidator bundleUrlValidator;
 
   @Value("${federated-catalogue.enabled-trust-frameworks:}")
   private List<String> enabledTrustFrameworkFamilies;
@@ -139,7 +158,7 @@ public class TrustFrameworkAdminService implements AdminTrustFrameworksApiDelega
     }
   }
 
-  private static Object coerce(Field field, Object value) {
+  private Object coerce(Field field, Object value) {
     return switch (field) {
       case TIMEOUT_SECONDS -> {
         if (value instanceof Integer i) {
@@ -151,12 +170,23 @@ public class TrustFrameworkAdminService implements AdminTrustFrameworksApiDelega
         throw new ClientException("Property '" + field.jsonName()
             + "' must be a JSON integer");
       }
-      case CLIENT_TYPE, SERVICE_URL, COMPLIANCE_PATH, API_VERSION, TRUST_ANCHOR_URL -> {
+      case CLIENT_TYPE, COMPLIANCE_PATH, API_VERSION -> {
         if (value instanceof String s) {
           yield s;
         }
         throw new ClientException("Property '" + field.jsonName()
             + "' must be a JSON string");
+      }
+      case SERVICE_URL, TRUST_ANCHOR_URL -> {
+        if (!(value instanceof String s)) {
+          throw new ClientException("Property '" + field.jsonName()
+              + "' must be a JSON string");
+        }
+        if (!bundleUrlValidator.isAllowed(s)) {
+          throw new ClientException("Property '" + field.jsonName()
+              + "' must be an https:// URL with a public, non-reserved host");
+        }
+        yield s;
       }
     };
   }

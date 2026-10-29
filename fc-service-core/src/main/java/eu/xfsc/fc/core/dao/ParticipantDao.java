@@ -1,6 +1,22 @@
 package eu.xfsc.fc.core.dao;
 
-import eu.xfsc.fc.api.generated.model.UserProfile;
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import eu.xfsc.fc.core.pojo.PaginatedResults;
 import eu.xfsc.fc.core.pojo.ParticipantMetaData;
 
@@ -26,13 +42,8 @@ public interface ParticipantDao {
    */
   Optional<ParticipantMetaData> select(String participantId);
 
-  /**
-   * Get list of users by participant id.
-   *
-   * @param participantId Participant id.
-   * @return Optional list of users.
-   */
-  Optional<PaginatedResults<UserProfile>> selectUsers(String participantId, Integer offset, Integer limit);
+  /** Lock owned metadata for an enclosing credential update/delete transaction. */
+  Optional<ParticipantMetaData> selectForUpdate(String participantId);
 
   /**
    * Remove the Participant with the given id.

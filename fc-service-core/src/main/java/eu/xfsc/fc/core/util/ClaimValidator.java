@@ -1,5 +1,22 @@
 package eu.xfsc.fc.core.util;
 
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
@@ -29,7 +46,7 @@ import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RiotException;
-import org.apache.jena.riot.system.stream.StreamManager;
+import org.apache.jena.riot.system.streammgr.StreamManager;
 import org.apache.jena.shared.impl.JenaParameters;
 import org.apache.jena.vocabulary.RDF;
 
@@ -74,6 +91,30 @@ public class ClaimValidator {
       JenaParameters.enableSilentAcceptanceOfUnknownDatatypes = false;
     }
 
+    /**
+     * Rejects triples whose object is a typed literal with an ill-formed lexical form.
+     *
+     * <p>Jena 6 no longer honours {@link JenaParameters#enableEagerLiteralValidation} on the
+     * RIOT parsing path used by {@code RDFDataMgr.read}: an ill-formed typed literal such as
+     * {@code "Fourty two"^^xsd:int} is only reported as a parser warning, and the
+     * {@link DatatypeFormatException} surfaces later, when the value is read. Without this
+     * check a malformed literal would pass claim validation and fail downstream in the graph
+     * store as an opaque driver error instead of a {@code QueryException}.
+     *
+     * @param model the parsed single-triple model to check
+     */
+    private void rejectIllFormedLiterals(Model model) {
+        model.getGraph().find().forEachRemaining(t -> {
+            Node o = t.getObject();
+            if (o.isLiteral() && o.getLiteralDatatype() != null
+                    && !o.getLiteralDatatype().isValidLiteral(o.getLiteral())) {
+                throw new DatatypeFormatException(String.format(
+                        "Lexical form '%s' is not valid for datatype %s",
+                        o.getLiteralLexicalForm(), o.getLiteralDatatypeURI()));
+            }
+        });
+    }
+
     private void resetJenaLiteralValidation() {
       JenaParameters.enableEagerLiteralValidation =
                 eagerJenaLiteralValidation;
@@ -111,6 +152,7 @@ public class ClaimValidator {
         try (InputStream in = IOUtils.toInputStream(claim.asTriple(), StandardCharsets.UTF_8)) {
             switchOnJenaLiteralValidation();
             RDFDataMgr.read(model, in, Lang.TTL);
+            rejectIllFormedLiterals(model);
         } catch (IOException | DatatypeFormatException | RiotException e) {
             log.debug("Error in Validating validateRDFTripleSyntax {}", e.getMessage());
             throw new QueryException(String.format("Triple %s has syntax error: %s", claim.asTriple(), e.getMessage()));
