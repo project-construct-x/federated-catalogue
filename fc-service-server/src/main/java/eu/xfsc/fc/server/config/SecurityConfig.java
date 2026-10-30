@@ -143,7 +143,7 @@ public class SecurityConfig {
         .requestMatchers(HttpMethod.POST, "/dcp/presentations").permitAll()
 
         .anyRequest().denyAll()
-      )  
+      ).addFilterBefore(new BootstrapTokenRejectingFilter(), BearerTokenAuthenticationFilter.class)
       .exceptionHandling(c -> c
           .authenticationEntryPoint(
               new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
