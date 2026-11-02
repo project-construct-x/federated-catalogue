@@ -197,7 +197,7 @@ components:
         - revoked
     AssetVersion:
       type: object
-      required: [version, createdAt, createdBy, status, isCurrent]
+      required: [ version, createdAt, createdBy, status, isCurrent ]
       properties:
         version:
           type: integer
@@ -220,7 +220,7 @@ components:
           description: 'Optional change note provided at upload time.'
     AssetVersionList:
       type: object
-      required: [id, total, versions]
+      required: [ id, total, versions ]
       properties:
         id:
           type: string
@@ -288,14 +288,14 @@ components:
       properties:
         '@context':
           type: array
-          items: {}
+          items: { }
         type:
           type: string
           example: PresentationResponseMessage
         presentation:
           type: array
           description: Verifiable Presentation entries (compact JWT strings or JSON-LD objects)
-          items: {}
+          items: { }
         presentationSubmission:
           type: object
           additionalProperties: true
@@ -859,7 +859,7 @@ components:
           description: Validator IDs (schema or trust framework) used for validation
         validatorType:
           type: string
-          enum: [SHACL, JSON_SCHEMA, XML_SCHEMA, TRUST_FRAMEWORK]
+          enum: [ SHACL, JSON_SCHEMA, XML_SCHEMA, TRUST_FRAMEWORK ]
           description: Distinguishes on-demand schema validation from external trust framework validation results
         conforms:
           type: boolean
@@ -896,7 +896,7 @@ components:
             offline tamper detection
         graphSyncStatus:
           type: string
-          enum: [SYNCED, FAILED, EXCLUDED]
+          enum: [ SYNCED, FAILED, EXCLUDED ]
           nullable: true
           description: >-
             Graph database synchronization status. FAILED indicates the result could not be
@@ -912,7 +912,7 @@ components:
           description: True if the result has been superseded by a newer validation run or asset lifecycle event
         outdatedReason:
           type: string
-          enum: [ASSET_UPDATED, ASSET_REVOKED]
+          enum: [ ASSET_UPDATED, ASSET_REVOKED ]
           nullable: true
           description: Reason the result was marked outdated; null when outdated is false
 
@@ -1168,7 +1168,7 @@ components:
           description: Human-readable violation message
         severity:
           type: string
-          enum: [VIOLATION, WARNING, INFO]
+          enum: [ VIOLATION, WARNING, INFO ]
           description: Violation severity level
         sourceShape:
           type: string
@@ -1227,6 +1227,85 @@ components:
         - issuedDateTime
         - validatorDids
         - warnings
+
+    BootstrapTokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Access token for the bootstrap process.
+        tokenType:
+          type: string
+          description: Type of the token issued
+        expiresIn:
+          type: integer
+          format: int64
+          description: Time in seconds until the token expires
+
+    PresentationRequestResult:
+      type: object
+      properties:
+        state:
+          type: string
+          description: State of the presentation request
+        requestUri:
+          type: string
+          description: URI of the presentation request
+        qrCodeUri:
+          type: string
+          description: URI of the QR code for the presentation request
+        challengeId:
+          type: string
+          description: Challenge ID for the presentation request
+        connectorDid:
+          type: string
+          description: DID of the connector that issued the presentation request
+        walletUri:
+          type: string
+          description: "URI of the wallet to which the presentation request was sent"
+
+    DirectPostResponse:
+      type: object
+      properties:
+        redirect_uri:
+          type: "string"
+          description: "The URI to which the user should be redirected after the direct post"
+
+    ConnectorBinding:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the connector binding
+        connectorDid:
+          type: string
+          description: DID of the connector associated with the binding
+        holderDid:
+          type: string
+          description: DID of the holder associated with the binding
+        membershipIssuer:
+          type: string
+          description: The issuer of the membership credential
+        presentationId:
+          type: string
+          description: The ID of the presentation associated with the binding
+        challengeId:
+          type: string
+          description: The challenge ID associated with the binding
+        boundAt:
+          type: string
+          format: date-time
+          description: Timestamp when the binding was created
+        bindingStatus:
+          type: string
+          description: Status of the binding (e.g., 'active', 'revoked')
+        consumer:
+          type: boolean
+          description: Indicates if the binding is for a consumer connector
+        provider:
+          type: boolean
+          description: Indicates if the binding is for a provider connector
+
   responses:
     NotFound:
       description: The specified resource was not found
@@ -1407,6 +1486,11 @@ tags:
     description: Trust-framework compliance check endpoints.
   - name: TrustFrameworks
     description: Public discovery of enabled trust frameworks.
+  - name: oid-4vp-bootstrap-controller
+    description: >-
+      Bootstrap controller for the OID4VP project. This controller provides
+      endpoints for creating connector bindings and managing the OID4VP authentication 
+      for initial connector bootstrap.
 paths:
   /admin/me:
     get:
@@ -1416,7 +1500,7 @@ paths:
       summary: Check if the current user has admin access
       operationId: checkAdminAccess
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: User has admin access
@@ -1432,7 +1516,7 @@ paths:
       summary: Get dashboard statistics
       operationId: getAdminStats
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: Dashboard statistics
@@ -1454,7 +1538,7 @@ paths:
       summary: Get component health overview
       operationId: getAdminHealth
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: Component health status
@@ -1476,7 +1560,7 @@ paths:
       summary: Get the Keycloak Admin Console URL for embedding
       operationId: getKeycloakAdminUrl
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: Keycloak Admin Console URL
@@ -1498,7 +1582,7 @@ paths:
       summary: List all registered trust frameworks
       operationId: getTrustFrameworks
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: List of trust frameworks
@@ -1527,7 +1611,7 @@ paths:
         rejected (additionalProperties: false).
       operationId: patchTrustFramework
       security:
-        - jwt: []
+        - jwt: [ ]
       parameters:
         - name: id
           in: path
@@ -1648,7 +1732,7 @@ paths:
         At least one field must be present.
       operationId: patchTrustFrameworkBaseClass
       security:
-        - jwt: []
+        - jwt: [ ]
       parameters:
         - name: bundleId
           in: path
@@ -1687,7 +1771,7 @@ paths:
       summary: Get schema validation module status
       operationId: getSchemaValidationStatus
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: Schema validation modules with status
@@ -1723,7 +1807,7 @@ paths:
         compose.
       operationId: patchSchemaModule
       security:
-        - jwt: []
+        - jwt: [ ]
       parameters:
         - name: type
           in: path
@@ -1768,7 +1852,7 @@ paths:
         what that toggle is gating.
       operationId: getOntologyImpact
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: List of ontologies with per-base-class subclass counts
@@ -1790,7 +1874,7 @@ paths:
       summary: Get graph database status
       operationId: getGraphDatabaseStatus
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: Graph database status
@@ -1812,7 +1896,7 @@ paths:
       summary: Switch the graph database backend (requires restart)
       operationId: switchGraphDatabase
       security:
-        - jwt: []
+        - jwt: [ ]
       requestBody:
         required: true
         content:
@@ -1848,7 +1932,7 @@ paths:
       summary: Trigger an asynchronous graph rebuild
       operationId: triggerGraphRebuild
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '202':
           description: Graph rebuild started
@@ -1876,7 +1960,7 @@ paths:
       summary: Get the current graph rebuild status
       operationId: getGraphRebuildStatus
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: Current rebuild status
@@ -1892,7 +1976,7 @@ paths:
       summary: Get the current graph store status
       operationId: getGraphStatus
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: Graph store status
@@ -1908,7 +1992,7 @@ paths:
       summary: Get the list of asset metadata in the Catalogue
       operationId: readAssets
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: uploadTimerange
           in: query
@@ -2028,7 +2112,7 @@ paths:
         `requireBaseClass=true` to enforce base-class resolution.
       operationId: addAsset
       security:
-        - dcp: []
+        - dcp: [ ]
       requestBody:
         description: >-
           The asset content. For JSON-LD credentials, use application/json,
@@ -2148,7 +2232,7 @@ paths:
         is configurable via `federated-catalogue.validation.max-assets-per-request` (default: 20).
       operationId: validateAssets
       security:
-        - dcp: []
+        - dcp: [ ]
       requestBody:
         required: true
         content:
@@ -2227,7 +2311,7 @@ paths:
             type: integer
             minimum: 1
       security:
-        - dcp: []
+        - dcp: [ ]
       responses:
         '200':
           description: >
@@ -2268,7 +2352,7 @@ paths:
           schema:
             type: string
       security:
-        - dcp: []
+        - dcp: [ ]
       requestBody:
         required: true
         content:
@@ -2347,7 +2431,7 @@ paths:
             minimum: 1
             maximum: 100
       security:
-        - dcp: []
+        - dcp: [ ]
       responses:
         '200':
           description: The version history of the asset.
@@ -2390,7 +2474,7 @@ paths:
             type: integer
             minimum: 1
       security:
-        - dcp: []
+        - dcp: [ ]
       responses:
         '200':
           description: Revoked
@@ -2456,7 +2540,7 @@ paths:
         Multipart uploads are handled by the server outside the generated delegate pattern.
       operationId: uploadHumanReadable
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2512,7 +2596,7 @@ paths:
         initial link. The IRI of the human-readable asset is preserved.
       operationId: replaceHumanReadable
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2561,7 +2645,7 @@ paths:
         Returns the binary content of the human-readable document linked to the asset.
       operationId: getHumanReadable
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2596,7 +2680,7 @@ paths:
         representation.
       operationId: getMachineReadable
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2628,7 +2712,7 @@ paths:
       summary: Get stored validation results for an asset
       operationId: getAssetValidations
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2663,7 +2747,7 @@ paths:
       summary: Run a compliance check for an asset
       operationId: runComplianceCheck
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2714,7 +2798,7 @@ paths:
       summary: Get stored compliance check results for an asset
       operationId: getComplianceChecks
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2776,7 +2860,7 @@ paths:
         using the CAT-internal namespace are rejected with 400. Duplicate credentialId returns 409.
       operationId: addProvenanceCredential
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2835,7 +2919,7 @@ paths:
         Optionally filter by version.
       operationId: listProvenanceCredentials
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2896,7 +2980,7 @@ paths:
         or ADMIN_ALL
       operationId: verifyAllProvenanceCredentials
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2938,7 +3022,7 @@ paths:
         Returns the full provenance credential record including the raw VC content.
       operationId: getProvenanceCredential
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -2978,7 +3062,7 @@ paths:
         extended verification result.
       operationId: verifyProvenanceCredential
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -3024,7 +3108,7 @@ paths:
         provenance row), prefer DELETE /assets/by-id/{id}.
       operationId: deleteAsset
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: asset_hash
           in: path
@@ -3066,7 +3150,7 @@ paths:
         catalogue's contents.
       operationId: deleteAssetById
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -3100,7 +3184,7 @@ paths:
         performance harness) have migrated. See ADR 7 — Delete Operation Exception.
       operationId: revokeAsset
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: asset_hash
           in: path
@@ -3139,7 +3223,7 @@ paths:
       summary: Get a single stored validation result by ID
       operationId: getValidationResult
       security:
-        - dcp: []
+        - dcp: [ ]
       parameters:
         - name: id
           in: path
@@ -3172,7 +3256,7 @@ paths:
       description: 'Requires a verified DCP identity; Keycloak tokens do not grant access'
       operationId: querywebsite
       security:
-        - dcp: []
+        - dcp: [ ]
       responses:
         '200':
           description: HTML document that contains a query field for openCypher queries.
@@ -3232,7 +3316,7 @@ paths:
             default: true
           required: false
       security:
-        - dcp: []
+        - dcp: [ ]
       requestBody:
         description: >-
           Raw query text. Use Content-Type to indicate the query language:
@@ -3305,7 +3389,7 @@ paths:
       description: 'Requires a verified DCP identity; Keycloak tokens do not grant access'
       operationId: queryInfo
       security:
-        - dcp: []
+        - dcp: [ ]
       responses:
         '200':
           description: Query backend information
@@ -3324,7 +3408,7 @@ paths:
       description: 'Requires a verified DCP identity; Keycloak tokens do not grant access'
       operationId: search
       security:
-        - dcp: []
+        - dcp: [ ]
       requestBody:
         description: JSON object containing query with parameters and annotations
         content:
@@ -3356,7 +3440,7 @@ paths:
       description: 'The schema identifiers, returned by this endpoint can be used to download the schema files. Includes both RDF and non-RDF schema types. Required permission: ADMIN_ALL'
       operationId: getSchemas
       security:
-        - jwt: []
+        - jwt: [ ]
       responses:
         '200':
           description: 'References to ontologies, shapes and vocabularies.'
@@ -3369,7 +3453,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '500':
-          $ref: '#/components/responses/ServerError'          
+          $ref: '#/components/responses/ServerError'
     post:
       x-access-category: administration
       tags:
@@ -3378,7 +3462,7 @@ paths:
       description: 'This endpoint accepts an ontology (OWL), shape (SHACL), controlled vocabulary (SKOS), JSON Schema, or XML Schema (XSD), which is added to the schemas of the catalogue. Required permission: ADMIN_ALL'
       operationId: addSchema
       security:
-        - jwt: []
+        - jwt: [ ]
       requestBody:
         description: 'The file of the new schema: an ontology (OWL), shape (SHACL), controlled vocabulary (SKOS), JSON Schema, or XML Schema (XSD).'
         content:
@@ -3391,9 +3475,9 @@ paths:
               type: string
               description: 'OWL or SHACL file describing the ontology.'
           application/json:
-              schema:
-                type: string
-                description: 'OWL or SHACL file describing the ontology.'
+            schema:
+              type: string
+              description: 'OWL or SHACL file describing the ontology.'
           text/turtle:
             schema:
               type: string
@@ -3506,7 +3590,7 @@ paths:
       description: 'Required permission: ADMIN_ALL'
       operationId: getSchema
       security:
-        - jwt: []
+        - jwt: [ ]
       parameters:
         - name: schemaId
           in: path
@@ -3637,7 +3721,7 @@ paths:
       description: 'Returns an ordered list of all versions of the schema. Required permission: ADMIN_ALL'
       operationId: getSchemaVersions
       security:
-        - jwt: []
+        - jwt: [ ]
       parameters:
         - name: schemaId
           in: path
@@ -3666,7 +3750,7 @@ paths:
       summary: List enabled trust frameworks and their profiles (public discovery)
       operationId: getTrustFrameworksPublic
       security:
-        - dcp: []
+        - dcp: [ ]
       responses:
         '200':
           description: List of enabled trust framework families with their profile IDs
@@ -3689,7 +3773,7 @@ paths:
       summary: Show a HTML page to verify (portions of) a signed credential
       operationId: verifyPage
       security:
-        - dcp: []
+        - dcp: [ ]
       responses:
         '200':
           description: >-
@@ -3727,7 +3811,7 @@ paths:
           required: false
           schema:
             type: boolean
-            default: true  
+            default: true
         - name: verifyVCSignature
           in: query
           description: 'To verify VC signature or not'
@@ -3793,7 +3877,7 @@ paths:
             schema:
               type: string
       security:
-        - dcp: []
+        - dcp: [ ]
       responses:
         '200':
           description: Verification result
@@ -3820,8 +3904,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/OffsetParam'
         - $ref: '#/components/parameters/LimitParam'
-#        - $ref: '#/components/parameters/OrderByParam'
-#        - $ref: '#/components/parameters/AscendingParam'
+      #        - $ref: '#/components/parameters/OrderByParam'
+      #        - $ref: '#/components/parameters/AscendingParam'
       responses:
         '200':
           description: List of registered participants
@@ -3834,7 +3918,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - dcp: []
+        - dcp: [ ]
     post:
       x-access-category: dcp-machine
       tags:
@@ -3857,9 +3941,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Participant'
           headers:
-            location: 
+            location:
               description: 'URL of the added Participant'
-              schema: 
+              schema:
                 type: string
         '400':
           $ref: '#/components/responses/ClientError'
@@ -3870,7 +3954,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - dcp: []
+        - dcp: [ ]
   /participants/{participantId}:
     get:
       x-access-category: dcp-machine
@@ -3901,7 +3985,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - dcp: []
+        - dcp: [ ]
     put:
       x-access-category: dcp-machine
       tags:
@@ -3938,7 +4022,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - dcp: []
+        - dcp: [ ]
     delete:
       x-access-category: dcp-machine
       tags:
@@ -3968,7 +4052,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - dcp: []
+        - dcp: [ ]
   /participants/{participantId}/users:
     get:
       x-access-category: administration
@@ -4005,7 +4089,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
       security:
-        - jwt: []
+        - jwt: [ ]
   /users:
     get:
       x-access-category: administration
@@ -4016,8 +4100,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/OffsetParam'
         - $ref: '#/components/parameters/LimitParam'
-#        - $ref: '#/components/parameters/OrderByParam'
-#        - $ref: '#/components/parameters/AscendingParam'
+      #        - $ref: '#/components/parameters/OrderByParam'
+      #        - $ref: '#/components/parameters/AscendingParam'
       security:
         - jwt: [ ]
       responses:
@@ -4055,9 +4139,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserProfile'
           headers:
-            location: 
+            location:
               description: 'URL of the added User'
-              schema: 
+              schema:
                 type: string
         '400':
           $ref: '#/components/responses/ClientError'
@@ -4305,7 +4389,7 @@ paths:
         token `sub` (holder binding).
       operationId: pullDcpPresentations
       security:
-        - dcpSelfIssued: []
+        - dcpSelfIssued: [ ]
       parameters:
         - name: Authorization
           in: header
@@ -4342,3 +4426,137 @@ paths:
           $ref: '#/components/responses/ServerError'
         '502':
           $ref: '#/components/responses/BadGateway'
+
+  /api/auth/oid4vp/requests:
+    post:
+      x-access-category: bootstrap-protocol
+      tags:
+        - oid-4vp-bootstrap-controller
+      summary: Create an OID4VP presentation request
+      description: >-
+          Creates an OID4VP presentation request for the specified connector DID
+          and returns the resulting request object, including the data needed
+          by a wallet to submit a verifiable presentation.
+      operationId: createOid4VpRequest
+      security: []
+      parameters:
+        - name: connectorDid
+          in: query
+          required: true
+          description: DID of the connector.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OID4VP request created successfully.
+          content:
+            "*/*":
+              schema:
+                $ref: '#/components/schemas/PresentationRequestResult'
+        '400':
+          description: Invalid request parameter.
+        '500':
+          description: Internal server error.
+
+  /api/auth/oid4vp/direct-post:
+    post:
+      x-access-category: bootstrap-protocol
+      tags:
+        - oid-4vp-bootstrap-controller
+      summary: Submit verifiable presentation
+      description: >-
+        Receives a verifiable presentation submitted by a wallet as part of an
+        OID4VP authentication or verification flow. The request must contain the
+        presentation token (vp_token) and the corresponding state value issued
+        during presentation request creation. The submitted presentation is
+        validated and processed, and the result is returned to the caller.
+      operationId: directPost
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                vp_token:
+                  type: string
+                  description: Verifiable Presentation Token
+                state:
+                  type: string
+                  description: State-Wert der Presentation Request
+              required:
+                - vp_token
+                - state
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: '#/components/schemas/DirectPostResponse'
+
+  /api/auth/oid4vp/connectors/{connectorDid}/bind:
+    post:
+      x-access-category: bootstrap-protocol
+      tags:
+        - oid-4vp-bootstrap-controller
+      summary: Create connector binding
+      description: >
+        Creates a new binding for the specified connector. The connector DID
+        uniquely identifies the connector to be bound. Upon successful
+        creation, the endpoint returns the connector binding information
+        associated with the specified connector.
+      operationId: bind
+      security: []
+      parameters:
+        - name: connectorDid
+          in: path
+          required: true
+          description: Decentralized identifier (DID) of the connector to bind.
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Connector binding created successfully
+          content:
+            "*/*":
+              schema:
+                $ref: '#/components/schemas/ConnectorBinding'
+
+  /api/auth/oid4vp/token:
+    post:
+      x-access-category: bootstrap-protocol
+      tags:
+        - oid-4vp-bootstrap-controller
+      summary: Exchange response code for token
+      description: >
+        Exchanges the response code obtained during the OID4VP presentation
+        flow for a token. The request must provide the state value associated
+        with the presentation request and the response code returned after a
+        successful presentation. The endpoint validates both values and
+        returns the generated token response.
+      operationId: token
+      security: []
+      parameters:
+        - name: state
+          in: query
+          required: true
+          description: State value associated with the presentation request.
+          schema:
+            type: string
+
+        - name: response_code
+          in: query
+          required: true
+          description: Response code obtained from the completed OID4VP flow.
+          schema:
+            type: string
+
+      responses:
+        "200":
+          description: Token generated successfully
+          content:
+            "*/*":
+              schema:
+                $ref: '#/components/schemas/BootstrapTokenResponse'
