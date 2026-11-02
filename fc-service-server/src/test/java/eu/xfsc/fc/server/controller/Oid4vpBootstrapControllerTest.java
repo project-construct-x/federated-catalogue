@@ -51,7 +51,6 @@ import eu.xfsc.fc.core.dao.oid4vp.ConnectorBindingRepository;
 import eu.xfsc.fc.core.pojo.CredentialVerificationResult;
 import eu.xfsc.fc.core.pojo.Validator;
 import eu.xfsc.fc.core.service.oid4vp.BootstrapTokenService;
-import eu.xfsc.fc.core.service.oid4vp.Challenge;
 import eu.xfsc.fc.core.service.resolve.DidDocumentResolver;
 import eu.xfsc.fc.core.service.verification.VerificationService;
 import foundation.identity.did.DIDDocument;
