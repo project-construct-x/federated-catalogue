@@ -41,7 +41,9 @@ imagePullSecrets:
 
 fuseki:
   image:
-    # CI publishes the branch tag (dev), not the chart default 5.5.0.
+    # CI publishes ghcr.io/project-construct-x/.../fc-fuseki:dev.
+    # The chart default repository is the upstream Eclipse image, which has no dev tag.
+    repository: ghcr.io/project-construct-x/federated-catalogue/fc-fuseki
     tag: "dev"
     pullPolicy: Always
 
