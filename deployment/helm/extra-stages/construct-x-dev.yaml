@@ -7,6 +7,10 @@
 #   - catalogue API at /
 #   - Keycloak at /auth (same host)
 #
+# Ingress (STACKIT): class nginx, ClusterIssuer letsencrypt-staging, external-dns
+# for federated-catalogue.staging.construct-x.net (TTL 300). TLS secret
+# federated-catalogue-tls is shared by the catalogue and Keycloak ingresses.
+#
 # One-liner (from repo root):
 #   helm dependency build deployment/helm/fc-service
 #   helm upgrade --install fc-service deployment/helm/fc-service \
@@ -41,6 +45,16 @@ fuseki:
     pullPolicy: Always
 
 ingress:
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    external-dns.alpha.kubernetes.io/hostname: "federated-catalogue.staging.construct-x.net"
+    external-dns.alpha.kubernetes.io/ttl: "300"
+    # Base values.yaml sets Traefik annotations. Helm merges maps, so clear them
+    # here; the ingress template omits empty values.
+    traefik.ingress.kubernetes.io/router.entrypoints: ""
+    traefik.ingress.kubernetes.io/service.sticky.cookie: ""
+    traefik.ingress.kubernetes.io/service.sticky.cookie.name: ""
   hosts:
     - host: "federated-catalogue.staging.construct-x.net"
       paths:
@@ -57,6 +71,11 @@ keycloak:
     strict: false
     strictBackchannel: false
   ingress:
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-staging
+      external-dns.alpha.kubernetes.io/hostname: "federated-catalogue.staging.construct-x.net"
+      external-dns.alpha.kubernetes.io/ttl: "300"
     rules:
       - host: "federated-catalogue.staging.construct-x.net"
         paths:
