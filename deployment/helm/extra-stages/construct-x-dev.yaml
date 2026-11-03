@@ -1,4 +1,4 @@
-# Construct-X staging (STACKIT SKE: construct-x-dev)
+# Construct-X staging (STACKIT SKE: construct-x-stag)
 #
 # Base stack only: fc-service + Keycloak + Postgres + Fuseki.
 # No demo portal (frontend). Neo4j is not part of this chart.
@@ -15,8 +15,8 @@
 #   helm repo add codecentric https://codecentric.github.io/helm-charts --force-update
 #   helm dependency build deployment/helm/fc-service
 #   helm upgrade --install fc-service deployment/helm/fc-service \
-#     --kube-context construct-x-dev \
-#     --namespace dev-01 \
+#     --kube-context construct-x-stag \
+#     --namespace federated-catalogue \
 #     -f deployment/helm/fc-service/values.yaml \
 #     -f deployment/helm/extra-stages/construct-x-dev.yaml \
 #     --server-side=true --force-conflicts
@@ -96,7 +96,7 @@ did:
   enabled: false
 
 # Full env list (Helm replaces arrays). Fuseki only — no Neo4j. Keycloak DNS
-# uses the short service name so it works in the deploy namespace (dev-01).
+# uses the short service name so it works in the deploy namespace (federated-catalogue).
 env:
   - name: DATASTORE_FILE_PATH
     value: /var/lib/fc-service/filestore

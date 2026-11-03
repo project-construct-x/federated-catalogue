@@ -21,8 +21,8 @@ Images are published to GitHub Container Registry under this repository:
 
 Branch builds use `docker-build.yml` on **`dev`** (`GITHUB_TOKEN`, `packages: write`);
 `latest` and branch tag `dev` are published from `dev`. After a successful image push,
-the same workflow deploys Helm release `fc-service` to kube context `construct-x-dev`
-(namespace `dev-01`) using
+the same workflow deploys Helm release `fc-service` to kube context `construct-x-stag`
+(namespace `federated-catalogue`, created if missing) using
 [`deployment/helm/extra-stages/construct-x-dev.yaml`](../deployment/helm/extra-stages/construct-x-dev.yaml).
 
 `main` is reserved for upstream merges and does not build or push images. Releases and
@@ -39,7 +39,7 @@ GitHub Environment **`construct-x-dev`** (or repository secrets):
 
 | Secret | Purpose |
 |--------|---------|
-| `KUBE_CONFIG` | Base64-encoded **minimal** kubeconfig (only `construct-x-dev`) |
+| `KUBE_CONFIG` | Base64-encoded **minimal** kubeconfig (only `construct-x-stag`) |
 | `FC_KEYCLOAK_CLIENT_SECRET` | Keycloak `federated-catalogue` client secret — CI patches `fc-realm.json` at deploy time and applies the matching K8s secret (value is **not** committed) |
 | `GHCR_PULL_TOKEN` | Optional long-lived PAT with `read:packages`. CI stores it as the `ghcr-pull` image pull secret. If unset, the job's `GITHUB_TOKEN` is used; that token can pull during the deploy and expires when the job ends |
 

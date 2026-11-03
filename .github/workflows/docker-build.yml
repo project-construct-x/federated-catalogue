@@ -15,8 +15,8 @@ env:
   REGISTRY: ghcr.io
   # e.g. ghcr.io/project-construct-x/federated-catalogue/<image>
   IMAGE_NAME: ${{ github.repository }}
-  KUBE_CONTEXT: construct-x-dev
-  KUBE_NAMESPACE: dev-01
+  KUBE_CONTEXT: construct-x-stag
+  KUBE_NAMESPACE: federated-catalogue
   HELM_RELEASE: fc-service
   HELM_CHART: deployment/helm/fc-service
   HELM_STAGE_VALUES: deployment/helm/extra-stages/construct-x-dev.yaml
@@ -118,16 +118,16 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${KUBE_CONFIG}" ]]; then
-            echo "::error::Repository secret KUBE_CONFIG is required (base64-encoded kubeconfig for construct-x-dev)."
+            echo "::error::Repository secret KUBE_CONFIG is required (base64-encoded kubeconfig for construct-x-stag)."
             exit 1
           fi
           mkdir -p "$HOME/.kube"
           echo "$KUBE_CONFIG" | base64 -d > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
           kubectl config use-context "${KUBE_CONTEXT}"
+          kubectl create namespace "${KUBE_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
           kubectl config set-context "${KUBE_CONTEXT}" --namespace="${KUBE_NAMESPACE}"
           kubectl config get-contexts
-          # Credentials are namespace-scoped (dev-01); cluster-level "get ns" is forbidden.
           kubectl -n "${KUBE_NAMESPACE}" get pods
 
       - name: Apply Keycloak client secret

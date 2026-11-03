@@ -289,8 +289,8 @@ under [`../extra-stages/construct-x-dev.yaml`](../extra-stages/construct-x-dev.y
 helm repo add codecentric https://codecentric.github.io/helm-charts --force-update
 helm dependency build deployment/helm/fc-service
 helm upgrade --install fc-service deployment/helm/fc-service \
-  --kube-context construct-x-dev \
-  --namespace dev-01 \
+  --kube-context construct-x-stag \
+  --namespace federated-catalogue \
   -f deployment/helm/fc-service/values.yaml \
   -f deployment/helm/extra-stages/construct-x-dev.yaml \
   --server-side=true --force-conflicts
