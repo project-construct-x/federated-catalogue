@@ -147,6 +147,8 @@ jobs:
           sed -i -E "s|^version:[[:space:]]*.*$|version: ${CHART_VERSION}|" Chart.yaml
           sed -i -E "s|^appVersion:[[:space:]]*.*$|appVersion: \"${APP_VERSION}\"|" Chart.yaml
 
+          # Helm only downloads Chart.yaml dependencies from repos registered locally.
+          helm repo add codecentric https://codecentric.github.io/helm-charts --force-update
           helm dependency build
           helm lint .
           helm package .

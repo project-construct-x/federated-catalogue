@@ -12,6 +12,7 @@
 # federated-catalogue-tls is shared by the catalogue and Keycloak ingresses.
 #
 # One-liner (from repo root):
+#   helm repo add codecentric https://codecentric.github.io/helm-charts --force-update
 #   helm dependency build deployment/helm/fc-service
 #   helm upgrade --install fc-service deployment/helm/fc-service \
 #     --kube-context construct-x-dev \

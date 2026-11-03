@@ -188,7 +188,11 @@ jobs:
           fi
 
       - name: Build chart dependencies
-        run: helm dependency build "${HELM_CHART}"
+        run: |
+          set -euo pipefail
+          # Helm only downloads Chart.yaml dependencies from repos registered locally.
+          helm repo add codecentric https://codecentric.github.io/helm-charts --force-update
+          helm dependency build "${HELM_CHART}"
 
       - name: Helm upgrade --install
         run: |

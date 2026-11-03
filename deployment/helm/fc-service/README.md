@@ -92,6 +92,7 @@ kubectl create secret generic fc-keycloak-client-secret \
 ### 6. Pull chart dependencies
 
 ```bash
+helm repo add codecentric https://codecentric.github.io/helm-charts --force-update
 helm dependency build deployment/helm/fc-service
 ```
 
@@ -285,6 +286,7 @@ Deploy the `dev` GHCR images to the Construct-X STACKIT cluster with the stage o
 under [`../extra-stages/construct-x-dev.yaml`](../extra-stages/construct-x-dev.yaml):
 
 ```bash
+helm repo add codecentric https://codecentric.github.io/helm-charts --force-update
 helm dependency build deployment/helm/fc-service
 helm upgrade --install fc-service deployment/helm/fc-service \
   --kube-context construct-x-dev \
