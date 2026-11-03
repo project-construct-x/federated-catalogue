@@ -42,6 +42,9 @@ public class DcpMachineSecurityConfig {
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .requestCache(cache -> cache.disable())
         .addFilterBefore(new DcpMachineAuthenticationFilter(service), AnonymousAuthenticationFilter.class)
+            .addFilterBefore(
+                    new BootstrapTokenRejectingFilter(),
+                    DcpMachineAuthenticationFilter.class)
         .authorizeHttpRequests(auth -> auth.anyRequest().access((authentication, context) ->
             new AuthorizationDecision(authentication.get() instanceof DcpAuthenticationToken
                 && authentication.get().isAuthenticated())))

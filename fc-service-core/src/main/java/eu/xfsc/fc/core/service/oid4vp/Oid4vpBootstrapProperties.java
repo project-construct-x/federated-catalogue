@@ -1,0 +1,60 @@
+package eu.xfsc.fc.core.service.oid4vp;
+
+/*-
+ * ---license-start
+ * fc-service-core
+ * ---
+ * Copyright (c) 2022 - 2026 Contributors to the Eclipse Foundation
+ * ---
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License, Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * ---license-end
+ */
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+//import org.springframework.context.annotation.Configuration;
+
+import java.time.Duration;
+import java.util.List;
+
+/**
+ * Spring configuration properties for the catalogue-local OID4VP bootstrap flow.
+ *
+ * <p>The values under {@code federated-catalogue.oid4vp} configure the verifier endpoint,
+ * trusted membership issuers, token signing material and TTLs for requests, challenges and
+ * bootstrap tokens.
+ */
+@Data
+//@Configuration
+@ConfigurationProperties(prefix = "federated-catalogue.oid4vp")
+public class Oid4vpBootstrapProperties {
+    private boolean enabled = false;
+    private String verifierUrl;              // EECC VC Verifier
+    private String clientId;                 // Katalog als Verifier
+    private String responseUri;              // .../api/auth/oid4vp/direct-post
+    private String requestUriBaseUrl;         // .../api/auth/oid4vp/request
+    private String redirectUri;// "http://localhost:8081/api/auth/oid4vp/direct-post"
+    private List<String> trustedMembershipIssuers = List.of();
+    private boolean requireCredentialStatus = true;
+    private String tokenIssuer;              // z. B. https://catalogue.example/oid4vp
+    private String tokenSigningKey;          // private JWK (nicht Keycloak)
+    private Duration requestTtl = Duration.ofMinutes(/*5*/360);  // 5 min default, 6h for testing
+    private Duration tokenTtl = Duration.ofMinutes(/*5*/360);    // 5 min default, 6h for testing
+    private Duration challengeTtl = Duration.ofMinutes(/*10*/720); // 10 min default, 12h for testing
+
+    /**
+     * Returns the external verifier URL used by the OID4VP library.
+     *
+     * @return configured verifier URL
+     */
+    public String getVerifierUrl() {
+        return verifierUrl;
+    }
+}

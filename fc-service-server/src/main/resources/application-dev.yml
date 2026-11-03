@@ -20,3 +20,13 @@ federated-catalogue:
         '[https://w3id.org/gaia-x/2511#]': '{"@context": {}}'
       enable-http: false
       enable-local-cache: true
+
+logging:
+  level:
+    org.springframework.security: TRACE
+    root: INFO
+    eu.xfsc.fc: DEBUG
+    #    org.neo4j.driver: DEBUG
+    #    org.springframework: DEBUG
+    org.springframework.web: DEBUG #INFO
+#    org.springframework.security: DEBUG

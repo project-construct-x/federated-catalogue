@@ -20,6 +20,7 @@ package eu.xfsc.fc.server.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import eu.xfsc.fc.api.generated.model.Error;
+import eu.xfsc.fc.core.service.oid4vp.BootstrapTokenService;
 import eu.xfsc.fc.core.security.DcpAuthenticationToken;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,8 +42,11 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 
 /**
@@ -72,7 +76,7 @@ public class SecurityConfig {
   @Bean
   @Order(-1)
   public SecurityFilterChain publicResourcesFilterChain(HttpSecurity http) throws Exception {
-    http.securityMatcher("/actuator/health", "/actuator/health/**", "/api/docs", "/api/docs.yaml",
+    http.securityMatcher("/actuator/health", "/actuator/health/**", "/actuator/configprops","/api/docs", "/api/docs.yaml",
             "/api/docs/**", "/swagger-ui/**", "/js/**", "/css/**")
         .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/**").permitAll()
             .anyRequest().denyAll());
@@ -96,20 +100,20 @@ public class SecurityConfig {
 
   @Bean
   @Order(1)
-  public SecurityFilterChain oid4vpFilterChain(HttpSecurity http) throws Exception {
-    http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .requestCache(cache -> cache.disable())
-        .csrf(csrf -> csrf.disable());
-    http
-      .securityMatcher(
-        "/api/auth/oid4vp/**"
-      )
-      .authorizeHttpRequests(authorization -> authorization
-        .anyRequest().denyAll()
-      )
-      .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()));
-      // Work package D replaces this deny-all boundary with the initial-bootstrap protocol.
-      return http.build();
+  public SecurityFilterChain oid4vpFilterChain(HttpSecurity http, BootstrapTokenService tokens) throws Exception {
+    http.securityMatcher("/api/auth/oid4vp/**")
+            .csrf(c -> c.disable())
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(a -> a
+                    .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/requests",
+                            "/api/auth/oid4vp/direct-post", "/api/auth/oid4vp/token").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/auth/oid4vp/request/**").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/oid4vp/connectors/*/bind").hasAuthority("SCOPE_connector:bind")
+                    .anyRequest().denyAll())
+            .addFilterBefore(new BootstrapTokenAuthenticationFilter(tokens), AuthorizationFilter.class)
+            .exceptionHandling(c -> c.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                    .accessDeniedHandler(accessDeniedHandler()));
+    return http.build();
   }
 
   @Bean
@@ -139,13 +143,14 @@ public class SecurityConfig {
         .requestMatchers(HttpMethod.POST, "/dcp/presentations").permitAll()
 
         .anyRequest().denyAll()
-      )  
+      ).addFilterBefore(new BootstrapTokenRejectingFilter(), BearerTokenAuthenticationFilter.class)
       .exceptionHandling(c -> c
           .authenticationEntryPoint(
               new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
           .accessDeniedHandler(accessDeniedHandler())
       );
       // DcpMachineSecurityConfig authenticates the allowlisted machine operations first.
+      // TODO: Implement DCP authentication
       return http.build();
   }
 
@@ -167,15 +172,15 @@ public class SecurityConfig {
         "/participants/*/users",
         "/roles",
         "/session"
-      )
-      .authorizeHttpRequests(authorization -> authorization
-        .anyRequest().access((authentication, context) -> {
-          var caller = authentication.get();
-          return new AuthorizationDecision(caller instanceof JwtAuthenticationToken && caller.isAuthenticated()
-              && caller.getAuthorities().stream().anyMatch(role -> ("ROLE_" + ADMIN_ALL).equals(role.getAuthority())));
-        })
-      )
-      .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()))
+      ).authorizeHttpRequests(authorization -> authorization
+        .anyRequest()
+            .access((authentication, context) -> {
+                var caller = authentication.get();
+                return new AuthorizationDecision(caller instanceof JwtAuthenticationToken && caller.isAuthenticated()
+                        && caller.getAuthorities().stream().anyMatch(role -> ("ROLE_" + ADMIN_ALL).equals(role.getAuthority())));
+            })
+      ).addFilterBefore(new BootstrapTokenRejectingFilter(), BearerTokenAuthenticationFilter.class)
+            .exceptionHandling(c -> c.accessDeniedHandler(accessDeniedHandler()))
       .oauth2ResourceServer(c -> c
           .jwt(jc -> jc.jwtAuthenticationConverter(new CustomJwtAuthenticationConverter(resourceId))));
       return http.build();
@@ -207,4 +212,5 @@ public class SecurityConfig {
       response.getWriter().write(ow.writeValueAsString(forbiddenError));
     };
   }
+
 }
