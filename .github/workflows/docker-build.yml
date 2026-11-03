@@ -178,14 +178,6 @@ jobs:
             --docker-username="${{ github.actor }}" \
             --docker-password="${token}" \
             --dry-run=client -o yaml | kubectl apply -f -
-          # A StatefulSet will not replace a pod that is already unready, so an
-          # old Fuseki pod keeps pulling the previous tag forever. Delete it
-          # after the pull secret exists; the controller recreates it from the
-          # current template and the pull happens while this job's token is valid.
-          fuseki_ready="$(kubectl -n "${KUBE_NAMESPACE}" get pod fc-fuseki-0 -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || true)"
-          if [[ "${fuseki_ready}" != "true" ]]; then
-            kubectl -n "${KUBE_NAMESPACE}" delete pod fc-fuseki-0 --ignore-not-found --wait=false
-          fi
 
       - name: Build chart dependencies
         run: |
@@ -197,13 +189,38 @@ jobs:
       - name: Helm upgrade --install
         run: |
           set -euo pipefail
+          # A StatefulSet will not replace a pod that has never become ready.
+          # After the new template is applied, delete fc-fuseki-0 so it is
+          # recreated from that template. Otherwise Helm --wait sits on the
+          # previous image until the timeout.
           helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART}" \
             --kube-context "${KUBE_CONTEXT}" \
             --namespace "${KUBE_NAMESPACE}" \
             -f "${HELM_CHART}/values.yaml" \
             -f "${HELM_STAGE_VALUES}" \
             --set-string podAnnotations.deployed-sha="${GITHUB_SHA}" \
-            --wait --timeout 10m
+            --wait --timeout 10m &
+          helm_pid=$!
+          deleted=0
+          while kill -0 "${helm_pid}" 2>/dev/null; do
+            desired="$(kubectl -n "${KUBE_NAMESPACE}" get sts fc-fuseki -o jsonpath='{.spec.template.spec.initContainers[0].image}' 2>/dev/null || true)"
+            actual="$(kubectl -n "${KUBE_NAMESPACE}" get pod fc-fuseki-0 -o jsonpath='{.spec.initContainers[0].image}' 2>/dev/null || true)"
+            reason="$(kubectl -n "${KUBE_NAMESPACE}" get pod fc-fuseki-0 -o jsonpath='{.status.initContainerStatuses[0].state.waiting.reason}' 2>/dev/null || true)"
+            if [[ -n "${desired}" && -n "${actual}" && "${desired}" != "${actual}" ]]; then
+              echo "Recreating fc-fuseki-0 (${actual} -> ${desired})"
+              kubectl -n "${KUBE_NAMESPACE}" delete pod fc-fuseki-0 --wait=false
+              deleted=1
+              sleep 20
+              continue
+            fi
+            if [[ "${deleted}" -eq 0 && "${reason}" == "ImagePullBackOff" && -n "${desired}" && "${desired}" == "${actual}" ]]; then
+              echo "Recreating fc-fuseki-0 to retry image pull"
+              kubectl -n "${KUBE_NAMESPACE}" delete pod fc-fuseki-0 --wait=false
+              deleted=1
+            fi
+            sleep 5
+          done
+          wait "${helm_pid}"
 
       - name: Status
         if: always()
