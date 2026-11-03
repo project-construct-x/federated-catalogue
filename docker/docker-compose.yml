@@ -176,9 +176,9 @@ services:
       FEDERATED_CATALOGUE_OID4VP_TOKENISSUER: "https://catalogue.example/oid4vp"
       FEDERATED_CATALOGUE_OID4VP_TOKENSIGNINGKEY: "${OID4VP_TOKEN_SIGNING_KEY}"
 
-      FEDERATED_CATALOGUE_OID4VP_REQUESTTTL: "PT6H"
-      FEDERATED_CATALOGUE_OID4VP_TOKENTTL: "PT6H"
-      FEDERATED_CATALOGUE_OID4VP_CHALLENGETTL: "PT12H"
+      FEDERATED_CATALOGUE_OID4VP_REQUESTTTL: "PT5M"
+      FEDERATED_CATALOGUE_OID4VP_TOKENTTL: "PT5M"
+      FEDERATED_CATALOGUE_OID4VP_CHALLENGETTL: "PT10M"
       # DID resolution: 'local' resolves did:web directly from this container;
       # 'uni-res' delegates to an external Universal Resolver (requires network access).
       # Local is required for docker-compose where did-server is only reachable on the Docker network.
