@@ -100,9 +100,31 @@ sequenceDiagram
 
 ## EDC Extension
 
+#### Required config
+
+- URL of the federated catalog
+- did:web id of the federated catalog
+
+#### Essential internal dependencies from the EDC framework
+
+- SecureTokenService
+- DatasetResolver
+
+#### Key facts on planned implementation
+
+- two principal ways possible: 
+    - either create a scheduled daemon service 
+    - or create a service that gets notified via EventRouter, when new ContractDefinitionCreated events get triggered
+
+- when scheduled (or triggered via event), the service will use the DatasetResolver to acquire all (catalog-) dataset items 
+- the service should keep track of all dataset items it has already registered at the federated catalog
+- the service (when active) will scan the available dataset items and select those that have not been registered at the federated catalog and do a registration call for them 
+- in order to prepare the registration, the service will utilize the SecureTokenService in order to obtain an SI token, that allows the federated catalog to verify that the registration message came from the correct source
+- the precise format of the request body of such registration messages is still open for discussion
+
+ 
 Implementation: https://github.com/project-construct-x/constructx-edc/pull/20
 
-**Ernst Schrewe**
 
 ## Auth
 
