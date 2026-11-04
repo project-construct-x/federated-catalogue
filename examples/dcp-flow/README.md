@@ -12,12 +12,15 @@ No Keycloak login, auth bypass or mocked catalogue authentication is used.
 ## Start
 
 ```sh
-mvn -pl fc-service-server -am package '-DskipTests' '-Dskip.npx=true'
+mvn -pl fc-service-server -am package '-DskipTests' '-Dskip.npx=true' '-Dcheckstyle.skip=true'
 docker compose -f examples/dcp-flow/compose.yaml build fixtures
 docker compose -f examples/dcp-flow/compose.yaml run --rm --no-deps fixtures init
 docker compose -f examples/dcp-flow/compose.yaml up -d --build
 docker compose -f examples/dcp-flow/compose.yaml run --rm --no-deps fixtures smoke
 ```
+
+The local build skips Checkstyle to avoid CRLF line-ending warnings on Windows.
+This skips all Checkstyle checks for this invocation; CI checks remain unchanged.
 
 `init` creates three independent Ed25519 key pairs, DID documents, a local TLS CA,
 and the catalogue environment file under `.state/`. Existing keys are preserved.
