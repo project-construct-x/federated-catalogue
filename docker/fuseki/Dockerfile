@@ -37,7 +37,7 @@ ARG FUSEKI_JAR
 ARG REPO=https://repo1.maven.org/maven2
 ARG JAR_URL=${REPO}/org/apache/jena/jena-fuseki-server/${JENA_VERSION}/${FUSEKI_JAR}
 
-RUN [ "${JENA_VERSION}" != "" ] || { echo -e '\n**** Set JENA_VERSION ****\n' ; exit 1 ; }
+RUN test -n "${JENA_VERSION}" || { echo -e '\n**** Set JENA_VERSION ****\n' ; exit 1 ; }
 RUN echo && echo "==== Docker build for Apache Jena Fuseki ${JENA_VERSION} ====" && echo
 
 
@@ -49,7 +49,7 @@ WORKDIR $FUSEKI_DIR
 
 ## -- Download the jar file.
 COPY download.sh .
-RUN chmod a+x download.sh
+RUN sed -i 's/\r$//' download.sh && chmod a+x download.sh
 
 # Download, with check of the SHA1 checksum.
 RUN ./download.sh --chksum sha1 "$JAR_URL"
@@ -72,6 +72,7 @@ RUN \
 
 ADD entrypoint.sh .
 ADD log4j2.properties .
+RUN sed -i 's/\r$//' entrypoint.sh
 
 ## ---- Stage: Build runtime
 FROM alpine:${ALPINE_VERSION}

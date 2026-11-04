@@ -1,0 +1,8 @@
+**
+!fc-service-server/
+!fc-service-server/target/
+!fc-service-server/target/*.jar
+!examples/
+!examples/dcp-flow/
+!examples/dcp-flow/.state/
+!examples/dcp-flow/.state/ca.crt

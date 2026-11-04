@@ -1,5 +1,10 @@
 # Construct-X registry demo
 
+> **Current authentication:** machine APIs now require DCP. Use the shared
+> [local DCP flow environment](../dcp-flow/README.md) to sign modelling fixtures and run
+> Hurl with a fresh SI token for each request. Historical "until DCP is wired" and
+> legacy publish-helper instructions below are not an authentication setup for current `dev`.
+
 Fixtures and queries for using the Federated Catalogue as the **Construct-X company
 registry** and (from Phase 6) as the **DCP write-auth** gate. See
 [`docs/construct-x-implementation-plan.md`](../../docs/construct-x-implementation-plan.md).
