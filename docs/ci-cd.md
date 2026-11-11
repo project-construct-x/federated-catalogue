@@ -16,8 +16,12 @@ Images are published to GitHub Container Registry under this repository:
 
 - `ghcr.io/project-construct-x/federated-catalogue/fc-service-server`
 - `ghcr.io/project-construct-x/federated-catalogue/fc-fuseki`
+- `ghcr.io/project-construct-x/federated-catalogue/fc-admin-dashboard`
 
 `fc-demo-portal` is local-testing only (Docker Compose / `Dockerfile` target); it is not built or published to GHCR.
+The admin dashboard is published with the other images and, on the staging deploy, served at
+`/dashboard`. That deploy also adds the dashboard redirect URIs to the existing
+`federated-catalogue` Keycloak client, because realm import does not update a realm that already exists.
 
 Branch builds use `docker-build.yml` on **`dev`** (`GITHUB_TOKEN`, `packages: write`);
 `latest` and branch tag `dev` are published from `dev`. After a successful image push,
@@ -40,7 +44,7 @@ GitHub Environment **`construct-x-dev`** (or repository secrets):
 | Secret | Purpose |
 |--------|---------|
 | `KUBE_CONFIG` | Base64-encoded **minimal** kubeconfig (only `construct-x-stag`) |
-| `FC_KEYCLOAK_CLIENT_SECRET` | Keycloak `federated-catalogue` client secret — CI patches `fc-realm.json` at deploy time and applies the matching K8s secret (value is **not** committed) |
+| `FC_KEYCLOAK_CLIENT_SECRET` | Keycloak secret for the confidential `federated-catalogue-service` client (also written onto the public `federated-catalogue` client). CI patches `fc-realm.json` at deploy time and applies the matching K8s secret (value is **not** committed). Realm import does not update a realm that already exists. |
 | `GHCR_PULL_TOKEN` | Optional long-lived PAT with `read:packages`. CI stores it as the `ghcr-pull` image pull secret. If unset, the job's `GITHUB_TOKEN` is used; that token can pull during the deploy and expires when the job ends |
 
 Manual one-liner: see the header of `construct-x-dev.yaml` or the Helm README §Construct-X staging.

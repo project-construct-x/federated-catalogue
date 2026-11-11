@@ -37,6 +37,11 @@ jobs:
             dockerfile: Dockerfile
             target: ""
             image_suffix: fc-fuseki
+          - name: Admin Dashboard
+            context: fc-admin-dashboard
+            dockerfile: Dockerfile
+            target: ""
+            image_suffix: fc-admin-dashboard
 
     steps:
       - name: Checkout repository

@@ -7,6 +7,7 @@ Deploys the full Federated Catalogue stack to Kubernetes.
 | Component      | Image                                                        | Port |
 |----------------|--------------------------------------------------------------|------|
 | fc-service     | `ghcr.io/project-construct-x/federated-catalogue/fc-service-server` | 8081 |
+| fc-admin-dashboard | `ghcr.io/project-construct-x/federated-catalogue/fc-admin-dashboard` | 8080 |
 | fc-demo-portal | `ghcr.io/project-construct-x/federated-catalogue/fc-demo-portal`    | 8088 |
 | Keycloak       | `quay.io/keycloak/keycloak` (sub-chart: `keycloakx`)                | 8080 |
 | PostgreSQL     | `postgres`                                                          | 5432 |
@@ -79,7 +80,8 @@ kubectl apply -f deployment/cert-manager/clusterissuer.yaml
 ### 5. Create namespace and out-of-band secrets
 
 The Keycloak OAuth2 client secret is not managed by Helm. Its value must match the `secret` field of the
-`federated-catalogue` client in `fc-realm.json` (currently `**********`):
+confidential `federated-catalogue-service` client in `fc-realm.json` (currently `**********`). The public
+`federated-catalogue` client is only for browser login and cannot hold the service account:
 
 ```bash
 kubectl create namespace federated-catalogue
@@ -125,6 +127,7 @@ Replace `<EXTERNAL-IP>` with the configured IP:
 | Service        | URL                                                      |
 |----------------|----------------------------------------------------------|
 | fc-service API | `https://fc-server.<EXTERNAL-IP>.sslip.io`               |
+| Admin dashboard | `https://fc-server.<EXTERNAL-IP>.sslip.io/dashboard`     |
 | Keycloak admin | `https://key-server.<EXTERNAL-IP>.sslip.io/auth`         |
 | fc-demo-portal | `https://fc-demo-portal.<EXTERNAL-IP>.sslip.io`          |
 

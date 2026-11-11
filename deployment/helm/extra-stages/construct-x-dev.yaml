@@ -6,6 +6,7 @@
 # Public URL: https://federated-catalogue.staging.construct-x.net/
 #   - catalogue API at /
 #   - Keycloak at /auth (same host)
+#   - admin dashboard at /dashboard (same host)
 #
 # Ingress (STACKIT): class nginx, ClusterIssuer letsencrypt-staging, external-dns
 # for federated-catalogue.staging.construct-x.net (TTL 300). TLS secret
@@ -91,6 +92,13 @@ keycloak:
 
 portal:
   enabled: false
+
+dashboard:
+  enabled: true
+  image:
+    repository: ghcr.io/project-construct-x/federated-catalogue/fc-admin-dashboard
+    tag: "dev"
+    pullPolicy: Always
 
 did:
   enabled: false

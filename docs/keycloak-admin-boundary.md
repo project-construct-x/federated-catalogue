@@ -30,9 +30,10 @@ disabled on these API chains; a browser session cannot replace a bearer or DCP
 authentication. Admin APIs also require the JWT authentication type, not just an
 arbitrary principal carrying an admin-named authority.
 
-Query/discovery is intentionally DCP-protected, not public and not an admin
-capability. This includes the legacy GET `/query` query page. An administrator
-token therefore no longer opens that page or executes catalogue queries.
+The machine query and asset APIs stay DCP-protected. That includes the legacy
+GET `/query` page: an administrator token does not open it. Administrators
+inspect stored assets and run read-only graph queries on `/admin/posted-assets`
+and `/admin/query` instead. Write queries are rejected there.
 
 ## Boundary with D and E
 

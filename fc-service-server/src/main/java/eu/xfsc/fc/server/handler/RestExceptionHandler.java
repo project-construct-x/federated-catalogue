@@ -140,6 +140,23 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
+   * The Keycloak admin client wraps a rejected service-account login as a processing error.
+   * That is an operator configuration failure, not a missing catalogue role on the caller.
+   */
+  @ExceptionHandler({jakarta.ws.rs.ProcessingException.class, jakarta.ws.rs.NotAuthorizedException.class})
+  protected ResponseEntity<Error> handleKeycloakAdminClientFailure(RuntimeException exception) {
+    Throwable cause = exception instanceof jakarta.ws.rs.ProcessingException && exception.getCause() != null
+        ? exception.getCause() : exception;
+    if (cause instanceof jakarta.ws.rs.NotAuthorizedException || cause instanceof jakarta.ws.rs.ForbiddenException) {
+      log.warn("handleKeycloakAdminClientFailure; Keycloak rejected the service account: {}", cause.getMessage());
+      return new ResponseEntity<>(new Error("keycloak_admin_unavailable",
+          "The catalogue could not sign in to Keycloak with its service account."), SERVICE_UNAVAILABLE);
+    }
+    log.warn("handleKeycloakAdminClientFailure; Keycloak admin call failed: {}", exception.getMessage());
+    return new ResponseEntity<>(new Error("server_error", "Keycloak admin request failed."), INTERNAL_SERVER_ERROR);
+  }
+
+  /**
    * Method handles the Verification Exception.
    *
    * @param exception Thrown Server Exception.
