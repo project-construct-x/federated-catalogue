@@ -74,7 +74,10 @@ springdoc:
 keycloak:
   auth-server-url: http://key-server:8080
   realm: ${KEYCLOAK_REALM:federated-catalogue-realm}
+  # Public browser client. ADMIN_ALL is read from resource_access.<resource>.roles.
   resource: federated-catalogue
+  # Confidential client used only for the Keycloak Admin API (client credentials).
+  admin-client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:federated-catalogue-service}
   credentials:
     secret: ${KEYCLOAK_CREDENTIALS_SECRET:}
 

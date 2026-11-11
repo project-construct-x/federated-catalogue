@@ -65,16 +65,30 @@ class KeycloakRealmConfigurationTest {
     });
     assertThat(clients).hasSize(1);
     JsonNode client = clients.getFirst();
-    assertThat(client.path("serviceAccountsEnabled").asBoolean()).isTrue();
-    assertThat(client.path("publicClient").asBoolean()).isFalse();
+    assertThat(client.path("serviceAccountsEnabled").asBoolean()).isFalse();
+    assertThat(client.path("publicClient").asBoolean()).isTrue();
     assertThat(client.path("directAccessGrantsEnabled").asBoolean()).isFalse();
     assertThat(client.path("authorizationServicesEnabled").asBoolean()).isFalse();
     assertThat(client.path("standardFlowEnabled").asBoolean()).isTrue();
     assertThat(client.path("fullScopeAllowed").asBoolean()).isTrue();
 
+    List<JsonNode> serviceClients = new ArrayList<>();
+    realm.path("clients").forEach(candidate -> {
+      if (candidate.path("clientId").asText().equals("federated-catalogue-service")) {
+        serviceClients.add(candidate);
+      }
+    });
+    assertThat(serviceClients).hasSize(1);
+    JsonNode serviceClient = serviceClients.getFirst();
+    assertThat(serviceClient.path("publicClient").asBoolean()).isFalse();
+    assertThat(serviceClient.path("serviceAccountsEnabled").asBoolean()).isTrue();
+    assertThat(serviceClient.path("standardFlowEnabled").asBoolean()).isFalse();
+    assertThat(serviceClient.path("directAccessGrantsEnabled").asBoolean()).isFalse();
+    assertThat(serviceClient.path("secret").asText()).isNotBlank();
+
     List<JsonNode> accounts = new ArrayList<>();
     realm.path("users").forEach(user -> {
-      if (user.path("serviceAccountClientId").asText().equals("federated-catalogue")) {
+      if (user.path("serviceAccountClientId").asText().equals("federated-catalogue-service")) {
         accounts.add(user);
       }
     });
@@ -86,7 +100,7 @@ class KeycloakRealmConfigurationTest {
     assertThat(account.path("clientRoles").size()).isEqualTo(1);
     List<String> roles = new ArrayList<>();
     account.path("clientRoles").path("realm-management").forEach(role -> roles.add(role.asText()));
-    assertThat(roles).containsExactlyInAnyOrder("manage-users", "view-clients");
+    assertThat(roles).containsExactlyInAnyOrder("manage-users", "view-users", "view-clients");
     List<String> applicationRoles = new ArrayList<>();
     realm.path("roles").path("client").path("federated-catalogue")
         .forEach(role -> applicationRoles.add(role.path("name").asText()));

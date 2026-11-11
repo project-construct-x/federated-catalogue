@@ -7,6 +7,7 @@ Deploys the full Federated Catalogue stack to Kubernetes.
 | Component      | Image                                                        | Port |
 |----------------|--------------------------------------------------------------|------|
 | fc-service     | `ghcr.io/project-construct-x/federated-catalogue/fc-service-server` | 8081 |
+| fc-admin-dashboard | `ghcr.io/project-construct-x/federated-catalogue/fc-admin-dashboard` | 8080 |
 | fc-demo-portal | `ghcr.io/project-construct-x/federated-catalogue/fc-demo-portal`    | 8088 |
 | Keycloak       | `quay.io/keycloak/keycloak` (sub-chart: `keycloakx`)                | 8080 |
 | PostgreSQL     | `postgres`                                                          | 5432 |
@@ -79,7 +80,8 @@ kubectl apply -f deployment/cert-manager/clusterissuer.yaml
 ### 5. Create namespace and out-of-band secrets
 
 The Keycloak OAuth2 client secret is not managed by Helm. Its value must match the `secret` field of the
-`federated-catalogue` client in `fc-realm.json` (currently `**********`):
+confidential `federated-catalogue-service` client in `fc-realm.json` (currently `**********`). The public
+`federated-catalogue` client is only for browser login and cannot hold the service account:
 
 ```bash
 kubectl create namespace federated-catalogue
@@ -92,6 +94,7 @@ kubectl create secret generic fc-keycloak-client-secret \
 ### 6. Pull chart dependencies
 
 ```bash
+helm repo add codecentric https://codecentric.github.io/helm-charts --force-update
 helm dependency build deployment/helm/fc-service
 ```
 
@@ -124,6 +127,7 @@ Replace `<EXTERNAL-IP>` with the configured IP:
 | Service        | URL                                                      |
 |----------------|----------------------------------------------------------|
 | fc-service API | `https://fc-server.<EXTERNAL-IP>.sslip.io`               |
+| Admin dashboard | `https://fc-server.<EXTERNAL-IP>.sslip.io/dashboard`     |
 | Keycloak admin | `https://key-server.<EXTERNAL-IP>.sslip.io/auth`         |
 | fc-demo-portal | `https://fc-demo-portal.<EXTERNAL-IP>.sslip.io`          |
 
@@ -285,10 +289,11 @@ Deploy the `dev` GHCR images to the Construct-X STACKIT cluster with the stage o
 under [`../extra-stages/construct-x-dev.yaml`](../extra-stages/construct-x-dev.yaml):
 
 ```bash
+helm repo add codecentric https://codecentric.github.io/helm-charts --force-update
 helm dependency build deployment/helm/fc-service
 helm upgrade --install fc-service deployment/helm/fc-service \
-  --kube-context construct-x-dev \
-  --namespace dev-01 \
+  --kube-context construct-x-stag \
+  --namespace federated-catalogue \
   -f deployment/helm/fc-service/values.yaml \
   -f deployment/helm/extra-stages/construct-x-dev.yaml \
   --server-side=true --force-conflicts

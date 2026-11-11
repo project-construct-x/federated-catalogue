@@ -35,9 +35,15 @@ metadata:
   name: {{ $fullName }}
   labels:
     {{- include "fc-service.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- $annotations := .Values.ingress.annotations }}
+  {{- if $annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- range $key := keys $annotations | sortAlpha }}
+    {{- $value := index $annotations $key }}
+    {{- if $value }}
+    {{- $key | nindent 4 }}: {{ $value | quote }}
+    {{- end }}
+    {{- end }}
   {{- end }}
 spec:
   {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}

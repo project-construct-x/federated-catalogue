@@ -146,6 +146,9 @@ has an existing handler.
 | GET | `/js/**`, `/css/**` | `public` | Static client resources. |
 | OPTIONS | `/**` | `public` | Technical preflight handling only; does not authorize the actual business request or guarantee that a particular origin passes CORS policy. |
 | GET | `/dev/ping` | `public` (dev profile only) | Development connectivity check in `DevPingController`; not a production API. |
+| GET | `/admin/posted-assets`, `/admin/posted-assets/content` | `administration` | Read assets stored in Postgres, including the posted body. Does not grant DCP write access. |
+| GET | `/admin/query/info` | `administration` | Active graph query backend for an administrator. |
+| POST | `/admin/query` | `administration` | Read-only graph query for an administrator. Write queries are rejected. |
 
 `/api/auth/oid4vp/**` is reserved for `bootstrap-protocol`. On this branch there
 are no corresponding controller operations and the security chain denies access.

@@ -34,19 +34,20 @@ public class KeycloakConfig {
   private String serverUrl;
   @Value("${keycloak.realm}")
   private String realm;
-  @Value("${keycloak.resource}")
-  private String clientId;
+  /** Confidential client. The public browser client cannot obtain a service account. */
+  @Value("${keycloak.admin-client-id:federated-catalogue-service}")
+  private String adminClientId;
   @Value("${keycloak.credentials.secret}")
   private String clientSecret;
 
   /**
-   * The Keycloak Client bean config.
+   * Admin API client. User tokens are still checked against {@code keycloak.resource}.
    */
   @Bean
   public Keycloak getKeycloakClient() {
     return KeycloakBuilder.builder()
       .serverUrl(serverUrl).realm(realm).grantType(OAuth2Constants.CLIENT_CREDENTIALS)
-      .clientId(clientId).clientSecret(clientSecret)
+      .clientId(adminClientId).clientSecret(clientSecret)
       .resteasyClient(new ResteasyClientBuilderImpl().connectionPoolSize(10).build())
       .build();
   }

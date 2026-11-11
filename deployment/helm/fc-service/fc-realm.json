@@ -388,12 +388,13 @@
   "webAuthnPolicyPasswordlessExtraOrigins": [],
   "users": [
     {
-      "username": "service-account-federated-catalogue",
+      "username": "service-account-federated-catalogue-service",
       "enabled": true,
-      "serviceAccountClientId": "federated-catalogue",
+      "serviceAccountClientId": "federated-catalogue-service",
       "clientRoles": {
         "realm-management": [
           "manage-users",
+          "view-users",
           "view-clients"
         ]
       }
@@ -619,18 +620,26 @@
         "http://localhost:8088/*",
         "https://fc-demo-server.gxfs.dev/*",
         "http://fc-demo-server.gxfs.dev/*",
-        "http://127.0.0.1:8088/*"
+        "http://127.0.0.1:8088/*",
+        "http://localhost:5173/dashboard/",
+        "http://localhost:5173/dashboard/*",
+        "http://127.0.0.1:5173/dashboard/",
+        "http://127.0.0.1:5173/dashboard/*",
+        "https://federated-catalogue.staging.construct-x.net/dashboard/",
+        "https://federated-catalogue.staging.construct-x.net/dashboard/*"
       ],
-      "webOrigins": [],
+      "webOrigins": [
+        "+"
+      ],
       "notBefore": 0,
       "bearerOnly": false,
       "consentRequired": false,
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": true,
+      "serviceAccountsEnabled": false,
       "authorizationServicesEnabled": false,
-      "publicClient": false,
+      "publicClient": true,
       "frontchannelLogout": false,
       "protocol": "openid-connect",
       "attributes": {
@@ -787,6 +796,39 @@
         "offline_access",
         "microprofile-jwt"
       ]
+    },
+    {
+      "id": "c4e8a1d2-6b47-4e91-9f30-8a2d5c7e1b64",
+      "clientId": "federated-catalogue-service",
+      "name": "Federated Catalogue service account",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "**********",
+      "redirectUris": [],
+      "webOrigins": [],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "realm_client": "false"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": false,
+      "nodeReRegistrationTimeout": -1,
+      "protocolMappers": [],
+      "defaultClientScopes": [
+        "roles"
+      ],
+      "optionalClientScopes": []
     }
   ],
   "clientScopes": [

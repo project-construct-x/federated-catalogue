@@ -170,6 +170,27 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Fully qualified name for the admin dashboard.
+*/}}
+{{- define "fc-service.dashboard.fullname" -}}
+{{- .Values.dashboard.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "fc-service.dashboard.labels" -}}
+helm.sh/chart: {{ include "fc-service.chart" . }}
+{{ include "fc-service.dashboard.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{- define "fc-service.dashboard.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "fc-service.dashboard.fullname" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
 Volumes for fc-service. Prepends a PVC-backed filestore volume and an overlay
 emptyDir for the context cache when persistence is enabled; always appends the
 user-supplied .Values.volumes (logs, tmp by default).

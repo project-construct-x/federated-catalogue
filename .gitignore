@@ -46,6 +46,11 @@ docker/certs/
 ### Kubernetes ###
 /deployment/helm/fc-service/charts/*.tgz
 
+### Admin dashboard ###
+fc-admin-dashboard/node_modules/
+fc-admin-dashboard/dist/
+!fc-admin-dashboard/.dockerignore
+
 ### Temporary files
 *.tmp
 .*

@@ -385,6 +385,31 @@ portal:
   tolerations: []
   affinity: {}
 
+# Static admin UI served at /dashboard on hosts.fcService.
+# Talks to Keycloak at /auth on the same host. Off until an image is published.
+dashboard:
+  enabled: false
+  fullnameOverride: fc-admin-dashboard
+  replicaCount: 1
+  image:
+    repository: ghcr.io/project-construct-x/federated-catalogue/fc-admin-dashboard
+    tag: ""
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    fsGroup: 101
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 101
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+
 did:
   enabled: false
   fullnameOverride: fc-did-server

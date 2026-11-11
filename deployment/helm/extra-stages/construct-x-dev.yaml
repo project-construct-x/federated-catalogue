@@ -1,4 +1,4 @@
-# Construct-X staging (STACKIT SKE: construct-x-dev)
+# Construct-X staging (STACKIT SKE: construct-x-stag)
 #
 # Base stack only: fc-service + Keycloak + Postgres + Fuseki.
 # No demo portal (frontend). Neo4j is not part of this chart.
@@ -6,12 +6,18 @@
 # Public URL: https://federated-catalogue.staging.construct-x.net/
 #   - catalogue API at /
 #   - Keycloak at /auth (same host)
+#   - admin dashboard at /dashboard (same host)
+#
+# Ingress (STACKIT): class nginx, ClusterIssuer letsencrypt-staging, external-dns
+# for federated-catalogue.staging.construct-x.net (TTL 300). TLS secret
+# federated-catalogue-tls is shared by the catalogue and Keycloak ingresses.
 #
 # One-liner (from repo root):
+#   helm repo add codecentric https://codecentric.github.io/helm-charts --force-update
 #   helm dependency build deployment/helm/fc-service
 #   helm upgrade --install fc-service deployment/helm/fc-service \
-#     --kube-context construct-x-dev \
-#     --namespace dev-01 \
+#     --kube-context construct-x-stag \
+#     --namespace federated-catalogue \
 #     -f deployment/helm/fc-service/values.yaml \
 #     -f deployment/helm/extra-stages/construct-x-dev.yaml \
 #     --server-side=true --force-conflicts
@@ -36,11 +42,23 @@ imagePullSecrets:
 
 fuseki:
   image:
-    # CI publishes the branch tag (dev), not the chart default 5.5.0.
+    # CI publishes ghcr.io/project-construct-x/.../fc-fuseki:dev.
+    # The chart default repository is the upstream Eclipse image, which has no dev tag.
+    repository: ghcr.io/project-construct-x/federated-catalogue/fc-fuseki
     tag: "dev"
     pullPolicy: Always
 
 ingress:
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    external-dns.alpha.kubernetes.io/hostname: "federated-catalogue.staging.construct-x.net"
+    external-dns.alpha.kubernetes.io/ttl: "300"
+    # Base values.yaml sets Traefik annotations. Helm merges maps, so clear them
+    # here; the ingress template omits empty values.
+    traefik.ingress.kubernetes.io/router.entrypoints: ""
+    traefik.ingress.kubernetes.io/service.sticky.cookie: ""
+    traefik.ingress.kubernetes.io/service.sticky.cookie.name: ""
   hosts:
     - host: "federated-catalogue.staging.construct-x.net"
       paths:
@@ -57,6 +75,11 @@ keycloak:
     strict: false
     strictBackchannel: false
   ingress:
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-staging
+      external-dns.alpha.kubernetes.io/hostname: "federated-catalogue.staging.construct-x.net"
+      external-dns.alpha.kubernetes.io/ttl: "300"
     rules:
       - host: "federated-catalogue.staging.construct-x.net"
         paths:
@@ -70,11 +93,18 @@ keycloak:
 portal:
   enabled: false
 
+dashboard:
+  enabled: true
+  image:
+    repository: ghcr.io/project-construct-x/federated-catalogue/fc-admin-dashboard
+    tag: "dev"
+    pullPolicy: Always
+
 did:
   enabled: false
 
 # Full env list (Helm replaces arrays). Fuseki only — no Neo4j. Keycloak DNS
-# uses the short service name so it works in the deploy namespace (dev-01).
+# uses the short service name so it works in the deploy namespace (federated-catalogue).
 env:
   - name: DATASTORE_FILE_PATH
     value: /var/lib/fc-service/filestore
