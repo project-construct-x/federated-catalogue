@@ -228,30 +228,6 @@ jobs:
           done
           wait "${helm_pid}"
 
-      - name: Ensure dashboard Keycloak client
-        env:
-          KEYCLOAK_BASE: https://federated-catalogue.staging.construct-x.net/auth
-          KEYCLOAK_REALM: federated-catalogue-realm
-          DASHBOARD_ORIGIN: https://federated-catalogue.staging.construct-x.net
-        run: |
-          set -euo pipefail
-          pod="$(kubectl -n "${KUBE_NAMESPACE}" get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep -E '^fc-keycloak-[0-9]+$' | head -1)"
-          if [[ -z "${pod}" ]]; then
-            echo "::error::Keycloak pod fc-keycloak-0 was not found."
-            exit 1
-          fi
-          # Read the admin user from the pod spec. The Keycloak image has no shell,
-          # and the chart stores these as plain env values.
-          creds="$(kubectl -n "${KUBE_NAMESPACE}" get pod "${pod}" -o json | python3 -c 'import json,sys; pod=json.load(sys.stdin); env={item["name"]: item["value"] for c in pod["spec"]["containers"] for item in c.get("env", []) if "value" in item}; user=env.get("KEYCLOAK_ADMIN") or env.get("KC_BOOTSTRAP_ADMIN_USERNAME") or ""; password=env.get("KEYCLOAK_ADMIN_PASSWORD") or env.get("KC_BOOTSTRAP_ADMIN_PASSWORD") or ""; sys.stdout.write(user+"\n"+password)')"
-          KEYCLOAK_ADMIN="${creds%%$'\n'*}"
-          KEYCLOAK_ADMIN_PASSWORD="${creds#*$'\n'}"
-          export KEYCLOAK_ADMIN KEYCLOAK_ADMIN_PASSWORD
-          if [[ -z "${KEYCLOAK_ADMIN}" || -z "${KEYCLOAK_ADMIN_PASSWORD}" ]]; then
-            echo "::error::Keycloak admin credentials are not set on ${pod}."
-            exit 1
-          fi
-          python3 deployment/scripts/ensure-dashboard-client.py
-
       - name: Status
         if: always()
         run: |

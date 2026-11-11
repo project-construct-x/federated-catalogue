@@ -20,8 +20,9 @@ Images are published to GitHub Container Registry under this repository:
 
 `fc-demo-portal` is local-testing only (Docker Compose / `Dockerfile` target); it is not built or published to GHCR.
 The admin dashboard is published with the other images and, on the staging deploy, served at
-`/dashboard`. That deploy also adds the dashboard redirect URIs to the existing
-`federated-catalogue` Keycloak client, because realm import does not update a realm that already exists.
+`/dashboard`. Its redirect URIs are in `fc-realm.json`. Realm import does not update a realm
+that already exists, so a staging realm created before those URIs were added needs them
+set in the Keycloak admin console.
 
 Branch builds use `docker-build.yml` on **`dev`** (`GITHUB_TOKEN`, `packages: write`);
 `latest` and branch tag `dev` are published from `dev`. After a successful image push,
