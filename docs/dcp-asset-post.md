@@ -100,6 +100,8 @@ sequenceDiagram
 
 ## EDC Extension
 
+Implementation: https://github.com/project-construct-x/constructx-edc/pull/20
+
 **Ernst Schrewe**
 
 ## Auth
