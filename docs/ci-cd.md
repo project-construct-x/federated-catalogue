@@ -46,7 +46,8 @@ GitHub Environment **`construct-x-dev`** (or repository secrets):
 |--------|---------|
 | `KUBE_CONFIG` | Base64-encoded **minimal** kubeconfig (only `construct-x-stag`) |
 | `FC_KEYCLOAK_CLIENT_SECRET` | Keycloak secret for the confidential `federated-catalogue-service` client (also written onto the public `federated-catalogue` client). CI patches `fc-realm.json` at deploy time and applies the matching K8s secret (value is **not** committed). Realm import does not update a realm that already exists. |
-| `GHCR_PULL_TOKEN` | Optional long-lived PAT with `read:packages`. CI stores it as the `ghcr-pull` image pull secret. If unset, the job's `GITHUB_TOKEN` is used; that token can pull during the deploy and expires when the job ends |
+| `GHCR_PULL_TOKEN` | **Required.** Long-lived classic or fine-grained PAT with `read:packages` for a user who can pull the private GHCR images. CI checks that it can authorize a pull, then stores it as the `ghcr-pull` image pull secret. Do not use `GITHUB_TOKEN`: it expires when the job ends, and the next node replacement fails with `ImagePullBackOff` (ingress 503). |
+| `GHCR_PULL_USERNAME` | Optional. GitHub username that owns `GHCR_PULL_TOKEN`. Defaults to the user who pushed the commit. |
 
 Manual one-liner: see the header of `construct-x-dev.yaml` or the Helm README §Construct-X staging.
 

@@ -300,6 +300,7 @@ helm upgrade --install fc-service deployment/helm/fc-service \
 ```
 
 CI runs the same deploy on every push to `dev` (see `.github/workflows/docker-build.yml`).
+The job requires a long-lived `GHCR_PULL_TOKEN` and will not install the short-lived Actions token as `ghcr-pull` (see `docs/ci-cd.md`).
 
 ## Upgrading an existing release
 

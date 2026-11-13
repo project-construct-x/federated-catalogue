@@ -22,7 +22,8 @@
 #     -f deployment/helm/extra-stages/construct-x-dev.yaml \
 #     --server-side=true --force-conflicts
 #
-# Prerequisite: GitHub secrets KUBE_CONFIG + FC_KEYCLOAK_CLIENT_SECRET (see docs/ci-cd.md).
+# Prerequisite: GitHub secrets KUBE_CONFIG, FC_KEYCLOAK_CLIENT_SECRET, and
+# GHCR_PULL_TOKEN (long-lived read:packages PAT). See docs/ci-cd.md.
 # CI patches fc-realm.json at deploy time so the Keycloak client secret is not committed.
 
 hosts:
@@ -36,7 +37,8 @@ image:
   pullPolicy: Always
   tag: "dev"
 
-# GHCR packages are private. CI refreshes this secret before each install.
+# GHCR packages are private. CI refreshes this secret from GHCR_PULL_TOKEN
+# before each install. That PAT must stay valid after the Actions job ends.
 imagePullSecrets:
   - name: ghcr-pull
 
