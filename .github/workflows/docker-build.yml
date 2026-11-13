@@ -168,36 +168,22 @@ jobs:
 
       - name: Apply GHCR pull secret
         env:
-          # Long-lived PAT (read:packages). Never store GITHUB_TOKEN here: it
-          # expires when this job ends, and the next node replacement cannot
-          # pull the private :dev images (ImagePullBackOff, ingress 503).
+          # Optional long-lived PAT (read:packages). Falls back to this job's token,
+          # which can pull during the deploy but expires when the job ends.
+          # GITHUB_TOKEN lifetime cannot be extended: GitHub expires it when the
+          # job finishes (6 hours max on GitHub-hosted runners).
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
-          GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          token="${GHCR_PULL_TOKEN:-}"
-          user="${GHCR_PULL_USERNAME:-${{ github.actor }}}"
-          image="${{ github.repository }}/fc-service-server"
+          token="${GHCR_PULL_TOKEN:-${GITHUB_TOKEN}}"
           if [[ -z "${token}" ]]; then
-            echo "::error::Secret GHCR_PULL_TOKEN is required (classic or fine-grained PAT with read:packages). GITHUB_TOKEN is not used as the cluster pull secret because it expires when this job ends."
-            exit 1
-          fi
-          if [[ "${token}" == ghs_* ]]; then
-            echo "::error::GHCR_PULL_TOKEN is a GitHub Actions token (ghs_). Use a PAT that stays valid after this job ends."
-            exit 1
-          fi
-          # Same token exchange the kubelet performs. Do this before replacing
-          # ghcr-pull so a bad secret cannot brick the next reschedule.
-          code="$(curl -sS -o /dev/null -w '%{http_code}' \
-            -u "${user}:${token}" \
-            "https://ghcr.io/token?service=ghcr.io&scope=repository:${image}:pull")"
-          if [[ "${code}" != "200" ]]; then
-            echo "::error::GHCR_PULL_TOKEN could not authorize a pull of ghcr.io/${image} (HTTP ${code}). The PAT needs read:packages on these packages. If the PAT owner is not ${user}, set GHCR_PULL_USERNAME to that GitHub username."
+            echo "::error::GHCR_PULL_TOKEN or GITHUB_TOKEN is required to pull private GHCR images."
             exit 1
           fi
           kubectl -n "${KUBE_NAMESPACE}" create secret docker-registry ghcr-pull \
             --docker-server=ghcr.io \
-            --docker-username="${user}" \
+            --docker-username="${{ github.actor }}" \
             --docker-password="${token}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
