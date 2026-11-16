@@ -29,7 +29,8 @@ const router = createRouter({
           component: () => import("@/views/FrameworksView.vue")
         },
         { path: "posted", name: "posted", component: () => import("@/views/PostedView.vue") },
-        { path: "query", name: "query", component: () => import("@/views/QueryView.vue") }
+        { path: "query", name: "query", component: () => import("@/views/QueryView.vue") },
+        { path: "explore", name: "explore", component: () => import("@/views/ExploreView.vue") }
       ]
     }
   ]

@@ -170,6 +170,8 @@ jobs:
         env:
           # Optional long-lived PAT (read:packages). Falls back to this job's token,
           # which can pull during the deploy but expires when the job ends.
+          # GITHUB_TOKEN lifetime cannot be extended: GitHub expires it when the
+          # job finishes (6 hours max on GitHub-hosted runners).
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

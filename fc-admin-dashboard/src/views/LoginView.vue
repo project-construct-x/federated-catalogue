@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/auth";
 
 const route = useRoute();
 const auth = useAuthStore();
+const icon = `${import.meta.env.BASE_URL}icon.png`;
 const error = computed(() => (typeof route.query.error === "string" ? route.query.error : ""));
 </script>
 
@@ -12,6 +13,9 @@ const error = computed(() => (typeof route.query.error === "string" ? route.quer
   <v-main class="d-flex align-center justify-center h-screen">
     <v-card border width="420" max-width="92vw">
       <v-card-item>
+        <template #prepend>
+          <v-img :src="icon" alt="" width="40" height="40" />
+        </template>
         <v-card-title>Catalogue admin</v-card-title>
         <v-card-subtitle>Sign in with Keycloak</v-card-subtitle>
       </v-card-item>

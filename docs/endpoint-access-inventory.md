@@ -147,6 +147,7 @@ has an existing handler.
 | OPTIONS | `/**` | `public` | Technical preflight handling only; does not authorize the actual business request or guarantee that a particular origin passes CORS policy. |
 | GET | `/dev/ping` | `public` (dev profile only) | Development connectivity check in `DevPingController`; not a production API. |
 | GET | `/admin/posted-assets`, `/admin/posted-assets/content` | `administration` | Read assets stored in Postgres, including the posted body. Does not grant DCP write access. |
+| POST | `/admin/posted-assets` | `administration` | An application administrator stores a verifiable credential or presentation. The machine `POST /assets` API stays DCP-only. A DCP presentation response is refused. |
 | GET | `/admin/query/info` | `administration` | Active graph query backend for an administrator. |
 | POST | `/admin/query` | `administration` | Read-only graph query for an administrator. Write queries are rejected. |
 

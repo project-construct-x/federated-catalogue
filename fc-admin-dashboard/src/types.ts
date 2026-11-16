@@ -61,6 +61,11 @@ export interface PostedAssetContent {
   binary?: boolean;
 }
 
+export interface PostedCredentialResult {
+  asset?: PostedAsset;
+  warnings?: string[];
+}
+
 export interface QueryInfo {
   backend?: string;
   enabled?: boolean;

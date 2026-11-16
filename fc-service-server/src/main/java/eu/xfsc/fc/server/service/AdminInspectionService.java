@@ -19,13 +19,17 @@ package eu.xfsc.fc.server.service;
 
 import static eu.xfsc.fc.server.util.SessionUtils.requireApplicationAdmin;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.http.InvalidMediaTypeException;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import eu.xfsc.fc.api.generated.model.QueryInfo;
 import eu.xfsc.fc.api.generated.model.QueryLanguage;
@@ -34,16 +38,22 @@ import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.exception.NotFoundException;
 import eu.xfsc.fc.core.pojo.AssetFilter;
 import eu.xfsc.fc.core.pojo.AssetMetadata;
+import eu.xfsc.fc.core.pojo.ContentAccessorDirect;
+import eu.xfsc.fc.core.pojo.CredentialVerificationResult;
 import eu.xfsc.fc.core.pojo.GraphQuery;
+import eu.xfsc.fc.core.pojo.NonCredentialVerificationResult;
 import eu.xfsc.fc.core.pojo.PaginatedResults;
 import eu.xfsc.fc.core.service.assetstore.AssetRecord;
 import eu.xfsc.fc.core.service.assetstore.AssetStore;
+import eu.xfsc.fc.core.service.dcp.DcpPresentationFacade;
 import eu.xfsc.fc.core.service.graphdb.GraphStore;
+import eu.xfsc.fc.core.service.verification.VerificationService;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Read-only catalogue inspection for application administrators.
- * Machine callers keep using the DCP asset and query APIs.
+ * Catalogue inspection for application administrators, plus storing a verifiable
+ * credential without a DCP machine identity. Machine callers keep using the DCP APIs.
+ * Graph queries stay read-only.
  */
 @Service
 @RequiredArgsConstructor
@@ -55,6 +65,8 @@ public class AdminInspectionService {
   private final AssetStore assetStore;
   private final GraphStore graphStore;
   private final QueryLanguageValidator queryLanguageValidator;
+  private final VerificationService verificationService;
+  private final DcpPresentationFacade dcpPresentationFacade;
 
   public PostedAssetPage postedAssets(int offset, int limit) {
     requireApplicationAdmin();
@@ -66,6 +78,54 @@ public class AdminInspectionService {
     PaginatedResults<AssetMetadata> page = assetStore.getByFilter(filter, true, false);
     List<PostedAsset> items = page.getResults().stream().map(AdminInspectionService::toPostedAsset).toList();
     return new PostedAssetPage((int) page.getTotalCount(), items);
+  }
+
+  /**
+   * Stores a verifiable credential or presentation for an application administrator.
+   * The issuer recorded on the credential remains its owner. A signed JWT is checked.
+   * Unsigned JSON-LD is accepted so a generated example can be stored. This does not
+   * accept a DCP presentation response, and it does not grant access to the machine APIs.
+   */
+  @Transactional
+  public PostedCredentialResult postCredential(String body, String contentType) {
+    requireApplicationAdmin();
+    if (StringUtils.isBlank(body)) {
+      throw new ClientException("Credential body is required.");
+    }
+    String type = normalizeContentType(contentType);
+    byte[] raw = body.getBytes(StandardCharsets.UTF_8);
+    if (dcpPresentationFacade.tryParsePresentationResponse(raw, type).isPresent()) {
+      throw new ClientException(
+          "Post the verifiable credential itself. A DCP presentation response is not stored here.");
+    }
+
+    ContentAccessorDirect content = new ContentAccessorDirect(body, type);
+    // A JWT is checked. An unsigned JSON-LD credential is accepted here so an administrator
+    // can store a generated example. The machine upload path still requires a signature.
+    boolean jwt = body.strip().startsWith("eyJ");
+    CredentialVerificationResult verified =
+        verificationService.verifyCredential(content, true, jwt, jwt, false);
+    if (verified instanceof NonCredentialVerificationResult) {
+      throw new ClientException("Post a verifiable credential or presentation.");
+    }
+    if (StringUtils.isBlank(verified.getId())) {
+      throw new ClientException("The credential has no subject identifier.");
+    }
+    if (StringUtils.isBlank(verified.getIssuer())) {
+      throw new ClientException("The credential has no issuer.");
+    }
+
+    AssetMetadata metadata = new AssetMetadata(
+        verified.getId(), verified.getIssuer(), verified.getValidators(), content);
+    metadata.setContentType(type);
+    metadata.setFileSize((long) body.getBytes(StandardCharsets.UTF_8).length);
+    metadata.setChangeComment("Stored by an application administrator");
+    assetStore.storeCredential(metadata, verified);
+    if (verified.getWarnings() != null && !verified.getWarnings().isEmpty()) {
+      metadata.setWarnings(verified.getWarnings());
+    }
+    return new PostedCredentialResult(toPostedAsset(metadata),
+        verified.getWarnings() == null ? List.of() : verified.getWarnings());
   }
 
   public PostedAssetContent postedContent(String id) {
@@ -157,6 +217,18 @@ public class AdminInspectionService {
     return WRITE_QUERY.matcher(stripped).find();
   }
 
+  private static String normalizeContentType(String contentType) {
+    if (StringUtils.isBlank(contentType)) {
+      return MediaType.APPLICATION_JSON_VALUE;
+    }
+    try {
+      MediaType mediaType = MediaType.parseMediaType(contentType);
+      return mediaType.getType() + "/" + mediaType.getSubtype();
+    } catch (InvalidMediaTypeException ex) {
+      return contentType.strip();
+    }
+  }
+
   private static boolean textual(String contentType) {
     if (contentType == null) {
       return true;
@@ -181,6 +253,8 @@ public class AdminInspectionService {
   private static String iso(Instant instant) {
     return instant == null ? null : instant.toString();
   }
+
+  public record PostedCredentialResult(PostedAsset asset, List<String> warnings) {}
 
   public record PostedAssetPage(int totalCount, List<PostedAsset> items) {}
 

@@ -100,6 +100,7 @@ class KeycloakBoundaryTest {
       "GET,/admin/graph/rebuild/status",
       "GET,/admin/graph/status",
       "GET,/admin/posted-assets",
+      "POST,/admin/posted-assets",
       "GET,/admin/query/info",
       "POST,/admin/query",
       "GET,/schemas",

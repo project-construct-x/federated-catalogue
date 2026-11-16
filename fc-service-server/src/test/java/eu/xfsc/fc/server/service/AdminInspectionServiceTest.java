@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -34,6 +36,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -41,17 +44,24 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 
 import eu.xfsc.fc.api.generated.model.AssetStatus;
 import eu.xfsc.fc.api.generated.model.QueryLanguage;
+import de.eecc.dcp.message.PresentationResponseMessage;
 import eu.xfsc.fc.core.exception.ClientException;
+import eu.xfsc.fc.core.pojo.CredentialVerificationResult;
 import eu.xfsc.fc.core.pojo.GraphBackendType;
+import eu.xfsc.fc.core.pojo.NonCredentialVerificationResult;
 import eu.xfsc.fc.core.pojo.PaginatedResults;
 import eu.xfsc.fc.core.service.assetstore.AssetRecord;
 import eu.xfsc.fc.core.service.assetstore.AssetStore;
+import eu.xfsc.fc.core.service.dcp.DcpPresentationFacade;
 import eu.xfsc.fc.core.service.graphdb.GraphStore;
+import eu.xfsc.fc.core.service.verification.VerificationService;
 
 class AdminInspectionServiceTest {
   private AssetStore assetStore;
   private GraphStore graphStore;
   private QueryLanguageValidator validator;
+  private VerificationService verificationService;
+  private DcpPresentationFacade dcpPresentationFacade;
   private AdminInspectionService service;
 
   @BeforeEach
@@ -59,7 +69,11 @@ class AdminInspectionServiceTest {
     assetStore = org.mockito.Mockito.mock(AssetStore.class);
     graphStore = org.mockito.Mockito.mock(GraphStore.class);
     validator = org.mockito.Mockito.mock(QueryLanguageValidator.class);
-    service = new AdminInspectionService(assetStore, graphStore, validator);
+    verificationService = org.mockito.Mockito.mock(VerificationService.class);
+    dcpPresentationFacade = org.mockito.Mockito.mock(DcpPresentationFacade.class);
+    when(dcpPresentationFacade.tryParsePresentationResponse(any(), any())).thenReturn(Optional.empty());
+    service = new AdminInspectionService(
+        assetStore, graphStore, validator, verificationService, dcpPresentationFacade);
     Jwt jwt = Jwt.withTokenValue("token").header("alg", "none").subject("admin").build();
     SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(
         jwt, List.of(new SimpleGrantedAuthority("ROLE_ADMIN_ALL"))));
@@ -90,6 +104,59 @@ class AdminInspectionServiceTest {
     assertEquals("https://example.org/asset", page.items().getFirst().id());
     assertEquals("ACTIVE", page.items().getFirst().status());
     assertEquals("2026-01-02T03:04:05Z", page.items().getFirst().uploadDatetime());
+  }
+
+  @Test
+  void administratorStoresACredentialWithoutADcpIdentity() {
+    CredentialVerificationResult verified = org.mockito.Mockito.mock(CredentialVerificationResult.class);
+    when(verified.getId()).thenReturn("https://example.org/credential");
+    when(verified.getIssuer()).thenReturn("did:example:issuer");
+    when(verified.getValidators()).thenReturn(List.of());
+    when(verified.getWarnings()).thenReturn(List.of("context was cached"));
+    when(verificationService.verifyCredential(any(), eq(true), eq(true), eq(true), eq(false))).thenReturn(verified);
+
+    var stored = service.postCredential("eyJhbGciOiJFZERTQSJ9.payload.sig", "application/vc+jwt;charset=UTF-8");
+
+    assertEquals("https://example.org/credential", stored.asset().id());
+    assertEquals("did:example:issuer", stored.asset().issuer());
+    assertEquals("application/vc+jwt", stored.asset().contentType());
+    assertEquals(List.of("context was cached"), stored.warnings());
+    verify(assetStore).storeCredential(any(), eq(verified));
+  }
+
+  @Test
+  void unsignedJsonCredentialSkipsSignatureVerification() {
+    CredentialVerificationResult verified = org.mockito.Mockito.mock(CredentialVerificationResult.class);
+    when(verified.getId()).thenReturn("https://example.org/test/1");
+    when(verified.getIssuer()).thenReturn("did:example:catalogue-test");
+    when(verified.getValidators()).thenReturn(List.of());
+    when(verificationService.verifyCredential(any(), eq(true), eq(false), eq(false), eq(false))).thenReturn(verified);
+
+    service.postCredential("{\"type\":[\"VerifiableCredential\"]}", "text/plain");
+
+    verify(verificationService).verifyCredential(any(), eq(true), eq(false), eq(false), eq(false));
+    verify(assetStore).storeCredential(any(), eq(verified));
+  }
+
+  @Test
+  void credentialPostRejectsADcpPresentationAndANonCredential() {
+    when(dcpPresentationFacade.tryParsePresentationResponse(any(), any()))
+        .thenReturn(Optional.of(org.mockito.Mockito.mock(PresentationResponseMessage.class)));
+    assertThrows(ClientException.class, () -> service.postCredential("{}", "application/json"));
+    verify(verificationService, never()).verifyCredential(any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean());
+
+    when(dcpPresentationFacade.tryParsePresentationResponse(any(), any())).thenReturn(Optional.empty());
+    when(verificationService.verifyCredential(any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+        .thenReturn(org.mockito.Mockito.mock(NonCredentialVerificationResult.class));
+    assertThrows(ClientException.class, () -> service.postCredential("{}", "application/json"));
+    verify(assetStore, never()).storeCredential(any(), any());
+  }
+
+  @Test
+  void credentialPostRequiresAnApplicationAdministrator() {
+    SecurityContextHolder.clearContext();
+    assertThrows(AccessDeniedException.class, () -> service.postCredential("{}", "application/json"));
+    verify(verificationService, never()).verifyCredential(any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean());
   }
 
   @Test

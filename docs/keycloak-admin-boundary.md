@@ -32,8 +32,9 @@ arbitrary principal carrying an admin-named authority.
 
 The machine query and asset APIs stay DCP-protected. That includes the legacy
 GET `/query` page: an administrator token does not open it. Administrators
-inspect stored assets and run read-only graph queries on `/admin/posted-assets`
-and `/admin/query` instead. Write queries are rejected there.
+inspect stored assets, store a verifiable credential on `POST /admin/posted-assets`,
+and run read-only graph queries on `/admin/query`. Write queries are rejected there.
+The administrator post does not accept a DCP proof and does not open the machine APIs.
 
 ## Boundary with D and E
 

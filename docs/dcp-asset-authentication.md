@@ -96,7 +96,9 @@ still a deployment acceptance check.
 The authentication filter leaves bodies, content types and query parameters intact.
 For uploads, the body is the asset, not the membership proof. A DCP PresentationResponseMessage as
 the upload body is rejected on this path. Keycloak-only bearer tokens and existing login sessions
-cannot authorize the upload. No OID4VP or bootstrap-token authentication is implemented.
+cannot authorize the upload. An application administrator stores a credential on
+`POST /admin/posted-assets` instead; that path is not a machine operation.
+No OID4VP or bootstrap-token authentication is implemented.
 
 ## Ownership policy
 
