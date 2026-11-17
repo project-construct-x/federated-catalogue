@@ -40,6 +40,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static eu.xfsc.fc.core.service.verification.VerificationConstants.VC_20_CONTEXT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -288,14 +289,41 @@ class JwtContentPreprocessorTest {
    * Builds a signed JWT with a {@code vp} claim but no {@code vc} claim.
    */
   private String buildVpJwt() throws Exception {
+    return buildVpJwt(VC_20_CONTEXT);
+  }
+
+  @Test
+  void unwrap_identityHubVpEnvelope_preservesContextAndInnerSignedCredential() throws Exception {
+    String context = "https://www.w3.org/2018/credentials/v1";
+    JsonNode root = MAPPER.readTree(preprocessor.unwrap(
+        new ContentAccessorDirect(buildVpJwt(context))).getContentAsString());
+    assertEquals(context, root.path("@context").get(0).asText());
+    assertEquals("VerifiablePresentation", root.path("type").get(0).asText());
+    assertTrue(root.path("verifiableCredential").get(0).isTextual());
+    assertNotNull(SignedJWT.parse(root.path("verifiableCredential").get(0).asText())
+        .getJWTClaimsSet().getClaim("vc"));
+  }
+
+  @Test
+  void unwrap_legacyCredentialStillRejected() throws Exception {
+    SignedJWT original = SignedJWT.parse(buildVcJwt());
+    var vc = new java.util.HashMap<>(original.getJWTClaimsSet().getJSONObjectClaim("vc"));
+    vc.put("@context", List.of("https://www.w3.org/2018/credentials/v1"));
+    SignedJWT legacy = new SignedJWT(original.getHeader(), new JWTClaimsSet.Builder()
+        .issuer("did:web:example.com").claim("vc", vc).build());
+    legacy.sign(signer);
+    assertThrows(ClientException.class, () -> preprocessor.unwrap(new ContentAccessorDirect(legacy.serialize())));
+  }
+
+  private String buildVpJwt(String context) throws Exception {
     JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.EdDSA).keyID("did:web:example.com#test-key").build();
     JWTClaimsSet claims = new JWTClaimsSet.Builder()
         .issuer("did:web:example.com")
         .claim("vp", Map.of(
-            "@context", List.of(VC_20_CONTEXT),
+            "@context", List.of(context),
             "type", List.of("VerifiablePresentation"),
             "holder", "did:web:example.com",
-            "verifiableCredential", List.of()
+            "verifiableCredential", List.of(buildVcJwt())
         ))
         .build();
     SignedJWT jwt = new SignedJWT(header, claims);

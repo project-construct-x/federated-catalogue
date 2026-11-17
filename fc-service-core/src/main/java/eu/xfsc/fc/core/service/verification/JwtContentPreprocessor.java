@@ -21,6 +21,7 @@ import static eu.xfsc.fc.core.service.verification.VerificationConstants.JWT_PRE
 
 import com.danubetech.verifiablecredentials.jwt.JwtVerifiableCredentialV2;
 import com.danubetech.verifiablecredentials.jwt.JwtVerifiablePresentationV2;
+import com.danubetech.verifiablecredentials.jwt.JwtVerifiablePresentation;
 
 import eu.xfsc.fc.core.exception.ClientException;
 import eu.xfsc.fc.core.pojo.ContentAccessor;
@@ -39,7 +40,8 @@ import org.springframework.stereotype.Component;
  * <p>JWT detection is based on the content body: payloads starting with {@code eyJ}
  * (the base64url-encoded JWT header) are treated as compact serializations.
  * The preprocessor first attempts to parse as a VC 2.0 JWT, then as a VP 2.0 JWT.
- * Non-JWT content is returned unchanged.
+ * IdentityHub's VP 1.0 JWT envelope is also accepted; contained credentials still
+ * undergo VC 2.0 semantic validation. Non-JWT content is returned unchanged.
  *
  * <p><b>Why two JWT unwrappers?</b> This class handles the danubetech-style JWT encoding
  * where credential fields are nested inside a {@code vc} or {@code vp} wrapper claim
@@ -141,6 +143,17 @@ public class JwtContentPreprocessor {
       log.debug("unwrap; not a VP 2.0 JWT either ({}), rejecting", vpEx.getMessage());
     }
 
-    throw new ClientException("Content appears to be JWT-wrapped but could not be parsed as VC 2.0 or VP 2.0");
+    // IdentityHub's JWT transport uses a VP 1.0 envelope even for VC 2.0 payloads.
+    // Preserve the envelope and original JWS: signature verification runs separately,
+    // and semantic validation still requires VC 2.0 for every contained credential.
+    try {
+      String json = JwtVerifiablePresentation.fromCompactSerialization(body)
+          .getPayloadObject().toJson();
+      return new ContentAccessorDirect(json);
+    } catch (Exception vpEx) {
+      log.debug("unwrap; not a supported JWT presentation envelope");
+    }
+
+    throw new ClientException("Content appears to be JWT-wrapped but could not be parsed as VC 2.0 or a JWT VP");
   }
 }

@@ -28,7 +28,6 @@ import de.eecc.dcp.query.DcpScope;
 import de.eecc.dcp.query.PresentationExchangeQueryDefinition;
 import de.eecc.dcp.query.PresentationQueryDefinition;
 import de.eecc.dcp.query.ScopeQueryDefinition;
-import de.eecc.dcp.query.template.constructx.MembershipQueryDefinition;
 import de.eecc.dcp.vp.PresentationParser;
 import eu.xfsc.fc.core.config.DcpProperties;
 import eu.xfsc.fc.core.dao.dcp.DcpPresentationRequestDefinition;
@@ -72,7 +71,7 @@ public class DcpPresentationRequestService {
 
   public PresentationQueryDefinition toQueryDefinition(DcpPresentationRequestDefinition entity) {
     PresentationQueryDefinition root = switch (entity.getQueryKind()) {
-      case MEMBERSHIP -> MembershipQueryDefinition.INSTANCE;
+      case MEMBERSHIP -> credentialTypeReadQuery("MembershipCredential");
       case SCOPE -> buildScopeDefinition(entity);
       case PRESENTATION_EXCHANGE -> buildPresentationExchangeDefinition(entity);
     };
@@ -108,8 +107,7 @@ public class DcpPresentationRequestService {
     if (requiredType != null) {
       List<String> issuers = result.requiredIssuers();
       List<String> subjects = result.requiredSubjectIds();
-      result = new RequiredCredentialTypeQueryDefinition(
-          ScopeQueryDefinition.of(DcpScope.vcType(requiredType)), requiredType);
+      result = credentialTypeReadQuery(requiredType);
       if (!issuers.isEmpty()) {
         result = result.requiresIssuers(issuers);
       }
@@ -130,6 +128,13 @@ public class DcpPresentationRequestService {
           "DCP presentation request definition '" + entity.getId() + "' has query_kind SCOPE but no scopes");
     }
     return new ScopeQueryDefinition(scopes);
+  }
+
+  private PresentationQueryDefinition credentialTypeReadQuery(String credentialType) {
+    // EDC requires alias:discriminator:operation. Keep the credential type check
+    // independent of the wire scope, and use the least-privileged read operation.
+    return new RequiredCredentialTypeQueryDefinition(
+        ScopeQueryDefinition.of(DcpScope.vcType(credentialType + ":read")), credentialType);
   }
 
   private PresentationQueryDefinition buildPresentationExchangeDefinition(

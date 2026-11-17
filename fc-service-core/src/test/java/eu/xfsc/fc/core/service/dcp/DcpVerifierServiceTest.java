@@ -74,7 +74,7 @@ class DcpVerifierServiceTest {
     when(credentialServiceDiscovery.resolveCredentialServiceUrl(HOLDER)).thenReturn(CS_URL);
     when(requestService.requireQueryDefinition(DcpPurposes.POST_ASSETS))
         .thenReturn(MembershipQueryDefinition.INSTANCE);
-    when(verifierSiTokenFactory.create(eq(CS_URL), eq("opaque-cs-token")))
+    when(verifierSiTokenFactory.create(eq(HOLDER), eq("opaque-cs-token")))
         .thenReturn("verifier-si");
 
     JsonNode presentation = MAPPER.readTree("""
@@ -108,7 +108,7 @@ class DcpVerifierServiceTest {
     when(credentialServiceDiscovery.resolveCredentialServiceUrl(HOLDER)).thenReturn(CS_URL);
     when(requestService.requireQueryDefinition(DcpPurposes.POST_ASSETS))
         .thenReturn(MembershipQueryDefinition.INSTANCE);
-    when(verifierSiTokenFactory.create(eq(CS_URL), eq("opaque-cs-token")))
+    when(verifierSiTokenFactory.create(eq(HOLDER), eq("opaque-cs-token")))
         .thenReturn("verifier-si");
 
     JsonNode presentation = MAPPER.readTree("""
@@ -143,7 +143,7 @@ class DcpVerifierServiceTest {
     when(credentialServiceDiscovery.resolveCredentialServiceUrl(HOLDER)).thenReturn(CS_URL);
     when(requestService.requireQueryDefinition(DcpPurposes.POST_ASSETS))
         .thenReturn(MembershipQueryDefinition.INSTANCE);
-    when(verifierSiTokenFactory.create(eq(CS_URL), eq("opaque-cs-token"))).thenReturn("verifier-si");
+    when(verifierSiTokenFactory.create(eq(HOLDER), eq("opaque-cs-token"))).thenReturn("verifier-si");
     String vc = fixtureJwt("""
         {"iss":"did:web:issuer.example","vc":{"type":["VerifiableCredential","MembershipCredential"],
         "issuer":"did:web:issuer.example","credentialSubject":{"id":"did:web:holder.example"}}}

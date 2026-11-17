@@ -55,10 +55,13 @@ public class VerifierSiTokenFactory {
   }
 
   /**
-   * Creates a verifier SI token with {@code aud} set to the Credential Service URL.
+   * Creates a verifier SI token with {@code aud} set to the recipient holder DID.
    * Forwards the client's opaque {@code token} claim when present.
    */
-  public String create(String credentialServiceUrl, String opaqueTokenToForward) {
+  public String create(String holderDid, String opaqueTokenToForward) {
+    if (holderDid == null || !holderDid.startsWith("did:") || holderDid.length() <= 4) {
+      throw new ServerException("A recipient holder DID is required for the verifier SI audience");
+    }
     String verifierDid = properties.getVerifierDid();
     if (verifierDid == null || verifierDid.isBlank()) {
       throw new ServerException(
@@ -83,7 +86,7 @@ public class VerifierSiTokenFactory {
       JWTClaimsSet.Builder claims = new JWTClaimsSet.Builder()
           .issuer(verifierDid)
           .subject(verifierDid)
-          .audience(credentialServiceUrl)
+          .audience(holderDid)
           .jwtID(jti)
           .issueTime(Date.from(now))
           .notBeforeTime(Date.from(now))
@@ -97,7 +100,7 @@ public class VerifierSiTokenFactory {
           .build();
       SignedJWT jwt = new SignedJWT(header, claims.build());
       jwt.sign(signerFor(signingKey));
-      log.debug("create; minted verifier SI token for aud={}, jti={}", credentialServiceUrl, jti);
+      log.debug("create; minted verifier SI token for aud={}, jti={}", holderDid, jti);
       return jwt.serialize();
     } catch (JOSEException ex) {
       throw new ServerException("Failed to mint verifier SI token: " + ex.getMessage(), ex);

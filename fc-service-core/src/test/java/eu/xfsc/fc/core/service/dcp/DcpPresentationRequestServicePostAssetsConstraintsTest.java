@@ -28,12 +28,28 @@ import de.eecc.dcp.message.PresentationResponseMessage;
 import de.eecc.dcp.query.PresentationQueryDefinition;
 import de.eecc.dcp.query.template.constructx.MembershipQueryDefinition;
 import eu.xfsc.fc.core.config.DcpProperties;
+import eu.xfsc.fc.core.dao.dcp.DcpPresentationRequestDefinition;
+import eu.xfsc.fc.core.dao.dcp.DcpQueryKind;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class DcpPresentationRequestServicePostAssetsConstraintsTest {
 
   private final ObjectMapper objectMapper = new ObjectMapper();
+
+  @Test
+  void membershipQueriesRequestReadAndKeepIssuerAndHolderConstraints() {
+    var service = new DcpPresentationRequestService(null, objectMapper, new DcpProperties());
+    var entity = new DcpPresentationRequestDefinition();
+    entity.setQueryKind(DcpQueryKind.MEMBERSHIP);
+    entity.setRequiredIssuers(new String[]{"did:web:issuer.example"});
+    entity.setRequiredSubjectIds(new String[]{"did:web:holder.example"});
+    var definition = service.toQueryDefinition(entity);
+    assertEquals(List.of("org.eclipse.dspace.dcp.vc.type:MembershipCredential:read"),
+        definition.toQueryMessage().scope());
+    assertEquals(List.of("did:web:issuer.example"), definition.requiredIssuers());
+    assertEquals(List.of("did:web:holder.example"), definition.requiredSubjectIds());
+  }
 
   @Test
   void emptyPostAssetsConfig_leavesDefinitionUnchanged() {
@@ -73,6 +89,8 @@ class DcpPresentationRequestServicePostAssetsConstraintsTest {
     PresentationQueryDefinition result = svc.applyPostAssetsPropertyConstraints(
         DcpPurposes.POST_ASSETS, MembershipQueryDefinition.INSTANCE);
 
+    assertEquals(List.of("org.eclipse.dspace.dcp.vc.type:MembershipCredential:read"),
+        result.toQueryMessage().scope());
     JsonNode presentation = objectMapper.readTree("""
         {
           "type": ["VerifiablePresentation"],

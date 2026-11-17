@@ -65,7 +65,7 @@ public class DcpVerifierService {
 
     DcpPresentation dcp = DcpPresentation.create(DcpOptions.builder().build());
     PresentationQueryMessage queryMessage = dcp.buildQueryMessage(definition);
-    String verifierSi = verifierSiTokenFactory.create(csUrl, clientToken.opaqueToken());
+    String verifierSi = verifierSiTokenFactory.create(holderDid, clientToken.opaqueToken());
 
     PresentationResponseMessage response =
         credentialServiceClient.queryPresentations(csUrl, queryMessage, verifierSi);

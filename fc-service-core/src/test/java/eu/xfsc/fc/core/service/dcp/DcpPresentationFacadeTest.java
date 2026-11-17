@@ -128,7 +128,7 @@ class DcpPresentationFacadeTest {
         .build();
 
     assertEquals(
-        MembershipQueryDefinition.INSTANCE.toQueryMessage().scope(),
+        java.util.List.of("org.eclipse.dspace.dcp.vc.type:MembershipCredential:read"),
         svc.toQueryDefinition(entity).toQueryMessage().scope());
   }
 }
