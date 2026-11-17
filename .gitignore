@@ -48,6 +48,7 @@ docker/certs/
 
 ### Temporary files
 *.tmp
+examples/dcp-flow/__pycache__/
 .*
 !.github/
 # Maven project directory anchor (maven.multiModuleProjectDirectory); must not be swallowed by .*

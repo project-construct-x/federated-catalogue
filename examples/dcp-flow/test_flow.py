@@ -68,7 +68,7 @@ class FlowTest(unittest.TestCase):
         self.addCleanup(server.server_close)
         opaque = (self.state / "opaque-token").read_text() + ":valid"
         claims = {"iss": flow.DIDS["catalogue"], "sub": flow.DIDS["catalogue"],
-                  "aud": flow.CS, "jti": "test", "token": opaque, **flow.dates()}
+                  "aud": flow.DIDS["participant"], "jti": "test", "token": opaque, **flow.dates()}
         bearer = "Bearer " + flow.sign("catalogue", claims)
         self.assertEqual(server.authorize(bearer), "valid")
         with self.assertRaises(ValueError):

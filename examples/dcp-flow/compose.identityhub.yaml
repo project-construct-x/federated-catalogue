@@ -1,0 +1,19 @@
+# Use together with compose.yaml. The base fixture only supplies test issuer keys
+# and HTTPS hosting; the real IdentityHub handles SI tokens and presentations.
+services:
+  fixtures:
+    entrypoint: [python, /examples/identityhub.py]
+    command: [serve]
+  identityhub:
+    build:
+      context: .
+      dockerfile: IdentityHub.Dockerfile
+      additional_contexts:
+        identityhub-source: ${IDENTITYHUB_SOURCE:-../../../tractusx-identityhub}
+    # All management APIs remain inside the isolated Compose network.
+  catalogue:
+    environment:
+      FEDERATED_CATALOGUE_DCP_AUDIENCE: did:web:dcp-fixtures:catalogue
+    depends_on:
+      identityhub:
+        condition: service_started

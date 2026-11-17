@@ -1,0 +1,4 @@
+**
+!.state/
+!.state/ca.crt
+!identityhub.properties

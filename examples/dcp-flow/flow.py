@@ -30,7 +30,7 @@ AUDIENCE = "http://catalogue:8081"
 DIDS = {role: f"did:web:{HOST}:{role}" for role in ("issuer", "participant", "catalogue")}
 VC_CONTEXT = "https://www.w3.org/ns/credentials/v2"
 DCP_CONTEXT = "https://w3id.org/dspace-dcp/v1.0/dcp.jsonld"
-SCOPE = "org.eclipse.dspace.dcp.vc.type:MembershipCredential"
+SCOPE = "org.eclipse.dspace.dcp.vc.type:MembershipCredential:read"
 CASES = {"valid", "wrong-issuer", "wrong-subject", "expired-membership", "bad-vc-signature"}
 
 
@@ -173,7 +173,7 @@ class FixtureServer(ThreadingHTTPServer):
         if not bearer.startswith("Bearer "):
             raise ValueError("Bearer required")
         claims = jwt.decode(bearer[7:], key("catalogue").public_key(), algorithms=["EdDSA"],
-                            issuer=DIDS["catalogue"], audience=CS,
+                            issuer=DIDS["catalogue"], audience=DIDS["participant"],
                             options={"require": ["iss", "sub", "exp", "jti", "token"]})
         if claims["sub"] != DIDS["catalogue"]:
             raise ValueError("Unexpected verifier")
