@@ -1,0 +1,31 @@
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+@prefix gx:  <https://w3id.org/gaia-x/2511#> .
+@prefix cx:  <https://w3id.org/catenax/ontology/participant#> .
+
+cx:ConstructXRegistryShape
+    a sh:NodeShape ;
+
+    sh:targetClass gx:LegalPerson ;
+
+    sh:sparql [
+        sh:message "credentialSubject.id must be a did:web identifier." ;
+
+        sh:select """
+            SELECT $this
+            WHERE {
+                FILTER(!STRSTARTS(STR($this), "did:web:"))
+            }
+        """ ;
+    ] ;
+
+    sh:property [
+        sh:path cx:bpn ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "BPN[LSA][A-Z0-9]{10}[A-Z0-9]{2}" ;
+        sh:message "BPN must match the Catena-X BPN format." ;
+    ] .

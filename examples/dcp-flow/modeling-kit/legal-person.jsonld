@@ -1,0 +1,23 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    {
+      "gx": "https://w3id.org/gaia-x/2511#",
+      "cx": "https://w3id.org/catenax/ontology/participant#"
+    }
+  ],
+  "type": ["VerifiableCredential"],
+  "issuer": "did:web:dcp-fixtures:participant",
+  "validFrom": "2026-07-14T11:50:43Z",
+  "validUntil": "2028-01-10T11:50:43Z",
+  "credentialSubject": {
+    "id": "did:web:wallet.edc1.construct-x.prod-k8s.eecc.de:edc1",
+    "@type": "gx:LegalPerson",
+    "gx:legalName": "ACME GmbH",
+    "gx:legalAddress": {
+      "@type": "gx:Address",
+      "gx:countryCode": "DE"
+    },
+    "cx:bpn": "BPNL000000000111"
+  }
+}
